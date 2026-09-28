@@ -2,16 +2,13 @@
 import React from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { signIn, signOut, useSession } from "next-auth/react";
 
 // Components
 import Logo from "@/components/atoms/logo";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import SettingsPanel, { useProfile } from "@/components/organisms/settings-panel";
+import { useTheme } from "@/lib/theme";
 
 // State
-import { useSelector } from "@/redux/store";
-import { DEMO_USER } from "@/types/constants";
 import { fontVariables } from "@/lib/fonts";
 import { cn } from "@/lib/utils";
 
@@ -24,39 +21,22 @@ const NAV = [
 
 const isActive = (pathname: string, href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
-const initials = (name?: string | null) =>
-  (name ?? "")
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0].toUpperCase())
-    .join("") || "?";
-
 const Topbar = () => {
   const [open, setOpen] = React.useState(false);
-  const { user } = useSelector((state) => state.user);
-  const { data: session } = useSession();
   const { pathname } = useRouter();
+  const profile = useProfile();
+  const [theme, setTheme] = useTheme();
 
   const title = NAV.find((n) => isActive(pathname, n.href))?.label ?? "";
-  const isDemo = user === DEMO_USER;
 
-  const account = isDemo ? (
+  const account = (
     <button
       type="button"
-      onClick={() => signIn("google")}
-      className="h-[38px] px-4 rounded-[9px] border border-line bg-paper text-ink text-sm font-medium cursor-pointer hover:bg-chip"
-    >
-      Sign in
-    </button>
-  ) : (
-    <button
-      type="button"
-      title="Logout"
+      title="Settings"
       onClick={() => setOpen(true)}
-      className="grid w-[38px] h-[38px] rounded-full bg-gold place-items-center text-ink text-[13px] font-semibold cursor-pointer shadow-[0_0_0_2px_#FBFAF7,0_0_0_3px_#E4E0D7]"
+      className="grid w-[38px] h-[38px] rounded-full bg-gold place-items-center text-[#1D1B18] text-[13px] font-semibold cursor-pointer shadow-[0_0_0_2px_rgb(var(--cm-paper)),0_0_0_3px_rgb(var(--cm-line))]"
     >
-      {initials(session?.user?.name)}
+      {profile.initials}
     </button>
   );
 
@@ -121,7 +101,7 @@ const Topbar = () => {
         })}
       </nav>
 
-      <DialogLogout open={open} close={() => setOpen(false)} />
+      <SettingsPanel open={open} onOpenChange={setOpen} theme={theme} onThemeChange={setTheme} />
     </header>
   );
 };
@@ -132,26 +112,5 @@ const SearchIcon = ({ size }: { size: number }) => (
     <line x1="11" y1="11" x2="14.5" y2="14.5" />
   </svg>
 );
-
-function DialogLogout({ open, close }: { open: boolean; close: () => void }) {
-  return (
-    <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="flex flex-col max-w-[300px] sm:max-w-md lg:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>Logout</DialogTitle>
-          <DialogDescription>Are you sure you want to logout?</DialogDescription>
-        </DialogHeader>
-        <DialogFooter className="flex sm:justify-end">
-          <Button type="button" variant="secondary" onClick={close}>
-            No
-          </Button>
-          <Button type="button" onClick={() => signOut({ callbackUrl: "/" })}>
-            Yes
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 export default Topbar;

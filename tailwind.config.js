@@ -10,12 +10,12 @@ module.exports = {
         "geist-mono": ["var(--font-geist-mono)", "monospace"],
       },
       colors: {
-        // Collection Manager design palette
-        paper: "#FBFAF7",
-        canvas: "#F6F4EF",
-        ink: { DEFAULT: "#1D1B18", muted: "#6B665E" },
-        line: "#E4E0D7",
-        chip: "#EDEAE3",
+        // Collection Manager design palette, light/dark values in styles/tailwind.css
+        paper: "rgb(var(--cm-paper) / <alpha-value>)",
+        canvas: "rgb(var(--cm-canvas) / <alpha-value>)",
+        ink: { DEFAULT: "rgb(var(--cm-ink) / <alpha-value>)", muted: "rgb(var(--cm-ink-muted) / <alpha-value>)" },
+        line: "rgb(var(--cm-line) / <alpha-value>)",
+        chip: "rgb(var(--cm-chip) / <alpha-value>)",
         gold: "oklch(0.6 0.13 75)",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

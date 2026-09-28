@@ -7,7 +7,6 @@ import SearchTab from "@/components/organisms/search-tab";
 import DialogAddWishlist from "./components/dialog-add-wishlist";
 import DialogDeleteWishlist from "./components/dialog-delete-wishlist";
 import { getWishlists, setWishlist } from "@/redux/slices/wishlists";
-import UserHandler from "@/components/organisms/user-handler";
 import { getSets } from "@/redux/slices/sets";
 
 const WishlistsContainer = () => {
@@ -29,7 +28,6 @@ const WishlistsContainer = () => {
     <main className="relative flex flex-col w-screen min-h-screen overflow-hidden md:h-screen">
       <div className="absolute top-0 left-0 w-screen h-screen bg-[url('/assets/bg.jpg')] bg-cover bg-center -z-10 opacity-10" />
       <Topbar />
-      <UserHandler />
       <DialogAddWishlist
         open={dialogOpen}
         close={() => setDialogOpen(false)}

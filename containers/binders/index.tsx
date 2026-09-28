@@ -7,7 +7,6 @@ import SearchTab from "@/components/organisms/search-tab";
 import DialogAddBinder from "./components/dialog-add-binder";
 import DialogDeleteBinder from "./components/dialog-delete-binder";
 import { getBinders, setBinder } from "@/redux/slices/binders";
-import UserHandler from "@/components/organisms/user-handler";
 import { getSets } from "@/redux/slices/sets";
 
 const BindersContainer = () => {
@@ -29,7 +28,6 @@ const BindersContainer = () => {
     <main className="relative flex flex-col w-screen min-h-screen overflow-hidden md:h-screen">
       <div className="absolute top-0 left-0 w-screen h-screen bg-[url('/assets/bg.jpg')] bg-cover bg-center -z-10 opacity-10" />
       <Topbar />
-      <UserHandler />
       <DialogAddBinder
         open={dialogOpen}
         close={() => setDialogOpen(false)}

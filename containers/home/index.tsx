@@ -13,7 +13,6 @@ import BindersRecap from "./components/binders-recap";
 import Top from "./components/top";
 import Topbar from "@/components/organisms/topbar";
 import TableItemsRecap from "./components/table-items-recap";
-import UserHandler from "@/components/organisms/user-handler";
 
 const HomeContainer = () => {
   const { user } = useSelector((state) => state.user);
@@ -31,7 +30,6 @@ const HomeContainer = () => {
     <main className="relative flex flex-col w-screen lg:h-screen">
       <div className="absolute top-0 left-0 w-screen h-screen bg-[url('/assets/bg.jpg')] bg-cover bg-center -z-10 opacity-10" />
       <Topbar />
-      <UserHandler />
       <div className="grid w-screen grid-cols-1 gap-4 p-2 lg:grid-cols-12 lg:flex-1 lg:min-h-0">
         <Metrics />
         <BindersRecap />

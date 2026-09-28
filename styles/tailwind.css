@@ -28,6 +28,26 @@
 }
 
 @layer base {
+  :root {
+    --cm-paper: 251 250 247;
+    --cm-canvas: 246 244 239;
+    --cm-ink: 29 27 24;
+    --cm-ink-muted: 107 102 94;
+    --cm-line: 228 224 215;
+    --cm-chip: 237 234 227;
+  }
+
+  .dark {
+    --cm-paper: 29 27 24;
+    --cm-canvas: 22 21 18;
+    --cm-ink: 242 239 232;
+    --cm-ink-muted: 168 162 152;
+    --cm-line: 52 49 43;
+    --cm-chip: 44 41 36;
+  }
+}
+
+@layer base {
   * {
     @apply border-border;
   }
