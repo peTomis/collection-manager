@@ -14,8 +14,7 @@ import { CardVariant, ItemType, SealedVariant, Set } from "@/types/mongodb";
 import { getPrice } from "@/utils/utils";
 import { VARIANT_LABELS, binderAccepts } from "@/lib/items";
 import { LIMITS } from "@/lib/limits";
-import { Catalog, Product, priceKey } from "../use-set-catalog";
-import { displayName } from "./set-items";
+import { Catalog, Product, displayName, priceKey } from "../use-set-catalog";
 import { eur } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +25,8 @@ interface AddItemModalProps {
   catalog: Catalog | null;
   product: Product | null;
   destination: Destination;
+  // Version to start from, e.g. the one picked in the item detail
+  initialVariant?: number;
   onClose: () => void;
 }
 
@@ -36,7 +37,7 @@ const variantName = (variant: CardVariant | SealedVariant) =>
   [variant.language.toUpperCase(), "type" in variant ? VARIANT_LABELS[variant.type] : null].filter(Boolean).join(" · ");
 
 // Add a card or sealed product to a binder (with a quantity) or to a wishlist (with an optional target price)
-const AddItemModal = ({ set, catalog, product, destination, onClose }: AddItemModalProps) => {
+const AddItemModal = ({ set, catalog, product, destination, initialVariant = 0, onClose }: AddItemModalProps) => {
   const [shownFor, setShownFor] = useState<string | null>(null);
   const [mode, setMode] = useState<Destination>(destination);
   const [variantIndex, setVariantIndex] = useState(0);
@@ -53,7 +54,7 @@ const AddItemModal = ({ set, catalog, product, destination, onClose }: AddItemMo
   if (product && product.item._id !== shownFor) {
     setShownFor(product.item._id);
     setMode(destination);
-    setVariantIndex(0);
+    setVariantIndex(initialVariant);
     setQuantity("1");
     setTarget("");
   }

@@ -7,6 +7,9 @@ import { LIMITS } from "@/lib/limits";
 
 export type Product = { kind: ItemType.CARD; item: Card } | { kind: ItemType.SEALED; item: Sealed };
 
+// Card names carry cardmarket disambiguations like "Charizard (Base Set 4)"
+export const displayName = (product: Product) => (product.kind === ItemType.CARD ? product.item.name.replace(/\s*\(.*?\)\s*/g, " ").trim() : product.item.name);
+
 export interface Catalog {
   cards: Card[];
   sealed: Sealed[];
@@ -16,7 +19,7 @@ export interface Catalog {
 // Key of a price in the catalog: one per item, language and (for cards) variant type
 export const priceKey = (item: string, language: Language, type?: CardVariantType) => `${item}|${language}|${type ?? ""}`;
 
-const historicPriceKey = (price: HistoricPrice) =>
+export const historicPriceKey = (price: HistoricPrice) =>
   "card" in price ? priceKey(price.card, price.language, (price as CardHistoricPrice).type) : priceKey((price as SealedHistoricPrice).sealed, price.language);
 
 const fetchJson = async (url: string, init?: RequestInit) => (await fetch(url, init)).json();

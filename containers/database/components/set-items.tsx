@@ -4,13 +4,14 @@ import { useMemo, useState } from "react";
 // Components
 import CardArt from "@/components/atoms/card-art";
 import SealedArt from "@/components/atoms/sealed-art";
+import ItemDetail from "@/components/organisms/item-detail";
 import AddItemModal, { Destination } from "./add-item-modal";
 
 // State
 import { ItemType, Set } from "@/types/mongodb";
 import { ItemSpecificType } from "@/types/constants";
 import { getPrice } from "@/utils/utils";
-import { Catalog, Product, priceKey } from "../use-set-catalog";
+import { Catalog, Product, displayName, priceKey } from "../use-set-catalog";
 import { useSetImages } from "@/lib/tcgdex";
 import { eur } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -42,9 +43,6 @@ interface Row {
 const matches = (product: Product, tab: Tab) =>
   tab === "all" || (tab === "card" ? product.kind === ItemType.CARD : tab === "sealed" ? product.kind === ItemType.SEALED : product.kind === ItemType.SEALED && product.item.type === tab);
 
-// Card names carry cardmarket disambiguations like "Charizard (Base Set 4)"
-export const displayName = (product: Product) => (product.kind === ItemType.CARD ? product.item.name.replace(/\s*\(.*?\)\s*/g, " ").trim() : product.item.name);
-
 const stripes = "bg-[repeating-linear-gradient(135deg,var(--cm-stripe-a)_0_6px,var(--cm-stripe-b)_6px_12px)]";
 
 interface SetItemsProps {
@@ -55,7 +53,8 @@ interface SetItemsProps {
 
 const SetItems = ({ set, catalog, owned }: SetItemsProps) => {
   const [tab, setTab] = useState<Tab>("all");
-  const [adding, setAdding] = useState<{ product: Product; destination: Destination } | null>(null);
+  const [adding, setAdding] = useState<{ product: Product; destination: Destination; variant?: number } | null>(null);
+  const [viewing, setViewing] = useState<Product | null>(null);
   const images = useSetImages(set.tcgdex || undefined);
 
   const rows = useMemo(() => {
@@ -114,25 +113,40 @@ const SetItems = ({ set, catalog, owned }: SetItemsProps) => {
         ) : (
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:gap-4 xl:grid-cols-4 min-[1400px]:grid-cols-5">
             {visible.map((r) => (
-              <ProductCard key={r.product.item._id} row={r} onAdd={(destination) => setAdding({ product: r.product, destination })} />
+              <ProductCard key={r.product.item._id} row={r} onView={() => setViewing(r.product)} onAdd={(destination) => setAdding({ product: r.product, destination })} />
             ))}
           </div>
         )}
       </div>
 
-      <AddItemModal set={set} catalog={catalog} product={adding?.product ?? null} destination={adding?.destination ?? "binder"} onClose={() => setAdding(null)} />
+      <ItemDetail
+        target={viewing && catalog ? { context: "database", product: viewing, prices: catalog.prices } : null}
+        onClose={() => setViewing(null)}
+        onAdd={(destination, variant) => {
+          if (viewing) setAdding({ product: viewing, destination, variant });
+          setViewing(null);
+        }}
+      />
+      <AddItemModal
+        set={set}
+        catalog={catalog}
+        product={adding?.product ?? null}
+        destination={adding?.destination ?? "binder"}
+        initialVariant={adding?.variant}
+        onClose={() => setAdding(null)}
+      />
     </div>
   );
 };
 
-const ProductCard = ({ row: r, onAdd }: { row: Row; onAdd: (destination: Destination) => void }) => (
+const ProductCard = ({ row: r, onView, onAdd }: { row: Row; onView: () => void; onAdd: (destination: Destination) => void }) => (
   <div className="flex flex-col min-w-0 p-2 border lg:p-2.5 bg-paper border-line rounded-xl">
-    <div className={cn("relative aspect-[63/88] rounded-md lg:rounded-[7px] grid place-items-center overflow-hidden", stripes)}>
+    <button type="button" aria-label={`View ${r.name}`} onClick={onView} className={cn("relative aspect-[63/88] rounded-md lg:rounded-[7px] grid place-items-center overflow-hidden cursor-pointer", stripes)}>
       <span className="font-geist-mono text-[10px] text-ink-muted">{r.product.kind === ItemType.CARD ? "card art" : "product shot"}</span>
       {r.image && <CardArt image={r.image} alt={r.name} />}
       {r.product.kind === ItemType.SEALED && r.product.item.path && <SealedArt path={r.product.item.path} alt={r.name} />}
       {r.owned > 0 && <span className="absolute top-1.5 left-1.5 lg:top-2 lg:left-2 text-[10px] lg:text-[11px] font-medium px-[7px] lg:px-2 py-0.5 lg:py-[3px] rounded-[10px] bg-ink text-paper">Owned ×{r.owned}</span>}
-    </div>
+    </button>
 
     {/* Mobile */}
     <div className="lg:hidden">

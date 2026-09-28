@@ -3,14 +3,6 @@ import { HistoricPrice, ItemType, Language } from "./mongodb";
 // Visitors who are not signed in use the demo collection, kept in their browser (lib/demo-collection.ts).
 export const DEMO_USER = "demo";
 
-export const EMPTY_ITEM = {
-  name: "",
-  type: ItemType.CARD,
-  item: "",
-  user: "",
-  language: "",
-};
-
 export const EMPTY_HISTORIC_PRICE: HistoricPrice = {
   _id: "",
   language: Language.ENGLISH,

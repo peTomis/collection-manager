@@ -1,4 +1,4 @@
-import { Card, CardVariantType, HistoricPrice, ItemType as Foo, Language, Sealed, Item } from "@/types/mongodb";
+import { Card, CardVariantType, HistoricPrice, ItemType as Foo, Language, Sealed } from "@/types/mongodb";
 import { createSlice, Dispatch } from "@reduxjs/toolkit";
 import { RootState } from "../store";
 
@@ -38,24 +38,6 @@ export function getHistoricPrices(user: string) {
   return async (dispatch: Dispatch, getState: () => RootState) => {
     try {
       const response = await fetch(`/api/historic-prices?user=${user}`, { method: "POST", body: JSON.stringify({ items: [] }) });
-      const data = await response.json();
-
-      dispatch(getHistoricPricesSuccess(data?.historicPrices ?? []));
-    } catch (error) {
-      console.error(error);
-    }
-  };
-}
-
-export function getHistoricPricesBySealed(user: string, items: Item[]) {
-  return async (dispatch: Dispatch, getState: () => RootState) => {
-    try {
-      const response = await fetch(`/api/historic-prices?user=${user}`, {
-        method: "POST",
-        body: JSON.stringify({
-          items,
-        }),
-      });
       const data = await response.json();
 
       dispatch(getHistoricPricesSuccess(data?.historicPrices ?? []));

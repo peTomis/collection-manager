@@ -61,3 +61,46 @@ export const useSetsImages = (setIds: string[]) => {
 
   return images;
 };
+
+export interface CardInfo {
+  rarity?: string;
+  illustrator?: string;
+}
+
+const infoCache = new Map<string, Promise<CardInfo>>();
+
+// Rarity and illustrator of one card: the set lists the card's TCGdex id, the card itself has the details
+const fetchCardInfo = (setId: string, number: number): Promise<CardInfo> => {
+  const key = `${setId}|${number}`;
+  const cached = infoCache.get(key);
+  if (cached) return cached;
+  const request = tcgdex.set
+    .get(setId)
+    .then((set) => set?.cards.find((c) => Number(c.localId) === number))
+    .then((resume) => (resume ? tcgdex.card.get(resume.id) : null))
+    .then((card): CardInfo => ({ rarity: card?.rarity || undefined, illustrator: card?.illustrator || undefined }))
+    .catch((error) => {
+      console.error(error);
+      infoCache.delete(key);
+      return {};
+    });
+  infoCache.set(key, request);
+  return request;
+};
+
+// Details of a card for the item detail, empty until loaded or when TCGdex doesn't know the card
+export const useCardInfo = (setId: string | undefined, number: number | undefined) => {
+  const [info, setInfo] = useState<CardInfo>({});
+
+  useEffect(() => {
+    setInfo({});
+    if (!setId || number === undefined) return;
+    let current = true;
+    fetchCardInfo(setId, number).then((i) => current && setInfo(i));
+    return () => {
+      current = false;
+    };
+  }, [setId, number]);
+
+  return info;
+};

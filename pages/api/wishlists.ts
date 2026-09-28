@@ -1,4 +1,4 @@
-import { Wishlist, WishlistItem, WishlistToSave, CardVariantType, HistoricPrice, Item, ItemType } from "@/types/mongodb";
+import { Wishlist, WishlistItem, WishlistToSave, ItemType } from "@/types/mongodb";
 import { Db, ObjectId, WithoutId } from "mongodb";
 import { NextApiRequest, NextApiResponse } from "next";
 import client from "@/lib/mongodb";
@@ -130,7 +130,7 @@ const fetchWishlistsWithCard = async (user: ObjectId): Promise<Wishlist[]> => {
     },
   ];
 
-  const items = await db.collection<Wishlist>("wishlists").aggregate<Wishlist & { items: (WishlistItem & { item: Item; historicPrice: HistoricPrice })[] }>(pipeline).toArray();
+  const items = await db.collection<Wishlist>("wishlists").aggregate<Wishlist & { items: WishlistItem[] }>(pipeline).toArray();
 
   return items;
 };

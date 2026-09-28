@@ -5,6 +5,7 @@ import { useState } from "react";
 import Segmented from "@/components/atoms/segmented";
 import CardArt from "@/components/atoms/card-art";
 import SealedArt from "@/components/atoms/sealed-art";
+import ItemDetail from "@/components/organisms/item-detail";
 
 // State
 import { useSelector } from "@/redux/store";
@@ -26,6 +27,8 @@ const PERIODS: { value: PricePeriod; label: string; text: string }[] = [
 
 interface Mover {
   id: string;
+  // The binder item it was ranked from, opened in the item detail
+  source: BinderItem;
   name: string;
   sub: string;
   meta: string;
@@ -44,6 +47,7 @@ interface Mover {
 const TopFlop = () => {
   const [metric, setMetric] = useState<Metric>("pct");
   const [period, setPeriod] = useState<PricePeriod>("1w");
+  const [viewing, setViewing] = useState<BinderItem | null>(null);
   const { binders } = useSelector((state) => state.binders);
   const { sets } = useSelector((state) => state.sets);
 
@@ -73,7 +77,7 @@ const TopFlop = () => {
     const now = getPrice(hp);
     const then = getPastPrice(hp, period);
     if (!now || !then) continue;
-    movers.set(hp._id, { id: hp._id, name: item.item?.name ?? item.name, ...describe(item), isSealed: item.type === ItemType.SEALED, now, delta: now - then, change: change(now, then) });
+    movers.set(hp._id, { id: hp._id, source: item, name: item.item?.name ?? item.name, ...describe(item), isSealed: item.type === ItemType.SEALED, now, delta: now - then, change: change(now, then) });
   }
 
   const key = metric === "pct" ? "change" : "delta";
@@ -114,15 +118,25 @@ const TopFlop = () => {
         <div className="py-8 text-sm text-center text-ink-muted">Add items to your binders to see how they move</div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 lg:gap-12 mt-[18px]">
-          <MoverList title="Top 3" tone="gain" movers={top.map(withImage)} metric={metric} />
-          <MoverList title="Flop 3" tone="loss" movers={flop.map(withImage)} metric={metric} />
+          <MoverList title="Top 3" tone="gain" movers={top.map(withImage)} metric={metric} onView={setViewing} />
+          <MoverList title="Flop 3" tone="loss" movers={flop.map(withImage)} metric={metric} onView={setViewing} />
         </div>
       )}
+
+      <ItemDetail target={viewing ? { context: "binder", item: viewing } : null} onClose={() => setViewing(null)} />
     </section>
   );
 };
 
-const MoverList = ({ title, tone, movers, metric }: { title: string; tone: "gain" | "loss"; movers: Mover[]; metric: Metric }) => (
+interface MoverListProps {
+  title: string;
+  tone: "gain" | "loss";
+  movers: Mover[];
+  metric: Metric;
+  onView: (item: BinderItem) => void;
+}
+
+const MoverList = ({ title, tone, movers, metric, onView }: MoverListProps) => (
   <div className="mb-3 lg:mb-0">
     <div
       className={cn(
@@ -135,7 +149,12 @@ const MoverList = ({ title, tone, movers, metric }: { title: string; tone: "gain
     </div>
     {movers.length === 0 && <div className="py-3 text-sm border-t border-line text-ink-muted">Nothing to show</div>}
     {movers.map((m, i) => (
-      <div key={m.id} className="grid grid-cols-[36px_minmax(0,1fr)_auto] lg:grid-cols-[28px_46px_minmax(0,1fr)_auto] gap-3 lg:gap-4 items-center py-2.5 lg:py-3.5 border-t border-line">
+      <button
+        type="button"
+        key={m.id}
+        onClick={() => onView(m.source)}
+        className="grid w-full text-left cursor-pointer grid-cols-[36px_minmax(0,1fr)_auto] lg:grid-cols-[28px_46px_minmax(0,1fr)_auto] gap-3 lg:gap-4 items-center py-2.5 lg:py-3.5 border-t border-line"
+      >
         <span className="hidden lg:block font-geist-mono font-medium text-sm text-ink-muted">{String(i + 1).padStart(2, "0")}</span>
         <div className="relative overflow-hidden w-9 h-[50px] lg:w-[46px] lg:h-16 rounded-[3px] lg:rounded bg-[repeating-linear-gradient(135deg,var(--cm-stripe-a)_0_5px,var(--cm-stripe-b)_5px_10px)]">
           {m.image && <CardArt image={m.image} alt={m.name} />}
@@ -156,7 +175,7 @@ const MoverList = ({ title, tone, movers, metric }: { title: string; tone: "gain
             {eur(m.now)}
           </div>
         </div>
-      </div>
+      </button>
     ))}
   </div>
 );

@@ -3,9 +3,17 @@ import { NextApiRequest, NextApiResponse } from "next";
 import client from "@/lib/mongodb";
 import { LIMITS, queryString } from "@/lib/validation";
 import * as Joi from "joi";
-import { CardHistoricPrice, CardVariantType, HistoricPrice, Item, ItemType, Language, SealedHistoricPrice } from "@/types/mongodb";
+import { CardHistoricPrice, CardVariantType, HistoricPrice, ItemType, Language, SealedHistoricPrice } from "@/types/mongodb";
 
-const fetchCardHistoricPrices = async (db: Db, items: Item[]): Promise<CardHistoricPrice[]> => {
+// One version of an item whose price is requested (variant: cards only)
+interface PriceRequest {
+  type: ItemType;
+  item: string;
+  language: Language;
+  variant?: CardVariantType;
+}
+
+const fetchCardHistoricPrices = async (db: Db, items: PriceRequest[]): Promise<CardHistoricPrice[]> => {
   const cards = items.filter((item) => item.type === ItemType.CARD);
   if (cards.length === 0) return [];
   const prices = await db
@@ -22,7 +30,7 @@ const fetchCardHistoricPrices = async (db: Db, items: Item[]): Promise<CardHisto
   return JSON.parse(JSON.stringify(prices));
 };
 
-export const fetchSealedHistoricPrices = async (db: Db, items: Item[]): Promise<SealedHistoricPrice[]> => {
+export const fetchSealedHistoricPrices = async (db: Db, items: PriceRequest[]): Promise<SealedHistoricPrice[]> => {
   const sealed = items.filter((item) => item.type === ItemType.SEALED);
   if (sealed.length === 0) return [];
   const prices = await db
@@ -39,7 +47,7 @@ export const fetchSealedHistoricPrices = async (db: Db, items: Item[]): Promise<
   return JSON.parse(JSON.stringify(prices));
 };
 
-const fetchHistoricPrices = async (items: Item[]): Promise<HistoricPrice[]> => {
+const fetchHistoricPrices = async (items: PriceRequest[]): Promise<HistoricPrice[]> => {
   await client.connect();
 
   const db: Db = client.db("collection-manager");
@@ -81,7 +89,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { value, error } = validateItems(body?.items);
     if (error) return res.status(400).json({ message: "Invalid items" });
     // Only the validated fields reach the query, so no operators can be injected
-    const items = value.map(({ type, item, language, variant }: Item) => ({ type, item, language, variant })) as Item[];
+    const items = value.map(({ type, item, language, variant }: PriceRequest) => ({ type, item, language, variant })) as PriceRequest[];
     const historicPrices = await fetchHistoricPrices(items);
     return res.status(200).json({ historicPrices });
   }

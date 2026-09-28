@@ -7,6 +7,7 @@ import Segmented from "@/components/atoms/segmented";
 import { ConfirmModal } from "@/components/atoms/modal";
 import CardArt from "@/components/atoms/card-art";
 import SealedArt from "@/components/atoms/sealed-art";
+import ItemDetail from "@/components/organisms/item-detail";
 
 // State
 import { useDispatch, useSelector } from "@/redux/store";
@@ -50,6 +51,7 @@ const BinderItems = ({ binder }: { binder: BinderWithItems }) => {
   const [filter, setFilter] = useState("");
   const [page, setPage] = useState(0);
   const [removing, setRemoving] = useState<BinderItem | null>(null);
+  const [viewing, setViewing] = useState<BinderItem | null>(null);
 
   const { sets } = useSelector((state) => state.sets);
   const user = useSelector((state) => state.user.user) ?? "";
@@ -155,11 +157,12 @@ const BinderItems = ({ binder }: { binder: BinderWithItems }) => {
       ) : rows.length === 0 ? (
         <div className="py-16 text-sm text-center text-ink-muted">Nothing matches “{filter}”</div>
       ) : view === "grid" ? (
-        <BinderGrid rows={rows} page={page} setPage={setPage} />
+        <BinderGrid rows={rows} page={page} setPage={setPage} onView={setViewing} />
       ) : (
-        <BinderList rows={rows} numbered={numbered} setQuantity={setQuantity} />
+        <BinderList rows={rows} numbered={numbered} setQuantity={setQuantity} onView={setViewing} />
       )}
 
+      <ItemDetail target={viewing ? { context: "binder", item: viewing } : null} onClose={() => setViewing(null)} />
       <ConfirmModal
         open={!!removing}
         onClose={() => setRemoving(null)}
@@ -172,10 +175,9 @@ const BinderItems = ({ binder }: { binder: BinderWithItems }) => {
   );
 };
 
-// Binder pages of 9 pockets: a two-page spread on desktop, one page on mobile
 // Binder pages of 9 pockets: a two-page spread on desktop, one page on mobile.
 // The pockets are sized to fit the available space (see .binder-fit in styles/tailwind.css).
-const BinderGrid = ({ rows, page, setPage }: { rows: Row[]; page: number; setPage: (p: number) => void }) => {
+const BinderGrid = ({ rows, page, setPage, onView }: { rows: Row[]; page: number; setPage: (p: number) => void; onView: (item: BinderItem) => void }) => {
   const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const pageRows = (p: number) => rows.slice(p * PAGE_SIZE, (p + 1) * PAGE_SIZE);
   const spread = page - (page % 2);
@@ -184,9 +186,9 @@ const BinderGrid = ({ rows, page, setPage }: { rows: Row[]; page: number; setPag
     <>
       <div className="lg:flex-1 lg:min-h-0 binder-fit">
         <div className="w-fit mx-auto p-2.5 lg:p-[16px] rounded-[14px] lg:rounded-2xl bg-binder shadow-[inset_0_0_0_1px_rgba(255,255,255,.04)] lg:grid lg:grid-cols-[auto_auto] lg:gap-[16px]">
-          <Page rows={pageRows(page)} className="lg:hidden" />
-          <Page rows={pageRows(spread)} className="hidden lg:grid" />
-          <Page rows={pageRows(spread + 1)} className="hidden lg:grid" />
+          <Page rows={pageRows(page)} onView={onView} className="lg:hidden" />
+          <Page rows={pageRows(spread)} onView={onView} className="hidden lg:grid" />
+          <Page rows={pageRows(spread + 1)} onView={onView} className="hidden lg:grid" />
         </div>
       </div>
 
@@ -209,14 +211,17 @@ const BinderGrid = ({ rows, page, setPage }: { rows: Row[]; page: number; setPag
 // Label under each pocket: two 14px lines on mobile, one 16px line on desktop (keep in sync with .binder-fit)
 const LABEL_HEIGHT = "h-7 lg:h-4";
 
-const Page = ({ rows, className }: { rows: Row[]; className?: string }) => (
+const Page = ({ rows, onView, className }: { rows: Row[]; onView: (item: BinderItem) => void; className?: string }) => (
   <div className={cn("grid grid-cols-[repeat(3,var(--pocket))] gap-2 lg:gap-3 p-2.5 lg:p-3.5 rounded-[7px] lg:rounded-lg bg-binder-page content-start", className)}>
     {Array.from({ length: PAGE_SIZE }, (_, i) => rows[i]).map((r, i) =>
       r ? (
         <div key={r.item._id} className="flex flex-col gap-[5px] lg:gap-[7px] min-w-0">
-          <div
+          <button
+            type="button"
+            aria-label={`View ${r.item.item?.name ?? "item"}`}
+            onClick={() => onView(r.item)}
             className={cn(
-              "relative aspect-[63/88] rounded-[5px] lg:rounded-md grid place-items-center overflow-hidden shadow-[0_1px_2px_rgba(29,27,24,.12),inset_0_0_0_1px_rgba(29,27,24,.06)]",
+              "relative aspect-[63/88] rounded-[5px] lg:rounded-md grid place-items-center overflow-hidden cursor-pointer shadow-[0_1px_2px_rgba(29,27,24,.12),inset_0_0_0_1px_rgba(29,27,24,.06)]",
               stripes,
             )}
           >
@@ -234,7 +239,7 @@ const Page = ({ rows, className }: { rows: Row[]; className?: string }) => (
                 ×{r.item.quantity}
               </span>
             )}
-          </div>
+          </button>
           <div className={cn("lg:flex lg:justify-between lg:gap-1.5 text-[11px] lg:text-xs leading-[14px] lg:leading-4 font-medium overflow-hidden", LABEL_HEIGHT)}>
             <span className="block truncate">{r.item.item?.name}</span>
             <span className="block font-normal lg:font-medium font-geist-mono text-ink-muted lg:text-ink">{eur(r.price)}</span>
@@ -272,7 +277,14 @@ const LIST_COLUMNS = {
   plain: "lg:grid-cols-[34px_minmax(0,1.6fr)_1.1fr_0.5fr_104px_0.9fr_0.9fr_0.8fr]",
 };
 
-const BinderList = ({ rows, numbered, setQuantity }: { rows: Row[]; numbered: boolean; setQuantity: (item: BinderItem, quantity: number) => void }) => {
+interface BinderListProps {
+  rows: Row[];
+  numbered: boolean;
+  setQuantity: (item: BinderItem, quantity: number) => void;
+  onView: (item: BinderItem) => void;
+}
+
+const BinderList = ({ rows, numbered, setQuantity, onView }: BinderListProps) => {
   const columns = numbered ? LIST_COLUMNS.numbered : LIST_COLUMNS.plain;
   return (
     <div className="mb-4 border lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:mb-6 bg-paper border-line rounded-xl">
@@ -297,12 +309,17 @@ const BinderList = ({ rows, numbered, setQuantity }: { rows: Row[]; numbered: bo
           )}
         >
           {numbered && <span className="hidden font-geist-mono text-[13px] text-ink-muted lg:block">{r.number !== undefined ? String(r.number).padStart(3, "0") : "—"}</span>}
-          <div className={cn("relative w-[34px] h-[47px] rounded-[3px] overflow-hidden", stripes)}>
+          <button
+            type="button"
+            aria-label={`View ${r.item.item?.name ?? "item"}`}
+            onClick={() => onView(r.item)}
+            className={cn("relative w-[34px] h-[47px] rounded-[3px] overflow-hidden cursor-pointer", stripes)}
+          >
             {r.image && <CardArt image={r.image} alt={r.item.item?.name ?? ""} />}
             {sealedPath(r.item) && <SealedArt path={sealedPath(r.item)!} alt={r.item.item?.name ?? ""} />}
-          </div>
+          </button>
           <div className="min-w-0">
-            <div className="font-medium truncate">
+            <div className="font-medium truncate cursor-pointer hover:underline" onClick={() => onView(r.item)}>
               <span className="text-xs font-normal lg:hidden font-geist-mono text-ink-muted">{r.number !== undefined ? String(r.number).padStart(3, "0") + " " : ""}</span>
               {r.item.item?.name}
             </div>

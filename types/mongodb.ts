@@ -16,17 +16,6 @@ export enum CardVariantType {
   TWO_STAR = "two-star",
 }
 
-export interface Item {
-  _id: string;
-  name: string;
-  type: ItemType;
-  item: string;
-  historicPrice: string;
-  user: string;
-  language: string;
-  variant?: CardVariantType;
-}
-
 export interface ItemWithJoin {
   _id: string;
   name: string;

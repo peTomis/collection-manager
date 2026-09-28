@@ -6,6 +6,7 @@ import Link from "next/link";
 import Modal, { modalButton } from "@/components/atoms/modal";
 import CardArt from "@/components/atoms/card-art";
 import SealedArt from "@/components/atoms/sealed-art";
+import ItemDetail from "@/components/organisms/item-detail";
 
 // State
 import { useDispatch, useSelector } from "@/redux/store";
@@ -33,6 +34,7 @@ const gainSoft = "bg-[color-mix(in_oklch,var(--cm-gain)_12%,transparent)]";
 const WishlistItems = ({ wishlist }: { wishlist: WishlistWithItems }) => {
   const [editing, setEditing] = useState<WishlistItem | null>(null);
   const [acquiring, setAcquiring] = useState<WishlistItem | null>(null);
+  const [viewing, setViewing] = useState<WishlistItem | null>(null);
 
   const { sets } = useSelector((state) => state.sets);
   const summary = summarizeWishlist(wishlist);
@@ -88,19 +90,20 @@ const WishlistItems = ({ wishlist }: { wishlist: WishlistWithItems }) => {
         ) : (
           <div className="grid gap-2.5 lg:gap-4 lg:grid-cols-2 xl:grid-cols-3">
             {rows.map((r) => (
-              <WishlistCard key={r.item._id} row={r} onEdit={() => setEditing(r.item)} onAcquire={() => setAcquiring(r.item)} />
+              <WishlistCard key={r.item._id} row={r} onView={() => setViewing(r.item)} onEdit={() => setEditing(r.item)} onAcquire={() => setAcquiring(r.item)} />
             ))}
           </div>
         )}
       </div>
 
+      <ItemDetail target={viewing ? { context: "wishlist", item: viewing } : null} onClose={() => setViewing(null)} />
       <EditTargetModal item={editing} onClose={() => setEditing(null)} />
       <GotItModal item={acquiring} onClose={() => setAcquiring(null)} />
     </div>
   );
 };
 
-const WishlistCard = ({ row: r, onEdit, onAcquire }: { row: Row; onEdit: () => void; onAcquire: () => void }) => {
+const WishlistCard = ({ row: r, onView, onEdit, onAcquire }: { row: Row; onView: () => void; onEdit: () => void; onAcquire: () => void }) => {
   const target = r.item.target;
   const gap = target !== undefined ? (r.hit ? `${eur(target - r.price)} below target` : `${eur(r.price - target)} above target`) : "No target set";
   const gapClass = cn("font-geist-mono font-medium text-xs", r.hit ? "text-gain" : "text-ink-muted");
@@ -113,11 +116,16 @@ const WishlistCard = ({ row: r, onEdit, onAcquire }: { row: Row; onEdit: () => v
         r.hit ? "border-gain shadow-[0_0_0_3px_color-mix(in_oklch,var(--cm-gain)_12%,transparent)]" : "border-line"
       )}
     >
-      <div className={cn("relative aspect-[63/88] rounded-[5px] lg:rounded-md grid place-items-center self-start overflow-hidden", stripes)}>
+      <button
+        type="button"
+        aria-label={`View ${r.item.item?.name ?? "item"}`}
+        onClick={onView}
+        className={cn("relative aspect-[63/88] rounded-[5px] lg:rounded-md grid place-items-center self-start overflow-hidden cursor-pointer", stripes)}
+      >
         <span className="hidden lg:block font-geist-mono text-[10px] text-ink-muted">{isSealed(r.item) ? "product shot" : "card art"}</span>
         {r.image && <CardArt image={r.image} alt={r.item.item?.name ?? ""} />}
         {sealedPath(r.item) && <SealedArt path={sealedPath(r.item)!} alt={r.item.item?.name ?? ""} />}
-      </div>
+      </button>
 
       {/* Mobile */}
       <div className="min-w-0 lg:hidden">
@@ -145,7 +153,9 @@ const WishlistCard = ({ row: r, onEdit, onAcquire }: { row: Row; onEdit: () => v
       {/* Desktop */}
       <div className="flex-col hidden min-w-0 lg:flex">
         <div className="flex items-start justify-between gap-2">
-          <div className="text-base font-medium">{r.item.item?.name}</div>
+          <button type="button" onClick={onView} className="text-base font-medium text-left cursor-pointer hover:underline">
+            {r.item.item?.name}
+          </button>
           {r.hit && <span className="flex-none font-geist-mono font-medium text-[11px] px-[7px] py-[3px] rounded bg-gain text-paper">TARGET HIT</span>}
         </div>
         <div className="text-[13px] text-ink-muted mt-[3px] truncate">{r.set}</div>

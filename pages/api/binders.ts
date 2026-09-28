@@ -1,4 +1,4 @@
-import { Binder, BinderItem, BinderToSave, CardVariantType, HistoricPrice, Item, ItemType } from "@/types/mongodb";
+import { Binder, BinderItem, BinderToSave, ItemType } from "@/types/mongodb";
 import { Db, ObjectId, WithoutId } from "mongodb";
 import { NextApiRequest, NextApiResponse } from "next";
 import client from "@/lib/mongodb";
@@ -130,7 +130,7 @@ const fetchBindersWithCard = async (user: ObjectId): Promise<Binder[]> => {
     },
   ];
 
-  const items = await db.collection<Binder>("binders").aggregate<Binder & { items: (BinderItem & { item: Item; historicPrice: HistoricPrice })[] }>(pipeline).toArray();
+  const items = await db.collection<Binder>("binders").aggregate<Binder & { items: BinderItem[] }>(pipeline).toArray();
 
   return items;
 };
