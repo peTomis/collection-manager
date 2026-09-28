@@ -2,7 +2,7 @@ import { Binder, BinderItem, BinderToSave, CardVariantType, HistoricPrice, Item,
 import { Db, ObjectId, WithoutId } from "mongodb";
 import { NextApiRequest, NextApiResponse } from "next";
 import client from "@/lib/mongodb";
-import { getUserId, isDemoUser } from "@/lib/auth";
+import { getUserId } from "@/lib/auth";
 import { LIMITS, parseObjectId } from "@/lib/validation";
 import * as Joi from "joi";
 
@@ -191,6 +191,7 @@ const deleteItemFromBinder = async (user: ObjectId, binder: string, id: string):
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const user = await getUserId(req, res);
+  if (!user) return res.status(401).json({ message: "Sign in to use your collection" });
 
   if (req.method === "GET") {
     if (req?.query?.withcards) {
@@ -207,7 +208,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const item = await fetchBinder(id, user);
     return res.status(200).json({ item });
   } else if (req.method === "POST") {
-    if (isDemoUser(user)) return res.status(403).json({ message: "Sign in to edit your collection" });
     if (req.body?.binder) {
       if (validateBinder(req.body.binder).error) return res.status(400).json({ message: "Invalid binder data" });
       if ((await countBinders(user)) >= LIMITS.LISTS_PER_USER) return res.status(409).json({ message: "Binders limit reached" });
@@ -236,7 +236,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(201).json({});
     }
   } else if (req.method === "DELETE") {
-    if (isDemoUser(user)) return res.status(403).json({ message: "Sign in to edit your collection" });
     if (!parseObjectId(req.query.id)) return res.status(400).json({ message: "Invalid binder ID" });
     if (req?.query?.itemId) {
       if (!parseObjectId(req.query.itemId)) return res.status(400).json({ message: "Invalid item ID" });

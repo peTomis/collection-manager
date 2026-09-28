@@ -12,7 +12,9 @@ export const fetchPortfolio = async (user: ObjectId) => {
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === "GET") {
-    const portfolio = await fetchPortfolio(await getUserId(req, res));
+    const user = await getUserId(req, res);
+    if (!user) return res.status(401).json({ message: "Sign in to use your collection" });
+    const portfolio = await fetchPortfolio(user);
     return res.status(200).json({ portfolio });
   }
 }

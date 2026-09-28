@@ -56,7 +56,7 @@ export default function DialogAddItem({ open, variant, type, close, onItemAdded 
       quantity,
     };
 
-    dispatch(addBinderItem(user, itemToAdd));
+    dispatch(addBinderItem(user, itemToAdd, { item: (card ?? singleSealed)!, historicPrice }));
   };
 
   const saveWishlist = async () => {
@@ -79,7 +79,7 @@ export default function DialogAddItem({ open, variant, type, close, onItemAdded 
       wishlist: wishlist?._id,
     };
 
-    dispatch(addWishlistItem(user, itemToAdd));
+    dispatch(addWishlistItem(user, itemToAdd, { item: (card ?? singleSealed)!, historicPrice }));
   };
 
   useEffect(() => {

@@ -10,7 +10,7 @@ Live at [collectionmanager.petomis.com](https://www.collectionmanager.petomis.co
 - **Binders**: group the items you own, with quantities and per-binder value and trends (1 day, 1 week, 1 month, 1 year).
 - **Wishlists**: keep track of the items you want and what they cost today.
 - **Database**: browse sets, cards and sealed products (by set or by product type), with price history per language and variant (English, Italian, Japanese; regular, 1st edition, shadowless, …).
-- **Demo mode**: visitors can explore a read-only demo collection without signing in. Signing in with Google starts an empty collection of your own.
+- **Demo mode**: visitors can try the app without signing in, on a sample collection. Their changes are saved in their browser only. Signing in with Google starts an empty collection of your own.
 
 ## How it works
 
@@ -24,6 +24,7 @@ Live at [collectionmanager.petomis.com](https://www.collectionmanager.petomis.co
 - An external scraper runs daily and writes the catalog (sets, cards, sealed products) and their prices to MongoDB. It is not part of this repository.
 - This app reads the catalog and prices, and owns the user data: `users`, `binders`, `binder-items`, `wishlists`, `wishlist-items`. `portfolios` is read by the app.
 - Users can only edit their own binders and wishlists. The catalog is read-only for them.
+- The demo collection is a static file, `public/demo-collection.json`. Visitors' edits are kept in their browser's localStorage and never reach the database.
 
 ## Tech stack
 
@@ -64,13 +65,13 @@ To create the Google OAuth client, in [Google Cloud Console](https://console.clo
 - Authorized JavaScript origin: `http://localhost:5555` (and your production URL)
 - Authorized redirect URI: `http://localhost:5555/api/auth/callback/google` (and `<production URL>/api/auth/callback/google`)
 
-### 3. Seed the demo collection
+### 3. Generate the demo collection (optional)
 
 ```bash
-yarn seed:demo
+yarn demo:generate
 ```
 
-This creates the read-only collection shown to visitors who are not signed in: a few binders, a wishlist and a portfolio, built from random items of the catalog so they show real prices. Running it again replaces the previous demo data.
+This rewrites `public/demo-collection.json`, the sample collection shown to visitors who are not signed in: a few binders and a wishlist built from random items of the catalog, with that day's prices. It only reads the database. The file is committed, so you only need to run this to refresh the demo.
 
 ### 4. Run
 
@@ -87,7 +88,7 @@ The app runs on [http://localhost:5555](http://localhost:5555).
 | `yarn dev` | Start the development server on port 5555. |
 | `yarn build` | Build for production. |
 | `yarn start` | Start the production server. |
-| `yarn seed:demo` | Create or refresh the demo collection. |
+| `yarn demo:generate` | Regenerate the static demo collection from the catalog. |
 
 ## Project structure
 
@@ -96,14 +97,14 @@ pages/          Routes and API routes (pages/api)
 containers/     Page-level components (home, binders, wishlists, database)
 components/     Shared UI components
 redux/          Store and slices, one per resource
-lib/            MongoDB client, authentication, input validation
+lib/            MongoDB client, authentication, input validation, demo collection
 types/          Data models and constants
-scripts/        Maintenance scripts (demo seed)
+scripts/        Maintenance scripts (demo generator)
 ```
 
 ## Security
 
 - The user is always resolved on the server from the session cookie, never from the request.
-- Visitors who are not signed in use the demo collection and cannot write.
+- Visitors who are not signed in cannot use the collection API: the demo runs entirely in their browser.
 - API input is validated (Joi), and user content has limits: 50 binders and 50 wishlists per user, 2000 items each, names up to 100 characters.
 - Security headers (Content Security Policy, frame protection, HSTS) are set in `next.config.js`.

@@ -1,7 +1,7 @@
 import { HistoricPrice, ItemType, Language } from "./mongodb";
 
-// Anonymous visitors browse the demo collection, which is read-only (hex of the demo user ObjectId).
-export const DEMO_USER = "000000000000000000000000";
+// Visitors who are not signed in use the demo collection, kept in their browser (lib/demo-collection.ts).
+export const DEMO_USER = "demo";
 
 export const EMPTY_ITEM = {
   name: "",

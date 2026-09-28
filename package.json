@@ -4,7 +4,7 @@
     "dev": "next dev -p 5555",
     "build": "next build",
     "start": "next start",
-    "seed:demo": "node --env-file=.env scripts/seed-demo.mjs"
+    "demo:generate": "node --env-file=.env scripts/generate-demo.mjs"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.4",

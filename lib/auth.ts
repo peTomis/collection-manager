@@ -3,9 +3,6 @@ import { getServerSession, NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { Db, ObjectId } from "mongodb";
 import client from "@/lib/mongodb";
-import { DEMO_USER } from "@/types/constants";
-
-export { DEMO_USER };
 
 const upsertUser = async (providerId: string, email?: string | null, name?: string | null, image?: string | null): Promise<string> => {
   await client.connect();
@@ -47,10 +44,9 @@ export const authOptions: NextAuthOptions = {
 };
 
 // The user is always resolved from the session, never from the request.
-export const getUserId = async (req: NextApiRequest, res: NextApiResponse): Promise<ObjectId> => {
+// Visitors without a session get null: their demo collection lives in the browser (lib/demo-collection.ts).
+export const getUserId = async (req: NextApiRequest, res: NextApiResponse): Promise<ObjectId | null> => {
   const session = await getServerSession(req, res, authOptions);
   const id = session?.user?.id;
-  return new ObjectId(id && ObjectId.isValid(id) ? id : DEMO_USER);
+  return id && ObjectId.isValid(id) ? new ObjectId(id) : null;
 };
-
-export const isDemoUser = (user: ObjectId): boolean => user.equals(DEMO_USER);

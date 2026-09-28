@@ -1,5 +1,7 @@
 import { ItemType, Portfolio } from "@/types/mongodb";
 import { createSlice, Dispatch } from "@reduxjs/toolkit";
+import { DEMO_USER } from "@/types/constants";
+import { getDemoPortfolio } from "@/lib/demo-collection";
 
 const initialState: {
   portfolio: Portfolio | undefined;
@@ -26,6 +28,10 @@ export default slice.reducer;
 export function getPortfolio(user: string) {
   return async (dispatch: Dispatch) => {
     try {
+      if (user === DEMO_USER) {
+        dispatch(getPortfolioSuccess(await getDemoPortfolio()));
+        return;
+      }
       const response = await fetch(`/api/portfolios?user=${user}`, { method: "GET" });
       const data = await response.json();
       if (data.portfolio) dispatch(getPortfolioSuccess(data?.portfolio));
