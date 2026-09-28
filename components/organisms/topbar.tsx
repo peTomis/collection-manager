@@ -41,7 +41,7 @@ const Topbar = () => {
   );
 
   return (
-    <header className={cn(fontVariables, "flex-none font-geist bg-paper border-b border-line text-ink")}>
+    <header className={cn(fontVariables, "sticky top-0 z-40 flex-none font-geist bg-paper border-b border-line text-ink")}>
       {/* Desktop */}
       <div className="items-center hidden h-16 px-8 md:flex gap-7">
         <Link href="/" className="flex items-center">

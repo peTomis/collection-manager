@@ -6,13 +6,13 @@ import { useDispatch, useSelector } from "@/redux/store";
 import { getPortfolio } from "@/redux/slices/portfolio";
 import { getBinders } from "@/redux/slices/binders";
 import { getWishlists } from "@/redux/slices/wishlists";
+import { getSets } from "@/redux/slices/sets";
 
 // Components
-import Metrics from "./components/metrics";
-import BindersRecap from "./components/binders-recap";
-import Top from "./components/top";
 import Topbar from "@/components/organisms/topbar";
-import TableItemsRecap from "./components/table-items-recap";
+import NetWorth from "./components/net-worth";
+import BindersWidget from "./components/binders-widget";
+import TopFlop from "./components/top-flop";
 
 const HomeContainer = () => {
   const { user } = useSelector((state) => state.user);
@@ -24,17 +24,21 @@ const HomeContainer = () => {
     dispatch(getPortfolio(user));
     dispatch(getBinders(user));
     dispatch(getWishlists(user));
+    dispatch(getSets(user));
   }, [user]);
 
   return (
-    <main className="relative flex flex-col w-screen lg:h-screen">
-      <div className="absolute top-0 left-0 w-screen h-screen bg-[url('/assets/bg.jpg')] bg-cover bg-center -z-10 opacity-10" />
+    <main className="flex flex-col min-h-screen font-geist text-ink">
       <Topbar />
-      <div className="grid w-screen grid-cols-1 gap-4 p-2 lg:grid-cols-12 lg:flex-1 lg:min-h-0">
-        <Metrics />
-        <BindersRecap />
-        <Top />
-        <TableItemsRecap onItemRemoved={() => {}} />
+      <div className="grid w-full max-w-[1440px] mx-auto grid-cols-1 gap-4 px-4 pt-4 pb-5 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-6 lg:px-10 lg:pt-8 lg:pb-12">
+        <NetWorth />
+        {/* On desktop the binders card fills the net worth row height and scrolls its list */}
+        <div className="order-last lg:order-none lg:relative">
+          <BindersWidget />
+        </div>
+        <div className="lg:col-span-2">
+          <TopFlop />
+        </div>
       </div>
     </main>
   );

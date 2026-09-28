@@ -35,6 +35,10 @@
     --cm-ink-muted: 107 102 94;
     --cm-line: 228 224 215;
     --cm-chip: 237 234 227;
+    --cm-gain: oklch(0.5 0.13 155);
+    --cm-loss: oklch(0.52 0.16 27);
+    --cm-stripe-a: #e6e1d6;
+    --cm-stripe-b: #eeeae2;
   }
 
   .dark {
@@ -44,6 +48,10 @@
     --cm-ink-muted: 168 162 152;
     --cm-line: 52 49 43;
     --cm-chip: 44 41 36;
+    --cm-gain: oklch(0.72 0.14 155);
+    --cm-loss: oklch(0.7 0.15 27);
+    --cm-stripe-a: #2a2723;
+    --cm-stripe-b: #322f2a;
   }
 }
 
@@ -52,7 +60,7 @@
     @apply border-border;
   }
   body {
-    @apply font-sans antialiased bg-background text-foreground;
+    @apply font-sans antialiased bg-canvas text-ink;
     /* Room for the fixed mobile tab bar in the topbar */
     @apply pb-[76px] md:pb-0;
   }

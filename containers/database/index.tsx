@@ -25,8 +25,7 @@ const DatabaseContainer = () => {
     dispatch(getWishlists(user));
   }, [user]);
   return (
-    <main className="relative flex flex-col w-screen min-h-screen overflow-hidden md:h-screen">
-      <div className="absolute top-0 left-0 w-screen h-screen bg-[url('/assets/bg.jpg')] bg-cover bg-center -z-10 opacity-10" />
+    <main className="relative flex flex-col w-screen min-h-screen overflow-clip md:h-screen">
       <Topbar />
       <div className="grid flex-1 w-full p-4 gap-4 grid-rows-[auto,1fr] min-h-0">
         <div className="flex flex-row items-center justify-center space-x-2">

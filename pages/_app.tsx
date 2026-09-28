@@ -6,6 +6,7 @@ import { Providers } from "@/redux/provider";
 import { useDispatch } from "@/redux/store";
 import { setUser } from "@/redux/slices/user";
 import { DEMO_USER } from "@/types/constants";
+import { fontVariables } from "@/lib/fonts";
 
 // Signed in users see their own collection, everyone else sees the demo one.
 function SessionUser() {
@@ -25,7 +26,9 @@ function CustomApp({ Component, pageProps: { session, ...pageProps } }: AppProps
     <SessionProvider session={session}>
       <Providers>
         <SessionUser />
-        <Component {...pageProps} />
+        <div className={fontVariables}>
+          <Component {...pageProps} />
+        </div>
       </Providers>
     </SessionProvider>
   );

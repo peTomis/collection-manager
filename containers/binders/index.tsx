@@ -25,8 +25,7 @@ const BindersContainer = () => {
   }, [user]);
 
   return (
-    <main className="relative flex flex-col w-screen min-h-screen overflow-hidden md:h-screen">
-      <div className="absolute top-0 left-0 w-screen h-screen bg-[url('/assets/bg.jpg')] bg-cover bg-center -z-10 opacity-10" />
+    <main className="relative flex flex-col w-screen min-h-screen overflow-clip md:h-screen">
       <Topbar />
       <DialogAddBinder
         open={dialogOpen}

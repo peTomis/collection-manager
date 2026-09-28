@@ -25,6 +25,14 @@ export const getPrice = (historicPrice: HistoricPrice) => {
   return lastPrice ?? 0;
 };
 
+export type PricePeriod = "1d" | "1w" | "1m" | "1y";
+
+// Oldest known price in the period's history (arrays run oldest first, -1 marks a missing day)
+export const getPastPrice = (historicPrice: HistoricPrice, period: PricePeriod) => {
+  const prices = historicPrice?.[`prices${period}`] ?? [];
+  return prices.find((price) => price > 0) ?? getPrice(historicPrice);
+};
+
 export const DUMMY_HISTORIC_PRICE: HistoricPrice = {
   _id: "",
   sealed: "",
