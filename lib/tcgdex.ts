@@ -44,3 +44,20 @@ export const useSetImages = (setId: string | undefined) => {
 
   return images;
 };
+
+// Images of several sets at once, keyed by TCGdex set id (for lists that mix sets, like wishlists)
+export const useSetsImages = (setIds: string[]) => {
+  const [images, setImages] = useState<Map<string, SetImages>>(new Map());
+  const key = Array.from(new Set(setIds.filter(Boolean))).sort().join(",");
+
+  useEffect(() => {
+    const ids = key ? key.split(",") : [];
+    let current = true;
+    Promise.all(ids.map(async (id) => [id, await fetchSetImages(id)] as [string, SetImages])).then((entries) => current && setImages(new Map(entries)));
+    return () => {
+      current = false;
+    };
+  }, [key]);
+
+  return images;
+};

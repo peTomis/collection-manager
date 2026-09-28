@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 
 // Components
+import CardArt from "@/components/atoms/card-art";
 import AddItemModal, { Destination } from "./add-item-modal";
 
 // State
@@ -9,7 +10,7 @@ import { ItemType, Set } from "@/types/mongodb";
 import { ItemSpecificType } from "@/types/constants";
 import { getPrice } from "@/utils/utils";
 import { Catalog, Product, priceKey } from "../use-set-catalog";
-import { cardImage, useSetImages } from "@/lib/tcgdex";
+import { useSetImages } from "@/lib/tcgdex";
 import { eur } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -120,22 +121,6 @@ const SetItems = ({ set, catalog, owned }: SetItemsProps) => {
 
       <AddItemModal set={set} catalog={catalog} product={adding?.product ?? null} destination={adding?.destination ?? "binder"} onClose={() => setAdding(null)} />
     </div>
-  );
-};
-
-// Covers the placeholder once loaded, and removes itself if TCGdex has no image for this card
-const CardArt = ({ image, alt }: { image: string; alt: string }) => {
-  const [failed, setFailed] = useState(false);
-  if (failed) return null;
-  return (
-    <img
-      src={cardImage(image, "low")}
-      srcSet={`${cardImage(image, "low")} 1x, ${cardImage(image, "high")} 2x`}
-      alt={alt}
-      loading="lazy"
-      onError={() => setFailed(true)}
-      className="absolute inset-0 object-cover w-full h-full"
-    />
   );
 };
 

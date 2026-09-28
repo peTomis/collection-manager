@@ -1,4 +1,4 @@
-import { BinderWithItems, Card, CardHistoricPrice, CardVariantType, ItemType, ItemWithJoin, Sealed, Set, WishlistItem, WishlistWithItems } from "@/types/mongodb";
+import { Binder, BinderWithItems, Card, CardHistoricPrice, CardVariantType, ItemType, ItemWithJoin, Sealed, Set, WishlistItem, WishlistWithItems } from "@/types/mongodb";
 import { getPastPrice, getPrice } from "@/utils/utils";
 import { change } from "@/lib/format";
 
@@ -23,6 +23,15 @@ export const languageLabel = (item: ItemWithJoin) => item.historicPrice?.languag
 
 export const itemPrice = (item: ItemWithJoin) => (item.historicPrice ? getPrice(item.historicPrice) : 0);
 
+// The set of a set binder, as the string id used by cards (the binder stores an ObjectId, which reaches the client as a string)
+export const binderSetId = (binder: Binder) => (binder.set ? String(binder.set) : undefined);
+
+// A set binder only takes cards of its set, any other binder takes everything
+export const binderAccepts = (binder: Binder, type: ItemType, item: Card | Sealed) => {
+  const set = binderSetId(binder);
+  return !set || (type === ItemType.CARD && item.set === set);
+};
+
 export const summarizeBinder = (binder: BinderWithItems) => {
   let value = 0;
   let value1w = 0;
@@ -42,12 +51,11 @@ export const summarizeBinder = (binder: BinderWithItems) => {
   return { value, cards, sealed, count, change1w: change(value, value1w), change1m: change(value, value1m) };
 };
 
-// When every card in the binder comes from one set, how much of that set it holds
+// How much of a set the binder holds: its own set for a set binder, otherwise the set all its cards come from (if they do)
 export const setCompletion = (binder: BinderWithItems, sets: Set[]) => {
   const cards = binder.items.filter((i) => !isSealed(i));
-  if (!cards.length) return null;
-  const setId = cards[0].item.set;
-  if (cards.some((i) => i.item.set !== setId)) return null;
+  const setId = binderSetId(binder) ?? cards[0]?.item.set;
+  if (!setId || cards.some((i) => i.item.set !== setId)) return null;
   const set = sets.find((s) => s._id === setId);
   if (!set?.cards) return null;
   const owned = new globalThis.Set(cards.map((i) => (i.item as Card).number)).size;

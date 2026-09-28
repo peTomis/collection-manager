@@ -142,6 +142,11 @@ const fetchBinder = async (_id: ObjectId, user: ObjectId): Promise<Binder> => {
   return JSON.parse(JSON.stringify(item));
 };
 
+const setExists = async (_id: ObjectId): Promise<boolean> => {
+  await client.connect();
+  return (await client.db("collection-manager").collection("sets").countDocuments({ _id }, { limit: 1 })) === 1;
+};
+
 const saveBinder = async (binder: WithoutId<Binder>): Promise<Binder> => {
   await client.connect();
   const db: Db = client.db("collection-manager");
@@ -159,12 +164,17 @@ const deleteBinder = async (id: string, user: ObjectId): Promise<boolean> => {
   return true;
 };
 
-const addItemToBinder = async (user: ObjectId, item: BinderToSave): Promise<BinderItem | null> => {
+const addItemToBinder = async (user: ObjectId, item: BinderToSave): Promise<BinderItem | "not-found" | "wrong-set"> => {
   const { _id, ...itemData } = item;
   await client.connect();
   const db: Db = client.db("collection-manager");
   const binderData = await db.collection("binders").findOne({ _id: new ObjectId(item.binder), user });
-  if (!binderData) return null;
+  if (!binderData) return "not-found";
+  // A set binder only takes cards of its set
+  if (binderData.set) {
+    const card = item.type === ItemType.CARD ? await db.collection("cards").findOne({ _id: new ObjectId(item.item) }) : null;
+    if (card?.set !== String(binderData.set)) return "wrong-set";
+  }
   const result = await db.collection("binder-items").insertOne(itemData);
   return JSON.parse(JSON.stringify({ ...item, _id: result.insertedId }));
 };
@@ -211,7 +221,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.body?.binder) {
       if (validateBinder(req.body.binder).error) return res.status(400).json({ message: "Invalid binder data" });
       if ((await countBinders(user)) >= LIMITS.LISTS_PER_USER) return res.status(409).json({ message: "Binders limit reached" });
-      const newBinder = await saveBinder({ name: req.body.binder.name, user });
+      const set = req.body.binder.set ? new ObjectId(req.body.binder.set as string) : undefined;
+      if (set && !(await setExists(set))) return res.status(400).json({ message: "Set not found" });
+      const newBinder = await saveBinder({ name: req.body.binder.name, user, ...(set && { set }) });
       return res.status(201).json({ item: newBinder });
     }
 
@@ -232,7 +244,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if ((await countBinderItems(item.binder)) >= LIMITS.ITEMS_PER_LIST) return res.status(409).json({ message: "Binder items limit reached" });
       const added = await addItemToBinder(user, item);
-      if (!added) return res.status(404).json({ message: "Binder not found" });
+      if (added === "not-found") return res.status(404).json({ message: "Binder not found" });
+      if (added === "wrong-set") return res.status(422).json({ message: "Only cards of the binder's set can be added" });
       return res.status(201).json({});
     }
   } else if (req.method === "DELETE") {
@@ -258,6 +271,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 const validateBinder = (binder: any) => {
   const schema = Joi.object({
     name: Joi.string().trim().min(1).max(LIMITS.NAME_LENGTH).required(),
+    set: Joi.string().hex().length(24).optional(),
   });
   return schema.validate(binder);
 };

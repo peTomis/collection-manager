@@ -3,12 +3,14 @@ import { useState } from "react";
 
 // Components
 import Segmented from "@/components/atoms/segmented";
+import CardArt from "@/components/atoms/card-art";
 
 // State
 import { useSelector } from "@/redux/store";
 import { BinderItem, Card, ItemType, Sealed } from "@/types/mongodb";
 import { variantLabel } from "@/lib/items";
 import { getPastPrice, getPrice, PricePeriod } from "@/utils/utils";
+import { useSetsImages } from "@/lib/tcgdex";
 import { change, deltaColor, eur, pct, signedEur } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +32,10 @@ interface Mover {
   now: number;
   delta: number;
   change: number;
+  // TCGdex set id and card number, to find the card image (cards only)
+  tcgdex?: string;
+  number?: number;
+  image?: string;
 }
 
 const TopFlop = () => {
@@ -40,7 +46,7 @@ const TopFlop = () => {
 
   const setName = (id: string) => sets.find((s) => s._id === id)?.name ?? "";
 
-  const describe = (item: BinderItem): Pick<Mover, "sub" | "meta"> => {
+  const describe = (item: BinderItem): Pick<Mover, "sub" | "meta" | "tcgdex" | "number"> => {
     const language = item.historicPrice.language.toUpperCase();
     if (item.type === ItemType.SEALED) {
       const sealed = item.item as Sealed;
@@ -48,7 +54,12 @@ const TopFlop = () => {
     }
     const card = item.item as Card;
     const variant = variantLabel(item);
-    return { sub: [setName(card.set), card.number && `#${card.number}`].filter(Boolean).join(" · "), meta: [variant, language].filter(Boolean).join(" · ") };
+    return {
+      sub: [setName(card.set), card.number && `#${card.number}`].filter(Boolean).join(" · "),
+      meta: [variant, language].filter(Boolean).join(" · "),
+      tcgdex: sets.find((s) => s._id === card.set)?.tcgdex || undefined,
+      number: card.number,
+    };
   };
 
   // The same product can sit in several binders: rank it once
@@ -66,6 +77,10 @@ const TopFlop = () => {
   const sorted = Array.from(movers.values()).sort((a, b) => b[key] - a[key]);
   const top = sorted.slice(0, 3);
   const flop = sorted.slice(Math.max(3, sorted.length - 3)).reverse();
+
+  // Only the sets of the movers on screen
+  const images = useSetsImages([...top, ...flop].map((m) => m.tcgdex ?? ""));
+  const withImage = (m: Mover): Mover => ({ ...m, image: m.tcgdex && m.number !== undefined ? images.get(m.tcgdex)?.get(m.number) : undefined });
 
   const periodText = PERIODS.find((p) => p.value === period)!.text;
 
@@ -96,8 +111,8 @@ const TopFlop = () => {
         <div className="py-8 text-sm text-center text-ink-muted">Add items to your binders to see how they move</div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 lg:gap-12 mt-[18px]">
-          <MoverList title="Top 3" tone="gain" movers={top} metric={metric} />
-          <MoverList title="Flop 3" tone="loss" movers={flop} metric={metric} />
+          <MoverList title="Top 3" tone="gain" movers={top.map(withImage)} metric={metric} />
+          <MoverList title="Flop 3" tone="loss" movers={flop.map(withImage)} metric={metric} />
         </div>
       )}
     </section>
@@ -119,7 +134,9 @@ const MoverList = ({ title, tone, movers, metric }: { title: string; tone: "gain
     {movers.map((m, i) => (
       <div key={m.id} className="grid grid-cols-[36px_minmax(0,1fr)_auto] lg:grid-cols-[28px_46px_minmax(0,1fr)_auto] gap-3 lg:gap-4 items-center py-2.5 lg:py-3.5 border-t border-line">
         <span className="hidden lg:block font-geist-mono font-medium text-sm text-ink-muted">{String(i + 1).padStart(2, "0")}</span>
-        <div className="w-9 h-[50px] lg:w-[46px] lg:h-16 rounded-[3px] lg:rounded bg-[repeating-linear-gradient(135deg,var(--cm-stripe-a)_0_5px,var(--cm-stripe-b)_5px_10px)]" />
+        <div className="relative overflow-hidden w-9 h-[50px] lg:w-[46px] lg:h-16 rounded-[3px] lg:rounded bg-[repeating-linear-gradient(135deg,var(--cm-stripe-a)_0_5px,var(--cm-stripe-b)_5px_10px)]">
+          {m.image && <CardArt image={m.image} alt={m.name} />}
+        </div>
         <div className="min-w-0">
           <div className="font-medium text-sm lg:text-base truncate">{m.name}</div>
           <div className="flex items-center gap-1.5 text-xs lg:text-[13px] text-ink-muted mt-0.5 lg:mt-[3px]">

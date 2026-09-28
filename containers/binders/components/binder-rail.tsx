@@ -84,19 +84,24 @@ const BinderRail = () => {
 
 export const NewBinderModal = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
   const [name, setName] = useState("");
+  const [set, setSet] = useState("");
   const user = useSelector((state) => state.user.user) ?? "";
+  const { sets } = useSelector((state) => state.sets);
   const dispatch = useDispatch();
 
   const close = () => {
     setName("");
+    setSet("");
     onClose();
   };
 
   const save = () => {
     if (!name.trim() || !user) return;
-    dispatch(createBinder(user, name.trim()));
+    dispatch(createBinder(user, name.trim(), set || undefined));
     close();
   };
+
+  const inputClass = "w-full h-[42px] px-3 rounded-[9px] border border-line bg-canvas text-sm text-ink placeholder:text-ink-muted outline-none focus:border-ink-muted";
 
   return (
     <Modal
@@ -115,14 +120,19 @@ export const NewBinderModal = ({ open, onClose }: { open: boolean; onClose: () =
         </>
       }
     >
-      <input
-        autoFocus
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && save()}
-        placeholder="e.g. Base Set 1999"
-        className="w-full h-[42px] px-3 rounded-[9px] border border-line bg-canvas text-sm text-ink placeholder:text-ink-muted outline-none focus:border-ink-muted"
-      />
+      <input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && save()} placeholder="e.g. Base Set 1999" className={inputClass} />
+      <label className="block mt-4 mb-1.5 text-xs font-medium text-ink-muted" htmlFor="binder-set">
+        Set
+      </label>
+      <select id="binder-set" value={set} onChange={(e) => setSet(e.target.value)} className={cn(inputClass, "cursor-pointer")}>
+        <option value="">Any set</option>
+        {[...sets].reverse().map((s) => (
+          <option key={s._id} value={s._id}>
+            {s.name}
+          </option>
+        ))}
+      </select>
+      <p className="mt-1.5 text-xs text-ink-muted">{set ? "Only cards of this set can be added, shown with their set number." : "Cards and sealed products from any set."}</p>
     </Modal>
   );
 };

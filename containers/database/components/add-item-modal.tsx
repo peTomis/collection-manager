@@ -12,7 +12,7 @@ import { addBinderItem, changeBinderItemQuantity } from "@/redux/slices/binders"
 import { addWishlistItem } from "@/redux/slices/wishlists";
 import { CardVariant, ItemType, SealedVariant, Set } from "@/types/mongodb";
 import { getPrice } from "@/utils/utils";
-import { VARIANT_LABELS } from "@/lib/items";
+import { VARIANT_LABELS, binderAccepts } from "@/lib/items";
 import { LIMITS } from "@/lib/limits";
 import { Catalog, Product, priceKey } from "../use-set-catalog";
 import { displayName } from "./set-items";
@@ -68,7 +68,9 @@ const AddItemModal = ({ set, catalog, product, destination, onClose }: AddItemMo
   const priceOf = (v: CardVariant | SealedVariant) => (product ? catalog?.prices.get(priceKey(product.item._id, v.language, "type" in v ? v.type : undefined)) : undefined);
   const historicPrice = variant && priceOf(variant);
 
-  const lists = mode === "binder" ? binders : wishlists;
+  // Set binders only take cards of their set
+  const accepting = product ? binders.filter((b) => binderAccepts(b, product.kind, product.item)) : binders;
+  const lists = mode === "binder" ? accepting : wishlists;
   const list = lists.find((l) => l._id === listId) ?? lists[0];
   const existingBinderItem = mode === "binder" ? binders.find((b) => b._id === list?._id)?.items.find((i) => i.historicPrice?._id === historicPrice?._id) : undefined;
   const onWishlist = mode === "wishlist" && !!wishlists.find((w) => w._id === list?._id)?.items.some((i) => i.historicPrice?._id === historicPrice?._id);
@@ -182,7 +184,9 @@ const AddItemModal = ({ set, catalog, product, destination, onClose }: AddItemMo
             )}
           </div>
         ) : (
-          <p className="text-sm text-ink-muted">You don't have a {mode} yet.</p>
+          <p className="text-sm text-ink-muted">
+            {mode === "binder" && binders.length ? "None of your binders can take this: set binders only take cards of their own set." : `You don't have a ${mode} yet.`}
+          </p>
         )}
 
         {existingBinderItem && (

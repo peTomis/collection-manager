@@ -4,6 +4,7 @@
 import { BinderToSave, BinderWithItems, Card, HistoricPrice, Portfolio, Sealed, WishlistToSave, WishlistWithItems } from "@/types/mongodb";
 import { DEMO_USER } from "@/types/constants";
 import { getPrice } from "@/utils/utils";
+import { binderAccepts } from "@/lib/items";
 
 const STORAGE_KEY = "demo-collection";
 
@@ -67,9 +68,9 @@ export const resetDemoCollection = () => {
 // Copies: Redux freezes what it stores, while the cache is edited in place
 export const getDemoBinders = async () => structuredClone((await load()).binders);
 
-export const createDemoBinder = (name: string) =>
+export const createDemoBinder = (name: string, set?: string) =>
   update((c) => {
-    c.binders.push({ _id: newId(), user: DEMO_USER as unknown as BinderWithItems["user"], name, items: [] });
+    c.binders.push({ _id: newId(), user: DEMO_USER as unknown as BinderWithItems["user"], name, items: [], ...(set && { set: set as unknown as BinderWithItems["set"] }) });
   });
 
 export const deleteDemoBinder = (id: string) =>
@@ -86,7 +87,7 @@ export const saveDemoBinderItem = (item: BinderToSave, details?: DemoItemDetails
       existing.quantity = item.quantity;
       return;
     }
-    if (!details) return;
+    if (!details || !binderAccepts(binder, item.type, details.item)) return;
     binder.items.push({ _id: newId(), name: item.name, type: item.type, binder: item.binder, quantity: item.quantity, ...details });
   });
 

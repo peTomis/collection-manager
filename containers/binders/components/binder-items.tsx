@@ -5,13 +5,15 @@ import Link from "next/link";
 // Components
 import Segmented from "@/components/atoms/segmented";
 import { ConfirmModal } from "@/components/atoms/modal";
+import CardArt from "@/components/atoms/card-art";
 
 // State
 import { useDispatch, useSelector } from "@/redux/store";
 import { changeBinderItemQuantity, deleteBinderItem } from "@/redux/slices/binders";
 import { BinderItem, BinderWithItems } from "@/types/mongodb";
 import { getPastPrice } from "@/utils/utils";
-import { cardNumber, isSealed, itemPrice, languageLabel, variantLabel } from "@/lib/items";
+import { binderSetId, cardNumber, isSealed, itemPrice, languageLabel, variantLabel } from "@/lib/items";
+import { useSetsImages } from "@/lib/tcgdex";
 import { change, deltaColor, eur, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -29,11 +31,14 @@ const PAGE_SIZE = 9;
 
 export interface Row {
   item: BinderItem;
+  // Set number, only shown in set binders
   number?: number;
   set: string;
   price: number;
   total: number;
   change1m: number;
+  // TCGdex image base URL, cards only
+  image?: string;
 }
 
 const stripes = "bg-[repeating-linear-gradient(135deg,var(--cm-pocket-a)_0_6px,var(--cm-pocket-b)_6px_12px)]";
@@ -49,6 +54,11 @@ const BinderItems = ({ binder }: { binder: BinderWithItems }) => {
   const user = useSelector((state) => state.user.user) ?? "";
   const dispatch = useDispatch();
 
+  const tcgdexIds = new Map(sets.map((s) => [s._id, s.tcgdex]));
+  const images = useSetsImages(binder.items.filter((i) => !isSealed(i)).map((i) => tcgdexIds.get(i.item?.set) ?? ""));
+
+  const numbered = !!binderSetId(binder);
+
   const rows = useMemo(() => {
     // Sets come sorted by release date, so their index orders items chronologically
     const setIndex = new Map(sets.map((s, i) => [s._id, i]));
@@ -57,18 +67,23 @@ const BinderItems = ({ binder }: { binder: BinderWithItems }) => {
 
     const all: Row[] = binder.items.map((item) => {
       const price = itemPrice(item);
+      const number = cardNumber(item);
+      const tcgdex = tcgdexIds.get(item.item?.set);
       return {
         item,
-        number: cardNumber(item),
+        number: numbered ? number : undefined,
         set: setName.get(item.item?.set) ?? "",
         price,
         total: price * item.quantity,
         change1m: item.historicPrice ? change(price, getPastPrice(item.historicPrice, "1m")) : 0,
+        image: number !== undefined && tcgdex ? images.get(tcgdex)?.get(number) : undefined,
       };
     });
 
     const byNumber = (a: Row, b: Row) =>
-      Number(isSealed(a.item)) - Number(isSealed(b.item)) || (setIndex.get(a.item.item?.set) ?? 0) - (setIndex.get(b.item.item?.set) ?? 0) || (a.number ?? 0) - (b.number ?? 0);
+      Number(isSealed(a.item)) - Number(isSealed(b.item)) ||
+      (setIndex.get(a.item.item?.set) ?? 0) - (setIndex.get(b.item.item?.set) ?? 0) ||
+      (cardNumber(a.item) ?? 0) - (cardNumber(b.item) ?? 0);
     const compare: Record<Sort, (a: Row, b: Row) => number> = {
       number: byNumber,
       value: (a, b) => b.total - a.total,
@@ -77,7 +92,7 @@ const BinderItems = ({ binder }: { binder: BinderWithItems }) => {
     };
 
     return all.filter((r) => !query || `${r.item.item?.name} ${r.set}`.toLowerCase().includes(query)).sort(compare[sort]);
-  }, [binder, sets, filter, sort]);
+  }, [binder, sets, filter, sort, images]);
 
   useEffect(() => setPage(0), [binder._id, filter, sort]);
 
@@ -141,7 +156,7 @@ const BinderItems = ({ binder }: { binder: BinderWithItems }) => {
       ) : view === "grid" ? (
         <BinderGrid rows={rows} page={page} setPage={setPage} />
       ) : (
-        <BinderList rows={rows} setQuantity={setQuantity} />
+        <BinderList rows={rows} numbered={numbered} setQuantity={setQuantity} />
       )}
 
       <ConfirmModal
@@ -200,19 +215,23 @@ const Page = ({ rows, className }: { rows: Row[]; className?: string }) => (
         <div key={r.item._id} className="flex flex-col gap-[5px] lg:gap-[7px] min-w-0">
           <div
             className={cn(
-              "relative aspect-[63/88] rounded-[5px] lg:rounded-md grid place-items-center shadow-[0_1px_2px_rgba(29,27,24,.12),inset_0_0_0_1px_rgba(29,27,24,.06)]",
+              "relative aspect-[63/88] rounded-[5px] lg:rounded-md grid place-items-center overflow-hidden shadow-[0_1px_2px_rgba(29,27,24,.12),inset_0_0_0_1px_rgba(29,27,24,.06)]",
               stripes,
             )}
           >
-            <span className="absolute top-1 left-1 lg:top-1.5 lg:left-1.5 font-geist-mono font-medium text-[9px] lg:text-[10px] bg-paper text-ink px-1 lg:px-[5px] py-px lg:py-0.5 rounded-[3px]">
-              {r.number !== undefined ? `#${r.number}` : "Sealed"}
-            </span>
+            <span className="hidden px-1 text-center lg:block font-geist-mono text-[10px] text-ink-muted">{variantLabel(r.item)}</span>
+            {/* Before the badges so they stay on top of the art */}
+            {r.image && <CardArt image={r.image} alt={r.item.item?.name ?? ""} />}
+            {(r.number !== undefined || isSealed(r.item)) && (
+              <span className="absolute top-1 left-1 lg:top-1.5 lg:left-1.5 font-geist-mono font-medium text-[9px] lg:text-[10px] bg-paper text-ink px-1 lg:px-[5px] py-px lg:py-0.5 rounded-[3px]">
+                {r.number !== undefined ? `#${r.number}` : "Sealed"}
+              </span>
+            )}
             {r.item.quantity > 1 && (
               <span className="absolute top-1 right-1 lg:top-1.5 lg:right-1.5 font-geist-mono font-medium text-[9px] lg:text-[10px] bg-ink text-paper px-1 lg:px-[5px] py-px lg:py-0.5 rounded-[3px]">
                 ×{r.item.quantity}
               </span>
             )}
-            <span className="hidden px-1 text-center lg:block font-geist-mono text-[10px] text-ink-muted">{variantLabel(r.item)}</span>
           </div>
           <div className={cn("lg:flex lg:justify-between lg:gap-1.5 text-[11px] lg:text-xs leading-[14px] lg:leading-4 font-medium overflow-hidden", LABEL_HEIGHT)}>
             <span className="block truncate">{r.item.item?.name}</span>
@@ -245,59 +264,66 @@ const Pager = ({ label, prev, next, className }: { label: string; prev?: () => v
   );
 };
 
-const LIST_COLUMNS = "lg:grid-cols-[48px_34px_minmax(0,1.6fr)_1.1fr_0.5fr_104px_0.9fr_0.9fr_0.8fr]";
+// With and without the set number column (set binders only)
+const LIST_COLUMNS = {
+  numbered: "lg:grid-cols-[48px_34px_minmax(0,1.6fr)_1.1fr_0.5fr_104px_0.9fr_0.9fr_0.8fr]",
+  plain: "lg:grid-cols-[34px_minmax(0,1.6fr)_1.1fr_0.5fr_104px_0.9fr_0.9fr_0.8fr]",
+};
 
-const BinderList = ({ rows, setQuantity }: { rows: Row[]; setQuantity: (item: BinderItem, quantity: number) => void }) => (
-  <div className="mb-4 border lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:mb-6 bg-paper border-line rounded-xl">
-    <div className={cn("hidden lg:grid sticky top-0 z-10 bg-paper gap-3.5 px-[18px] py-3 text-xs font-medium text-ink-muted border-b border-line", LIST_COLUMNS)}>
-      <span>#</span>
-      <span />
-      <span>Card</span>
-      <span>Variant</span>
-      <span>Lang</span>
-      <span className="text-center">Qty</span>
-      <span className="text-right">Value</span>
-      <span className="text-right">Total</span>
-      <span className="text-right">30d</span>
-    </div>
-    {rows.map((r, i) => (
-      <div
-        key={r.item._id}
-        className={cn(
-          "grid grid-cols-[34px_minmax(0,1fr)_auto] gap-3 lg:gap-3.5 items-center px-3.5 lg:px-[18px] py-2.5 lg:py-2 text-sm",
-          i > 0 && "border-t border-chip",
-          LIST_COLUMNS,
-        )}
-      >
-        <span className="hidden font-geist-mono text-[13px] text-ink-muted lg:block">{r.number !== undefined ? String(r.number).padStart(3, "0") : "—"}</span>
-        <div className={cn("w-[34px] h-[47px] rounded-[3px]", stripes)} />
-        <div className="min-w-0">
-          <div className="font-medium truncate">
-            <span className="text-xs font-normal lg:hidden font-geist-mono text-ink-muted">{r.number !== undefined ? String(r.number).padStart(3, "0") + " " : ""}</span>
-            {r.item.item?.name}
-          </div>
-          <div className="text-xs truncate text-ink-muted mt-0.5">
-            {r.set}
-            <span className="lg:hidden">
-              {" "}
-              · {variantLabel(r.item)} · {languageLabel(r.item)}
-            </span>
-          </div>
-          <Stepper className="mt-1.5 lg:hidden" quantity={r.item.quantity} onChange={(q) => setQuantity(r.item, q)} />
-        </div>
-        <span className="hidden truncate lg:block text-ink-muted">{variantLabel(r.item)}</span>
-        <span className="hidden text-xs font-medium lg:block font-geist-mono">{languageLabel(r.item)}</span>
-        <Stepper className="hidden lg:flex justify-self-center" quantity={r.item.quantity} onChange={(q) => setQuantity(r.item, q)} />
-        <span className="hidden text-right lg:block font-geist-mono text-ink-muted">{eur(r.price)}</span>
-        <div className="text-right">
-          <div className="font-medium font-geist-mono">{eur(r.total)}</div>
-          <div className={cn("lg:hidden font-geist-mono text-[11px]", deltaColor(r.change1m))}>{pct(r.change1m)}</div>
-        </div>
-        <span className={cn("hidden lg:block text-right font-geist-mono font-medium text-[13px]", deltaColor(r.change1m))}>{pct(r.change1m)}</span>
+const BinderList = ({ rows, numbered, setQuantity }: { rows: Row[]; numbered: boolean; setQuantity: (item: BinderItem, quantity: number) => void }) => {
+  const columns = numbered ? LIST_COLUMNS.numbered : LIST_COLUMNS.plain;
+  return (
+    <div className="mb-4 border lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:mb-6 bg-paper border-line rounded-xl">
+      <div className={cn("hidden lg:grid sticky top-0 z-10 bg-paper gap-3.5 px-[18px] py-3 text-xs font-medium text-ink-muted border-b border-line", columns)}>
+        {numbered && <span>#</span>}
+        <span />
+        <span>Card</span>
+        <span>Variant</span>
+        <span>Lang</span>
+        <span className="text-center">Qty</span>
+        <span className="text-right">Value</span>
+        <span className="text-right">Total</span>
+        <span className="text-right">30d</span>
       </div>
-    ))}
-  </div>
-);
+      {rows.map((r, i) => (
+        <div
+          key={r.item._id}
+          className={cn(
+            "grid grid-cols-[34px_minmax(0,1fr)_auto] gap-3 lg:gap-3.5 items-center px-3.5 lg:px-[18px] py-2.5 lg:py-2 text-sm",
+            i > 0 && "border-t border-chip",
+            columns,
+          )}
+        >
+          {numbered && <span className="hidden font-geist-mono text-[13px] text-ink-muted lg:block">{r.number !== undefined ? String(r.number).padStart(3, "0") : "—"}</span>}
+          <div className={cn("relative w-[34px] h-[47px] rounded-[3px] overflow-hidden", stripes)}>{r.image && <CardArt image={r.image} alt={r.item.item?.name ?? ""} />}</div>
+          <div className="min-w-0">
+            <div className="font-medium truncate">
+              <span className="text-xs font-normal lg:hidden font-geist-mono text-ink-muted">{r.number !== undefined ? String(r.number).padStart(3, "0") + " " : ""}</span>
+              {r.item.item?.name}
+            </div>
+            <div className="text-xs truncate text-ink-muted mt-0.5">
+              {r.set}
+              <span className="lg:hidden">
+                {" "}
+                · {variantLabel(r.item)} · {languageLabel(r.item)}
+              </span>
+            </div>
+            <Stepper className="mt-1.5 lg:hidden" quantity={r.item.quantity} onChange={(q) => setQuantity(r.item, q)} />
+          </div>
+          <span className="hidden truncate lg:block text-ink-muted">{variantLabel(r.item)}</span>
+          <span className="hidden text-xs font-medium lg:block font-geist-mono">{languageLabel(r.item)}</span>
+          <Stepper className="hidden lg:flex justify-self-center" quantity={r.item.quantity} onChange={(q) => setQuantity(r.item, q)} />
+          <span className="hidden text-right lg:block font-geist-mono text-ink-muted">{eur(r.price)}</span>
+          <div className="text-right">
+            <div className="font-medium font-geist-mono">{eur(r.total)}</div>
+            <div className={cn("lg:hidden font-geist-mono text-[11px]", deltaColor(r.change1m))}>{pct(r.change1m)}</div>
+          </div>
+          <span className={cn("hidden lg:block text-right font-geist-mono font-medium text-[13px]", deltaColor(r.change1m))}>{pct(r.change1m)}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 const Stepper = ({ quantity, onChange, className }: { quantity: number; onChange: (q: number) => void; className?: string }) => {
   const button = "w-7 h-7 grid place-items-center rounded-md text-ink-muted hover:bg-chip hover:text-ink cursor-pointer";

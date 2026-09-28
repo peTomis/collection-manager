@@ -4,13 +4,15 @@ import Link from "next/link";
 
 // Components
 import Modal, { modalButton } from "@/components/atoms/modal";
+import CardArt from "@/components/atoms/card-art";
 
 // State
 import { useDispatch, useSelector } from "@/redux/store";
 import { deleteWishlistItem, setWishlistItemTarget } from "@/redux/slices/wishlists";
 import { addBinderItem, changeBinderItemQuantity } from "@/redux/slices/binders";
 import { WishlistItem, WishlistWithItems } from "@/types/mongodb";
-import { cardNumber, isSealed, itemPrice, languageLabel, summarizeWishlist, targetHit, variantLabel } from "@/lib/items";
+import { cardNumber, isSealed, itemPrice, languageLabel, summarizeWishlist, targetHit, variantLabel, binderAccepts } from "@/lib/items";
+import { useSetsImages } from "@/lib/tcgdex";
 import { eur } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +22,8 @@ interface Row {
   details: string;
   price: number;
   hit: boolean;
+  // TCGdex image base URL, cards only
+  image?: string;
 }
 
 const stripes = "bg-[repeating-linear-gradient(135deg,var(--cm-stripe-a)_0_6px,var(--cm-stripe-b)_6px_12px)]";
@@ -31,6 +35,7 @@ const WishlistItems = ({ wishlist }: { wishlist: WishlistWithItems }) => {
 
   const { sets } = useSelector((state) => state.sets);
   const summary = summarizeWishlist(wishlist);
+  const images = useSetsImages(wishlist.items.filter((i) => !isSealed(i)).map((i) => sets.find((s) => s._id === i.item?.set)?.tcgdex ?? ""));
 
   const rows = useMemo(() => {
     // Sets come sorted by release date, so their index orders items chronologically
@@ -46,6 +51,7 @@ const WishlistItems = ({ wishlist }: { wishlist: WishlistWithItems }) => {
         details: [variantLabel(item), languageLabel(item)].filter(Boolean).join(" · "),
         price: itemPrice(item),
         hit: targetHit(item),
+        image: number !== undefined && set?.tcgdex ? images.get(set.tcgdex)?.get(number) : undefined,
       };
     });
 
@@ -57,7 +63,7 @@ const WishlistItems = ({ wishlist }: { wishlist: WishlistWithItems }) => {
         (setIndex.get(a.item.item?.set) ?? 0) - (setIndex.get(b.item.item?.set) ?? 0) ||
         (cardNumber(a.item) ?? 0) - (cardNumber(b.item) ?? 0)
     );
-  }, [wishlist, sets]);
+  }, [wishlist, sets, images]);
 
   return (
     <div className="flex flex-col lg:flex-1 lg:min-h-0">
@@ -106,8 +112,9 @@ const WishlistCard = ({ row: r, onEdit, onAcquire }: { row: Row; onEdit: () => v
         r.hit ? "border-gain shadow-[0_0_0_3px_color-mix(in_oklch,var(--cm-gain)_12%,transparent)]" : "border-line"
       )}
     >
-      <div className={cn("aspect-[63/88] rounded-[5px] lg:rounded-md grid place-items-center self-start", stripes)}>
-        <span className="hidden lg:block font-geist-mono text-[10px] text-ink-muted">card art</span>
+      <div className={cn("relative aspect-[63/88] rounded-[5px] lg:rounded-md grid place-items-center self-start overflow-hidden", stripes)}>
+        <span className="hidden lg:block font-geist-mono text-[10px] text-ink-muted">{isSealed(r.item) ? "product shot" : "card art"}</span>
+        {r.image && <CardArt image={r.image} alt={r.item.item?.name ?? ""} />}
       </div>
 
       {/* Mobile */}
@@ -244,7 +251,9 @@ const GotItModal = ({ item, onClose }: { item: WishlistItem | null; onClose: () 
   const user = useSelector((state) => state.user.user) ?? "";
   const dispatch = useDispatch();
 
-  const selected = binders.find((b) => b._id === binderId) ?? binders[0];
+  // Set binders only take cards of their set
+  const accepting = item ? binders.filter((b) => binderAccepts(b, item.type, item.item)) : binders;
+  const selected = accepting.find((b) => b._id === binderId) ?? accepting[0];
 
   const close = () => {
     setBinderId("");
@@ -274,7 +283,13 @@ const GotItModal = ({ item, onClose }: { item: WishlistItem | null; onClose: () 
       open={!!item}
       onClose={close}
       title="Got it"
-      description={selected ? `Move ${item?.item?.name ?? "this item"} into a binder. It will be removed from this wishlist.` : "Create a binder first to move this item into your collection."}
+      description={
+        selected
+          ? `Move ${item?.item?.name ?? "this item"} into a binder. It will be removed from this wishlist.`
+          : binders.length
+            ? "None of your binders can take this: set binders only take cards of their own set. Create a binder for it first."
+            : "Create a binder first to move this item into your collection."
+      }
       footer={
         selected ? (
           <>
@@ -298,7 +313,7 @@ const GotItModal = ({ item, onClose }: { item: WishlistItem | null; onClose: () 
             Binder
           </label>
           <select id="wishlist-binder" value={selected._id} onChange={(e) => setBinderId(e.target.value)} className={cn(inputClass, "cursor-pointer")}>
-            {binders.map((b) => (
+            {accepting.map((b) => (
               <option key={b._id} value={b._id}>
                 {b.name}
               </option>

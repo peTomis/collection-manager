@@ -66,17 +66,18 @@ export function setBinder(binder: BinderWithItems | null) {
   };
 }
 
-export function createBinder(user: string, name: string) {
+// set: id of the set for a set binder, which only takes cards of that set
+export function createBinder(user: string, name: string, set?: string) {
   return async (dispatch: Dispatch) => {
     try {
-      if (user === DEMO_USER) await createDemoBinder(name);
+      if (user === DEMO_USER) await createDemoBinder(name, set);
       else
         await fetch(`/api/binders?user=${user}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ binder: { name } }),
+          body: JSON.stringify({ binder: { name, ...(set && { set }) } }),
         });
       await getBinders(user)(dispatch);
     } catch (error) {

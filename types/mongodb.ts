@@ -159,6 +159,8 @@ export interface Binder {
   _id: string;
   user: ObjectId;
   name: string;
+  // Set binder: only cards of this set can be added, and they are shown with their number
+  set?: ObjectId;
 }
 
 export interface BinderWithItems extends Binder {
