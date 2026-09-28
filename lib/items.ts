@@ -19,6 +19,9 @@ export const cardNumber = (item: ItemWithJoin) => (isSealed(item) ? undefined : 
 export const variantLabel = (item: ItemWithJoin) =>
   isSealed(item) ? (item.item as Sealed).type ?? "Sealed" : VARIANT_LABELS[(item.historicPrice as CardHistoricPrice)?.type] ?? "";
 
+// Local image of a sealed product, if it has one
+export const sealedPath = (item: ItemWithJoin) => (isSealed(item) ? (item.item as Sealed).path : undefined);
+
 export const languageLabel = (item: ItemWithJoin) => item.historicPrice?.language?.toUpperCase() ?? "";
 
 export const itemPrice = (item: ItemWithJoin) => (item.historicPrice ? getPrice(item.historicPrice) : 0);

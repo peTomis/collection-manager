@@ -4,6 +4,7 @@ import { useState } from "react";
 // Components
 import Segmented from "@/components/atoms/segmented";
 import CardArt from "@/components/atoms/card-art";
+import SealedArt from "@/components/atoms/sealed-art";
 
 // State
 import { useSelector } from "@/redux/store";
@@ -36,6 +37,8 @@ interface Mover {
   tcgdex?: string;
   number?: number;
   image?: string;
+  // Local image of a sealed product
+  path?: string;
 }
 
 const TopFlop = () => {
@@ -46,11 +49,11 @@ const TopFlop = () => {
 
   const setName = (id: string) => sets.find((s) => s._id === id)?.name ?? "";
 
-  const describe = (item: BinderItem): Pick<Mover, "sub" | "meta" | "tcgdex" | "number"> => {
+  const describe = (item: BinderItem): Pick<Mover, "sub" | "meta" | "tcgdex" | "number" | "path"> => {
     const language = item.historicPrice.language.toUpperCase();
     if (item.type === ItemType.SEALED) {
       const sealed = item.item as Sealed;
-      return { sub: [setName(sealed.set), "Sealed"].filter(Boolean).join(" · "), meta: [sealed.type, language].filter(Boolean).join(" · ") };
+      return { sub: [setName(sealed.set), "Sealed"].filter(Boolean).join(" · "), meta: [sealed.type, language].filter(Boolean).join(" · "), path: sealed.path };
     }
     const card = item.item as Card;
     const variant = variantLabel(item);
@@ -136,6 +139,7 @@ const MoverList = ({ title, tone, movers, metric }: { title: string; tone: "gain
         <span className="hidden lg:block font-geist-mono font-medium text-sm text-ink-muted">{String(i + 1).padStart(2, "0")}</span>
         <div className="relative overflow-hidden w-9 h-[50px] lg:w-[46px] lg:h-16 rounded-[3px] lg:rounded bg-[repeating-linear-gradient(135deg,var(--cm-stripe-a)_0_5px,var(--cm-stripe-b)_5px_10px)]">
           {m.image && <CardArt image={m.image} alt={m.name} />}
+          {m.path && <SealedArt path={m.path} alt={m.name} />}
         </div>
         <div className="min-w-0">
           <div className="font-medium text-sm lg:text-base truncate">{m.name}</div>

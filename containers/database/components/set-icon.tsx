@@ -5,14 +5,18 @@ import { useState } from "react";
 import { Set } from "@/types/mongodb";
 import { cn } from "@/lib/utils";
 
-// Set logos live in public/sets, named after the set ("Base Set" → base_set.png). Not every set has one.
+// Folders of sets that have no logo, so it isn't requested
+const WITHOUT_LOGO = new globalThis.Set(["base_set"]);
+
+// Set logos live in public/sets/<set>/logo.png, the folder named after the set ("Base Set" → base_set). Not every set has one.
 const SetIcon = ({ set, className }: { set: Set; className?: string }) => {
   const [missing, setMissing] = useState<string | null>(null);
-  const src = `/sets/${set.name.toLowerCase().replaceAll(" ", "_")}.png`;
+  const folder = set.name.toLowerCase().replaceAll(" ", "_");
+  const src = WITHOUT_LOGO.has(folder) ? null : `/sets/${folder}/logo.png`;
 
   return (
-    <span className={cn("flex-none grid place-items-center", className)}>
-      {missing !== src && <img src={src} alt="" className="object-contain w-full h-full" onError={() => setMissing(src)} />}
+    <span className={cn("relative flex-none", className)}>
+      {src && missing !== src && <img src={src} alt="" className="absolute inset-0 object-contain w-full h-full" onError={() => setMissing(src)} />}
     </span>
   );
 };

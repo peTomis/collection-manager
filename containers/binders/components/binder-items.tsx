@@ -6,13 +6,14 @@ import Link from "next/link";
 import Segmented from "@/components/atoms/segmented";
 import { ConfirmModal } from "@/components/atoms/modal";
 import CardArt from "@/components/atoms/card-art";
+import SealedArt from "@/components/atoms/sealed-art";
 
 // State
 import { useDispatch, useSelector } from "@/redux/store";
 import { changeBinderItemQuantity, deleteBinderItem } from "@/redux/slices/binders";
 import { BinderItem, BinderWithItems } from "@/types/mongodb";
 import { getPastPrice } from "@/utils/utils";
-import { binderSetId, cardNumber, isSealed, itemPrice, languageLabel, variantLabel } from "@/lib/items";
+import { binderSetId, cardNumber, isSealed, itemPrice, languageLabel, sealedPath, variantLabel } from "@/lib/items";
 import { useSetsImages } from "@/lib/tcgdex";
 import { change, deltaColor, eur, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -222,6 +223,7 @@ const Page = ({ rows, className }: { rows: Row[]; className?: string }) => (
             <span className="hidden px-1 text-center lg:block font-geist-mono text-[10px] text-ink-muted">{variantLabel(r.item)}</span>
             {/* Before the badges so they stay on top of the art */}
             {r.image && <CardArt image={r.image} alt={r.item.item?.name ?? ""} />}
+            {sealedPath(r.item) && <SealedArt path={sealedPath(r.item)!} alt={r.item.item?.name ?? ""} />}
             {(r.number !== undefined || isSealed(r.item)) && (
               <span className="absolute top-1 left-1 lg:top-1.5 lg:left-1.5 font-geist-mono font-medium text-[9px] lg:text-[10px] bg-paper text-ink px-1 lg:px-[5px] py-px lg:py-0.5 rounded-[3px]">
                 {r.number !== undefined ? `#${r.number}` : "Sealed"}
@@ -295,7 +297,10 @@ const BinderList = ({ rows, numbered, setQuantity }: { rows: Row[]; numbered: bo
           )}
         >
           {numbered && <span className="hidden font-geist-mono text-[13px] text-ink-muted lg:block">{r.number !== undefined ? String(r.number).padStart(3, "0") : "—"}</span>}
-          <div className={cn("relative w-[34px] h-[47px] rounded-[3px] overflow-hidden", stripes)}>{r.image && <CardArt image={r.image} alt={r.item.item?.name ?? ""} />}</div>
+          <div className={cn("relative w-[34px] h-[47px] rounded-[3px] overflow-hidden", stripes)}>
+            {r.image && <CardArt image={r.image} alt={r.item.item?.name ?? ""} />}
+            {sealedPath(r.item) && <SealedArt path={sealedPath(r.item)!} alt={r.item.item?.name ?? ""} />}
+          </div>
           <div className="min-w-0">
             <div className="font-medium truncate">
               <span className="text-xs font-normal lg:hidden font-geist-mono text-ink-muted">{r.number !== undefined ? String(r.number).padStart(3, "0") + " " : ""}</span>

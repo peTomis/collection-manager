@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 
 // Components
 import CardArt from "@/components/atoms/card-art";
+import SealedArt from "@/components/atoms/sealed-art";
 import AddItemModal, { Destination } from "./add-item-modal";
 
 // State
@@ -129,6 +130,7 @@ const ProductCard = ({ row: r, onAdd }: { row: Row; onAdd: (destination: Destina
     <div className={cn("relative aspect-[63/88] rounded-md lg:rounded-[7px] grid place-items-center overflow-hidden", stripes)}>
       <span className="font-geist-mono text-[10px] text-ink-muted">{r.product.kind === ItemType.CARD ? "card art" : "product shot"}</span>
       {r.image && <CardArt image={r.image} alt={r.name} />}
+      {r.product.kind === ItemType.SEALED && r.product.item.path && <SealedArt path={r.product.item.path} alt={r.name} />}
       {r.owned > 0 && <span className="absolute top-1.5 left-1.5 lg:top-2 lg:left-2 text-[10px] lg:text-[11px] font-medium px-[7px] lg:px-2 py-0.5 lg:py-[3px] rounded-[10px] bg-ink text-paper">Owned ×{r.owned}</span>}
     </div>
 

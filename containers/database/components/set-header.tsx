@@ -3,18 +3,20 @@ import SetIcon from "./set-icon";
 
 // Types
 import { Set } from "@/types/mongodb";
-import { eur } from "@/lib/format";
+import { setCardCount, setSealedCount, setSize } from "./set-rail";
 
 interface SetHeaderProps {
   set: Set;
-  owned: { count: number; value: number };
 }
 
 const releaseDate = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
-const SetHeader = ({ set, owned }: SetHeaderProps) => {
+const SetHeader = ({ set }: SetHeaderProps) => {
+  const size = setSize(set);
   const released = set.releasedAt ? new Date(set.releasedAt) : null;
-  const counts = [set.cards && `${set.cards} cards`, set.sealed && `${set.sealed} sealed`];
+  const cards = setCardCount(set);
+  const sealed = setSealedCount(set);
+  const counts = [cards && `${cards} cards`, sealed && `${sealed} sealed`];
 
   return (
     <div className="flex items-center flex-none gap-5">
@@ -26,15 +28,15 @@ const SetHeader = ({ set, owned }: SetHeaderProps) => {
         <div className="mt-1 lg:mt-1.5 text-[13px] lg:text-sm text-ink-muted">
           <span className="lg:hidden">{[released?.getFullYear(), ...counts].filter(Boolean).join(" · ")}</span>
           <span className="hidden lg:inline">
-            {[released && `Released ${releaseDate.format(released)}`, set.cards && `${set.cards} cards`, set.sealed && `${set.sealed} sealed products`].filter(Boolean).join(" · ")}
+            {[released && `Released ${releaseDate.format(released)}`, cards && `${cards} cards`, sealed && `${sealed} sealed products`].filter(Boolean).join(" · ")}
           </span>
         </div>
       </div>
-      {owned.count > 0 && (
+      {size > 0 && (
         <div className="hidden ml-auto text-right lg:block">
-          <div className="text-xs font-medium text-ink-muted">You own from this set</div>
+          <div className="text-xs font-medium text-ink-muted">In this set</div>
           <div className="font-display font-medium text-[22px] tracking-[-0.02em] mt-1 whitespace-nowrap">
-            {owned.count} {owned.count === 1 ? "item" : "items"} · {eur(owned.value)}
+            {size} {size === 1 ? "item" : "items"}
           </div>
         </div>
       )}

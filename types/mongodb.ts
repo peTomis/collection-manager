@@ -117,6 +117,8 @@ export interface Sealed {
   set: string;
   variants: SealedVariant[];
   type: ItemSpecificType;
+  // Product image under public/, e.g. /sets/base_set/booster.webp
+  path?: string;
 }
 
 export interface Set {
@@ -128,6 +130,7 @@ export interface Set {
   sealed: number; // Number of sealed items in the set
   tcgdex: string; // The set identifier on tcgdex
   releasedAt: number; // Timestamp of the release date
+  counts?: { cards: number; sealed: number }; // Cards and sealed products actually in the database (added by /api/sets)
 }
 
 export interface CardPrice {

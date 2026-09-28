@@ -11,14 +11,18 @@ import { cn } from "@/lib/utils";
 interface SetRailProps {
   sets: Set[];
   selected: Set | null;
-  owned: Map<string, { count: number }>;
   onSelect: (set: Set) => void;
 }
+
+// Cards in the database (not the set's printed size in `cards`); sealed from the set's own `sealed` when it has one
+export const setCardCount = (set: Set) => set.counts?.cards ?? 0;
+export const setSealedCount = (set: Set) => set.sealed ?? set.counts?.sealed ?? 0;
+export const setSize = (set: Set) => setCardCount(set) + setSealedCount(set);
 
 const year = (set: Set) => (set.releasedAt ? new Date(set.releasedAt).getFullYear() : null);
 
 // Desktop: a searchable list of sets in the left rail. Mobile: a row of set chips.
-const SetRail = ({ sets, selected, owned, onSelect }: SetRailProps) => {
+const SetRail = ({ sets, selected, onSelect }: SetRailProps) => {
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
   const filtered = q ? sets.filter((s) => s.name.toLowerCase().includes(q)) : sets;
@@ -47,10 +51,10 @@ const SetRail = ({ sets, selected, owned, onSelect }: SetRailProps) => {
             <SetIcon set={s} className="w-[52px] h-[30px]" />
             <div className="min-w-0">
               <div className="text-sm font-medium truncate">{s.name}</div>
-              <div className="text-xs text-ink-muted mt-0.5">{[year(s), s.cards && `${s.cards} cards`].filter(Boolean).join(" · ")}</div>
+              <div className="text-xs text-ink-muted mt-0.5">{[year(s), setCardCount(s) && `${setCardCount(s)} cards`].filter(Boolean).join(" · ")}</div>
             </div>
-            <span className="font-geist-mono text-xs text-ink-muted" title="Items you own from this set">
-              {owned.get(s._id)?.count || ""}
+            <span className="font-geist-mono text-xs text-ink-muted" title="Cards and sealed products in this set">
+              {setSize(s) || ""}
             </span>
           </button>
         ))}

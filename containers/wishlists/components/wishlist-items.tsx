@@ -5,13 +5,14 @@ import Link from "next/link";
 // Components
 import Modal, { modalButton } from "@/components/atoms/modal";
 import CardArt from "@/components/atoms/card-art";
+import SealedArt from "@/components/atoms/sealed-art";
 
 // State
 import { useDispatch, useSelector } from "@/redux/store";
 import { deleteWishlistItem, setWishlistItemTarget } from "@/redux/slices/wishlists";
 import { addBinderItem, changeBinderItemQuantity } from "@/redux/slices/binders";
 import { WishlistItem, WishlistWithItems } from "@/types/mongodb";
-import { cardNumber, isSealed, itemPrice, languageLabel, summarizeWishlist, targetHit, variantLabel, binderAccepts } from "@/lib/items";
+import { cardNumber, isSealed, itemPrice, languageLabel, sealedPath, summarizeWishlist, targetHit, variantLabel, binderAccepts } from "@/lib/items";
 import { useSetsImages } from "@/lib/tcgdex";
 import { eur } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -115,6 +116,7 @@ const WishlistCard = ({ row: r, onEdit, onAcquire }: { row: Row; onEdit: () => v
       <div className={cn("relative aspect-[63/88] rounded-[5px] lg:rounded-md grid place-items-center self-start overflow-hidden", stripes)}>
         <span className="hidden lg:block font-geist-mono text-[10px] text-ink-muted">{isSealed(r.item) ? "product shot" : "card art"}</span>
         {r.image && <CardArt image={r.image} alt={r.item.item?.name ?? ""} />}
+        {sealedPath(r.item) && <SealedArt path={sealedPath(r.item)!} alt={r.item.item?.name ?? ""} />}
       </div>
 
       {/* Mobile */}
