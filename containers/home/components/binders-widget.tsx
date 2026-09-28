@@ -5,24 +5,12 @@ import Link from "next/link";
 import { useDispatch, useSelector } from "@/redux/store";
 import { setBinder } from "@/redux/slices/binders";
 import { BinderWithItems, ItemType } from "@/types/mongodb";
-import { getPastPrice, getPrice } from "@/utils/utils";
-import { change, deltaColor, eur, pct } from "@/lib/format";
+import { getPrice } from "@/utils/utils";
+import { deltaColor, eur, pct } from "@/lib/format";
+import { summarizeBinder } from "@/lib/items";
 import { cn } from "@/lib/utils";
 
-const summarize = (binder: BinderWithItems) => {
-  let value = 0;
-  let value30d = 0;
-  let cards = 0;
-  let sealed = 0;
-  for (const item of binder.items) {
-    value += getPrice(item.historicPrice) * item.quantity;
-    value30d += getPastPrice(item.historicPrice, "1m") * item.quantity;
-    if (item.type === ItemType.SEALED) sealed += item.quantity;
-    else cards += item.quantity;
-  }
-  const count = [cards && `${cards} cards`, sealed && `${sealed} sealed`].filter(Boolean).join(" · ") || "Empty";
-  return { binder, value, cards, sealed, count, change30d: change(value, value30d) };
-};
+const summarize = (binder: BinderWithItems) => ({ binder, ...summarizeBinder(binder) });
 
 const BindersWidget = () => {
   const { binders } = useSelector((state) => state.binders);
@@ -81,8 +69,8 @@ const BindersWidget = () => {
             </div>
             <div className="text-right">
               <div className="font-geist-mono font-medium text-sm lg:text-[15px]">{eur(r.value)}</div>
-              <div className={cn("font-geist-mono text-[11px] lg:text-xs lg:mt-1", deltaColor(r.change30d))}>
-                {pct(r.change30d)} <span className="text-ink-muted">30d</span>
+              <div className={cn("font-geist-mono text-[11px] lg:text-xs lg:mt-1", deltaColor(r.change1m))}>
+                {pct(r.change1m)} <span className="text-ink-muted">30d</span>
               </div>
             </div>
           </Link>

@@ -6,7 +6,8 @@ import Segmented from "@/components/atoms/segmented";
 
 // State
 import { useSelector } from "@/redux/store";
-import { BinderItem, Card, CardHistoricPrice, CardVariantType, ItemType, Sealed } from "@/types/mongodb";
+import { BinderItem, Card, ItemType, Sealed } from "@/types/mongodb";
+import { variantLabel } from "@/lib/items";
 import { getPastPrice, getPrice, PricePeriod } from "@/utils/utils";
 import { change, deltaColor, eur, pct, signedEur } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -19,15 +20,6 @@ const PERIODS: { value: PricePeriod; label: string; text: string }[] = [
   { value: "1m", label: "30d", text: "past 30 days" },
   { value: "1y", label: "1y", text: "past year" },
 ];
-
-const VARIANTS: Record<CardVariantType, string> = {
-  [CardVariantType.FIRST_EDITION]: "1st Edition",
-  [CardVariantType.ONE_STAR]: "One Star",
-  [CardVariantType.REGULAR]: "Regular",
-  [CardVariantType.REVERSE_HOLO]: "Reverse Holo",
-  [CardVariantType.SHADOWLESS]: "Shadowless",
-  [CardVariantType.TWO_STAR]: "Two Star",
-};
 
 interface Mover {
   id: string;
@@ -55,7 +47,7 @@ const TopFlop = () => {
       return { sub: [setName(sealed.set), "Sealed"].filter(Boolean).join(" · "), meta: [sealed.type, language].filter(Boolean).join(" · ") };
     }
     const card = item.item as Card;
-    const variant = VARIANTS[(item.historicPrice as CardHistoricPrice).type];
+    const variant = variantLabel(item);
     return { sub: [setName(card.set), card.number && `#${card.number}`].filter(Boolean).join(" · "), meta: [variant, language].filter(Boolean).join(" · ") };
   };
 

@@ -39,6 +39,10 @@
     --cm-loss: oklch(0.52 0.16 27);
     --cm-stripe-a: #e6e1d6;
     --cm-stripe-b: #eeeae2;
+    --cm-binder: 43 40 37;
+    --cm-binder-page: 239 235 227;
+    --cm-pocket-a: #e0dacd;
+    --cm-pocket-b: #e9e4da;
   }
 
   .dark {
@@ -52,6 +56,10 @@
     --cm-loss: oklch(0.7 0.15 27);
     --cm-stripe-a: #2a2723;
     --cm-stripe-b: #322f2a;
+    --cm-binder: 43 40 37;
+    --cm-binder-page: 29 27 24;
+    --cm-pocket-a: #34312b;
+    --cm-pocket-b: #3b3832;
   }
 }
 
@@ -66,7 +74,38 @@
   }
 }
 
+@layer components {
+  /* Binder view. Mobile: one page as wide as the screen, as in the design. Desktop: --pocket is the card
+     width that lets the two-page spread fit both the height and the width of the container, capped at
+     150px. The fixed px values are the binder's paddings, gaps and label heights
+     (see containers/binders/components/binder-items.tsx), card art is 63:88. */
+  .binder-fit {
+    container-type: inline-size;
+  }
+  .binder-fit > * {
+    /* Mobile, one page: width 56px + 3 cards */
+    --pocket: calc((100cqw - 56px) / 3);
+  }
+  @media (min-width: 1024px) {
+    .binder-fit {
+      container-type: size;
+    }
+    .binder-fit > * {
+      /* Desktop, two-page spread: height 165px + 3 cards, width 170px + 6 cards */
+      --pocket: max(40px, min(calc((100cqh - 170px) / 3 * 63 / 88), calc((100cqw - 170px) / 6), 150px));
+    }
+  }
+}
+
 @layer utilities {
+  /* Scrollable without a visible scrollbar (e.g. rows of chips on mobile) */
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
   @keyframes shake {
     0%,
     100% {

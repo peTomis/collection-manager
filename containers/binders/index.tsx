@@ -1,19 +1,23 @@
-// Components
-import Topbar from "@/components/organisms/topbar";
-import { useDispatch, useSelector } from "@/redux/store";
-import BinderItemList from "./components/binder-item-list";
+// Libraries
 import { useEffect, useState } from "react";
-import SearchTab from "@/components/organisms/search-tab";
-import DialogAddBinder from "./components/dialog-add-binder";
-import DialogDeleteBinder from "./components/dialog-delete-binder";
-import { getBinders, setBinder } from "@/redux/slices/binders";
+
+// State
+import { useDispatch, useSelector } from "@/redux/store";
+import { deleteBinder, getBinders, setBinder } from "@/redux/slices/binders";
 import { getSets } from "@/redux/slices/sets";
 
-const BindersContainer = () => {
-  const [binderToDelete, setBinderToDelete] = useState<null | string>(null);
-  const [dialogOpen, setDialogOpen] = useState<boolean>(false);
+// Components
+import Topbar from "@/components/organisms/topbar";
+import { ConfirmModal } from "@/components/atoms/modal";
+import BinderRail, { NewBinderModal } from "./components/binder-rail";
+import BinderHeader from "./components/binder-header";
+import BinderItems from "./components/binder-items";
 
-  const { binder, binders } = useSelector((state) => state.binders);
+const BindersContainer = () => {
+  const [deleting, setDeleting] = useState(false);
+  const [creating, setCreating] = useState(false);
+
+  const { binder, binders, loaded } = useSelector((state) => state.binders);
   const { user } = useSelector((state) => state.user);
 
   const dispatch = useDispatch();
@@ -24,41 +28,47 @@ const BindersContainer = () => {
     dispatch(getSets(user));
   }, [user]);
 
+  // Keep the selected binder in sync with the latest fetch, falling back to the first one
+  useEffect(() => {
+    const current = binders.find((b) => b._id === binder?._id) ?? binders[0] ?? null;
+    if (current !== binder) dispatch(setBinder(current));
+  }, [binders]);
+
+  // Desktop: fixed to the viewport, only the list scrolls and the binder pages fit. Mobile: a normal scrolling page.
   return (
-    <main className="relative flex flex-col w-screen min-h-screen overflow-clip md:h-screen">
+    <main className="flex flex-col min-h-screen lg:w-screen lg:h-dvh lg:overflow-hidden font-geist text-ink">
       <Topbar />
-      <DialogAddBinder
-        open={dialogOpen}
-        close={() => setDialogOpen(false)}
-        onItemAdded={() => {
-          setDialogOpen(false);
-        }}
-      />
-      <DialogDeleteBinder
-        binder={binderToDelete}
-        onClose={() => {
-          setBinderToDelete(null);
-        }}
-      />
-      <div className="flex flex-col w-full min-h-0 grid-cols-1 p-2 space-y-2 md:space-y-0 md:gap-2 md:grid md:flex-1 md:grid-cols-6">
-        <div className="min-h-0 col-span-1">
-          <SearchTab
-            placeholder="binder"
-            selected={binder?._id ?? ""}
-            list={binders.map((t) => ({ label: t.name, value: t._id }))}
-            onChange={(value) => {
-              const binderFound = binders.find((b) => b._id === value);
-              if (!binderFound) return;
-              dispatch(setBinder(binderFound));
-            }}
-            onAdd={() => setDialogOpen(true)}
-            onDelete={(id: string) => {
-              setBinderToDelete(id);
-            }}
-          />
-        </div>
-        <BinderItemList />
+      <div className="flex flex-col flex-1 w-full lg:min-h-0 max-w-[1440px] mx-auto lg:grid lg:grid-cols-[280px_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)]">
+        <BinderRail />
+        <section className="flex flex-col flex-1 min-w-0 px-4 pt-4 lg:min-h-0 lg:px-9 lg:pt-7">
+          {binder ? (
+            <>
+              <BinderHeader binder={binder} onDelete={() => setDeleting(true)} />
+              <BinderItems binder={binder} />
+            </>
+          ) : (
+            loaded && (
+              <div className="flex flex-col items-center gap-3 py-24 text-center">
+                <h1 className="font-display font-semibold text-[30px] tracking-[-0.03em]">No binders yet</h1>
+                <p className="text-sm text-ink-muted">Group the cards you own into binders to track their value.</p>
+                <button type="button" onClick={() => setCreating(true)} className="h-[38px] px-4 mt-2 rounded-[9px] bg-ink text-paper text-sm font-medium cursor-pointer">
+                  + New binder
+                </button>
+              </div>
+            )
+          )}
+        </section>
       </div>
+
+      <NewBinderModal open={creating} onClose={() => setCreating(false)} />
+      <ConfirmModal
+        open={deleting}
+        onClose={() => setDeleting(false)}
+        onConfirm={() => user && binder && dispatch(deleteBinder(user, binder._id))}
+        title="Delete binder"
+        description={`Delete ${binder?.name ?? "this binder"} and everything in it? This can't be undone.`}
+        confirmLabel="Delete"
+      />
     </main>
   );
 };

@@ -16,6 +16,7 @@ module.exports = {
         ink: { DEFAULT: "rgb(var(--cm-ink) / <alpha-value>)", muted: "rgb(var(--cm-ink-muted) / <alpha-value>)" },
         line: "rgb(var(--cm-line) / <alpha-value>)",
         chip: "rgb(var(--cm-chip) / <alpha-value>)",
+        binder: { DEFAULT: "rgb(var(--cm-binder) / <alpha-value>)", page: "rgb(var(--cm-binder-page) / <alpha-value>)" },
         gold: "oklch(0.6 0.13 75)",
         iris: "oklch(0.55 0.13 295)",
         gain: "var(--cm-gain)",
