@@ -1,11 +1,11 @@
-// Libraries
-
 // Components
+import Metadata from "@/components/metadata";
 import Topbar from "@/components/organisms/topbar";
 
-export default function Home() {
+export default function NotFound() {
   return (
     <main className="flex flex-col w-screen lg:h-screen">
+      <Metadata title="Page not found" noindex />
       <Topbar />
       <div className="relative flex flex-col items-center justify-center w-screen h-[70vh] p-2 space-y-2 lg:h-auto lg:flex-1">
         <div className="md:pb-64">

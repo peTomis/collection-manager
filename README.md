@@ -31,7 +31,7 @@ Live at [collectionmanager.petomis.com](https://www.collectionmanager.petomis.co
 - [Next.js 15](https://nextjs.org/) (Pages Router, API routes) with React 18 and TypeScript
 - [NextAuth.js v4](https://next-auth.js.org/) with Google sign-in (JWT sessions, no session storage)
 - [MongoDB](https://www.mongodb.com/) with the official Node.js driver
-- Redux Toolkit, Tailwind CSS, Radix UI / shadcn components, Recharts
+- Redux Toolkit, Tailwind CSS, Radix UI (dialogs)
 - [TCGdex](https://tcgdex.dev/) for card data and images, and the Pokémon TCG API for set data
 
 ## Getting started
@@ -52,20 +52,29 @@ yarn install
 
 Copy `.env.template` to `.env` and fill it in:
 
-| Variable | Description |
-| --- | --- |
-| `MONGODB_URI` | MongoDB connection string. Use a user with `readWrite` on the `collection-manager` database only. |
-| `NEXTAUTH_URL` | Public URL of the app, `http://localhost:5555` in development. |
-| `NEXTAUTH_SECRET` | Random secret used to sign sessions: `openssl rand -base64 32`. |
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID. |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret. |
+| Variable               | Description                                                                                       |
+| ---------------------- | ------------------------------------------------------------------------------------------------- |
+| `MONGODB_URI`          | MongoDB connection string. Use a user with `readWrite` on the `collection-manager` database only. |
+| `NEXTAUTH_URL`         | Public URL of the app, `http://localhost:5555` in development.                                    |
+| `NEXTAUTH_SECRET`      | Random secret used to sign sessions: `openssl rand -base64 32`.                                   |
+| `GOOGLE_CLIENT_ID`     | Google OAuth client ID.                                                                           |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret.                                                                       |
 
 To create the Google OAuth client, in [Google Cloud Console](https://console.cloud.google.com/apis/credentials) create an **OAuth client ID** of type **Web application** with:
 
 - Authorized JavaScript origin: `http://localhost:5555` (and your production URL)
 - Authorized redirect URI: `http://localhost:5555/api/auth/callback/google` (and `<production URL>/api/auth/callback/google`)
 
-### 3. Generate the demo collection (optional)
+### 3. Set up the collections
+
+```bash
+yarn db:setup           # dry run: shows the rules
+yarn db:setup --apply   # applies them (needs MONGODB_ADMIN_URI)
+```
+
+Adds the ownership rules to the user data collections: MongoDB rejects binders, wishlists and their items without a `user`, and each gets an index on `user`. Run it once per database; running it again is safe.
+
+### 4. Generate the demo collection (optional)
 
 ```bash
 yarn demo:generate
@@ -73,7 +82,7 @@ yarn demo:generate
 
 This rewrites `public/demo-collection.json`, the sample collection shown to visitors who are not signed in: a few binders and a wishlist built from random items of the catalog, with that day's prices. It only reads the database. The file is committed, so you only need to run this to refresh the demo.
 
-### 4. Run
+### 5. Run
 
 ```bash
 yarn dev
@@ -83,12 +92,13 @@ The app runs on [http://localhost:5555](http://localhost:5555).
 
 ## Scripts
 
-| Command | Description |
-| --- | --- |
-| `yarn dev` | Start the development server on port 5555. |
-| `yarn build` | Build for production. |
-| `yarn start` | Start the production server. |
-| `yarn demo:generate` | Regenerate the static demo collection from the catalog. |
+| Command              | Description                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------------- |
+| `yarn dev`           | Start the development server on port 5555.                                                  |
+| `yarn build`         | Build for production.                                                                       |
+| `yarn start`         | Start the production server.                                                                |
+| `yarn demo:generate` | Regenerate the static demo collection from the catalog.                                     |
+| `yarn db:setup`      | Add the ownership validators and indexes to the user data collections (`--apply` to write). |
 
 ## Project structure
 
@@ -99,12 +109,14 @@ components/     Shared UI components
 redux/          Store and slices, one per resource
 lib/            MongoDB client, authentication, input validation, demo collection
 types/          Data models and constants
-scripts/        Maintenance scripts (demo generator)
+scripts/        Maintenance scripts (demo generator, collection setup, cleanups)
 ```
 
 ## Security
 
 - The user is always resolved on the server from the session cookie, never from the request.
+- Every binder, wishlist and item carries its owner (`user`), and every query on them filters by the session user, so one user's documents are never read or changed by another. Items are checked through their list and by their own `user`.
+- MongoDB has no row-level security, so the database enforces the next best thing (`yarn db:setup`): documents without an owner are rejected. The app's database user has `readWrite` only and can't change these rules.
 - Visitors who are not signed in cannot use the collection API: the demo runs entirely in their browser.
 - API input is validated (Joi), and user content has limits: 50 binders and 50 wishlists per user, 2000 items each, names up to 100 characters.
 - Security headers (Content Security Policy, frame protection, HSTS) are set in `next.config.js`.

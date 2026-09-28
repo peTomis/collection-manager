@@ -11,9 +11,9 @@ const countWishlists = async (user: ObjectId): Promise<number> => {
   return client.db("collection-manager").collection("wishlists").countDocuments({ user });
 };
 
-const countWishlistItems = async (wishlist: string): Promise<number> => {
+const countWishlistItems = async (wishlist: string, user: ObjectId): Promise<number> => {
   await client.connect();
-  return client.db("collection-manager").collection("wishlist-items").countDocuments({ wishlist });
+  return client.db("collection-manager").collection("wishlist-items").countDocuments({ wishlist, user });
 };
 
 const fetchWishlists = async (user: ObjectId): Promise<Wishlist[]> => {
@@ -32,11 +32,12 @@ const fetchWishlistsWithCard = async (user: ObjectId): Promise<Wishlist[]> => {
     {
       $lookup: {
         from: "wishlist-items",
-        let: { wishlistId: "$_id" },
+        let: { wishlistId: "$_id", userId: "$user" },
         pipeline: [
           {
             $match: {
-              $expr: { $eq: [{ $toObjectId: "$wishlist" }, "$$wishlistId"] },
+              // Items carry their owner too: only the wishlist owner's items are joined
+              $expr: { $and: [{ $eq: [{ $toObjectId: "$wishlist" }, "$$wishlistId"] }, { $eq: ["$user", "$$userId"] }] },
             },
           },
 
@@ -155,18 +156,27 @@ const deleteWishlist = async (id: string, user: ObjectId): Promise<boolean> => {
   const db: Db = client.db("collection-manager");
   const result = await db.collection("wishlists").deleteOne({ _id, user });
   if (result.deletedCount !== 1) return false;
-  await db.collection("wishlist-items").deleteMany({ wishlist: id });
+  await db.collection("wishlist-items").deleteMany({ wishlist: id, user });
   return true;
 };
 
 const addItemToWishlist = async (user: ObjectId, item: WishlistToSave): Promise<WishlistItem | null> => {
-  const { _id, ...itemData } = item;
   await client.connect();
   const db: Db = client.db("collection-manager");
   const wishlistData = await db.collection("wishlists").findOne({ _id: new ObjectId(item.wishlist), user });
   if (!wishlistData) return null;
+  // Only the known fields are stored, stamped with the owner
+  const itemData = {
+    name: item.name,
+    type: item.type,
+    item: item.item,
+    historicPrice: item.historicPrice,
+    wishlist: item.wishlist,
+    user,
+    ...(item.target !== undefined && { target: item.target }),
+  };
   const result = await db.collection("wishlist-items").insertOne(itemData);
-  return JSON.parse(JSON.stringify({ ...item, _id: result.insertedId }));
+  return JSON.parse(JSON.stringify({ ...itemData, _id: result.insertedId }));
 };
 
 const setItemTarget = async (user: ObjectId, wishlist: string, id: string, target?: number): Promise<boolean> => {
@@ -176,7 +186,7 @@ const setItemTarget = async (user: ObjectId, wishlist: string, id: string, targe
   const wishlistData = await db.collection("wishlists").findOne({ _id: new ObjectId(wishlist), user });
   if (!wishlistData) return false;
   const update = target === undefined ? { $unset: { target: "" } } : { $set: { target } };
-  const result = await db.collection("wishlist-items").updateOne({ _id, wishlist }, update);
+  const result = await db.collection("wishlist-items").updateOne({ _id, wishlist, user }, update);
   return result.matchedCount === 1;
 };
 
@@ -186,7 +196,7 @@ const deleteItemFromWishlist = async (user: ObjectId, wishlist: string, id: stri
   const db: Db = client.db("collection-manager");
   const wishlistData = await db.collection("wishlists").findOne({ _id: new ObjectId(wishlist), user });
   if (!wishlistData) return false;
-  const result = await db.collection("wishlist-items").deleteOne({ _id, wishlist });
+  const result = await db.collection("wishlist-items").deleteOne({ _id, wishlist, user });
   return result.deletedCount === 1;
 };
 
@@ -231,7 +241,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
 
-      if ((await countWishlistItems(item.wishlist)) >= LIMITS.ITEMS_PER_LIST) return res.status(409).json({ message: "Wishlist items limit reached" });
+      if ((await countWishlistItems(item.wishlist, user)) >= LIMITS.ITEMS_PER_LIST) return res.status(409).json({ message: "Wishlist items limit reached" });
       const added = await addItemToWishlist(user, item);
       if (!added) return res.status(404).json({ message: "Wishlist not found" });
       return res.status(201).json({});

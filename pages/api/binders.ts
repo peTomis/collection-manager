@@ -11,9 +11,9 @@ const countBinders = async (user: ObjectId): Promise<number> => {
   return client.db("collection-manager").collection("binders").countDocuments({ user });
 };
 
-const countBinderItems = async (binder: string): Promise<number> => {
+const countBinderItems = async (binder: string, user: ObjectId): Promise<number> => {
   await client.connect();
-  return client.db("collection-manager").collection("binder-items").countDocuments({ binder });
+  return client.db("collection-manager").collection("binder-items").countDocuments({ binder, user });
 };
 
 const fetchBinders = async (user: ObjectId): Promise<Binder[]> => {
@@ -32,11 +32,12 @@ const fetchBindersWithCard = async (user: ObjectId): Promise<Binder[]> => {
     {
       $lookup: {
         from: "binder-items",
-        let: { binderId: "$_id" },
+        let: { binderId: "$_id", userId: "$user" },
         pipeline: [
           {
             $match: {
-              $expr: { $eq: [{ $toObjectId: "$binder" }, "$$binderId"] },
+              // Items carry their owner too: only the binder owner's items are joined
+              $expr: { $and: [{ $eq: [{ $toObjectId: "$binder" }, "$$binderId"] }, { $eq: ["$user", "$$userId"] }] },
             },
           },
 
@@ -160,12 +161,11 @@ const deleteBinder = async (id: string, user: ObjectId): Promise<boolean> => {
   const db: Db = client.db("collection-manager");
   const result = await db.collection("binders").deleteOne({ _id, user });
   if (result.deletedCount !== 1) return false;
-  await db.collection("binder-items").deleteMany({ binder: id });
+  await db.collection("binder-items").deleteMany({ binder: id, user });
   return true;
 };
 
 const addItemToBinder = async (user: ObjectId, item: BinderToSave): Promise<BinderItem | "not-found" | "wrong-set"> => {
-  const { _id, ...itemData } = item;
   await client.connect();
   const db: Db = client.db("collection-manager");
   const binderData = await db.collection("binders").findOne({ _id: new ObjectId(item.binder), user });
@@ -175,8 +175,10 @@ const addItemToBinder = async (user: ObjectId, item: BinderToSave): Promise<Bind
     const card = item.type === ItemType.CARD ? await db.collection("cards").findOne({ _id: new ObjectId(item.item) }) : null;
     if (card?.set !== String(binderData.set)) return "wrong-set";
   }
+  // Only the known fields are stored, stamped with the owner
+  const itemData = { name: item.name, type: item.type, item: item.item, historicPrice: item.historicPrice, quantity: item.quantity, binder: item.binder, user };
   const result = await db.collection("binder-items").insertOne(itemData);
-  return JSON.parse(JSON.stringify({ ...item, _id: result.insertedId }));
+  return JSON.parse(JSON.stringify({ ...itemData, _id: result.insertedId }));
 };
 
 const changeItemQuantity = async (user: ObjectId, binder: string, id: string, quantity: number): Promise<boolean> => {
@@ -185,7 +187,7 @@ const changeItemQuantity = async (user: ObjectId, binder: string, id: string, qu
   const db: Db = client.db("collection-manager");
   const binderData = await db.collection("binders").findOne({ _id: new ObjectId(binder), user });
   if (!binderData) return false;
-  const result = await db.collection("binder-items").updateOne({ _id, binder }, { $set: { quantity } });
+  const result = await db.collection("binder-items").updateOne({ _id, binder, user }, { $set: { quantity } });
   return result.modifiedCount === 1;
 };
 
@@ -195,7 +197,7 @@ const deleteItemFromBinder = async (user: ObjectId, binder: string, id: string):
   const db: Db = client.db("collection-manager");
   const binderData = await db.collection("binders").findOne({ _id: new ObjectId(binder), user });
   if (!binderData) return false;
-  const result = await db.collection("binder-items").deleteOne({ _id, binder });
+  const result = await db.collection("binder-items").deleteOne({ _id, binder, user });
   return result.deletedCount === 1;
 };
 
@@ -242,7 +244,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
 
-      if ((await countBinderItems(item.binder)) >= LIMITS.ITEMS_PER_LIST) return res.status(409).json({ message: "Binder items limit reached" });
+      if ((await countBinderItems(item.binder, user)) >= LIMITS.ITEMS_PER_LIST) return res.status(409).json({ message: "Binder items limit reached" });
       const added = await addItemToBinder(user, item);
       if (added === "not-found") return res.status(404).json({ message: "Binder not found" });
       if (added === "wrong-set") return res.status(422).json({ message: "Only cards of the binder's set can be added" });
