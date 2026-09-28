@@ -1,13 +1,13 @@
 // Libraries
 
 // Components
-import Sidebar from "@/components/organisms/sidebar";
+import Topbar from "@/components/organisms/topbar";
 
 export default function Home() {
   return (
-    <main className="flex flex-col w-screen lg:flex-row lg:h-screen">
-      <Sidebar />
-      <div className="relative flex flex-col items-center justify-center w-screen h-[70vh] p-2 space-y-2 lg:h-screen">
+    <main className="flex flex-col w-screen lg:h-screen">
+      <Topbar />
+      <div className="relative flex flex-col items-center justify-center w-screen h-[70vh] p-2 space-y-2 lg:h-auto lg:flex-1">
         <div className="md:pb-64">
           <img src={"./assets/404.png"} width={512} height={512} alt="Messi" />
         </div>

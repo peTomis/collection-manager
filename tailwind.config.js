@@ -4,7 +4,19 @@ module.exports = {
   darkMode: ["class"],
   theme: {
     extend: {
+      fontFamily: {
+        display: ["var(--font-display)", "sans-serif"],
+        geist: ["var(--font-geist)", "sans-serif"],
+        "geist-mono": ["var(--font-geist-mono)", "monospace"],
+      },
       colors: {
+        // Collection Manager design palette
+        paper: "#FBFAF7",
+        canvas: "#F6F4EF",
+        ink: { DEFAULT: "#1D1B18", muted: "#6B665E" },
+        line: "#E4E0D7",
+        chip: "#EDEAE3",
+        gold: "oklch(0.6 0.13 75)",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

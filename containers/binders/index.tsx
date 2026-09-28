@@ -1,5 +1,5 @@
 // Components
-import Sidebar from "../../components/organisms/sidebar";
+import Topbar from "@/components/organisms/topbar";
 import { useDispatch, useSelector } from "@/redux/store";
 import BinderItemList from "./components/binder-item-list";
 import { useEffect, useState } from "react";
@@ -26,9 +26,9 @@ const BindersContainer = () => {
   }, [user]);
 
   return (
-    <main className="relative flex flex-col w-screen min-h-screen overflow-hidden md:h-screen lg:flex-row">
+    <main className="relative flex flex-col w-screen min-h-screen overflow-hidden md:h-screen">
       <div className="absolute top-0 left-0 w-screen h-screen bg-[url('/assets/bg.jpg')] bg-cover bg-center -z-10 opacity-10" />
-      <Sidebar />
+      <Topbar />
       <UserHandler />
       <DialogAddBinder
         open={dialogOpen}
@@ -43,7 +43,7 @@ const BindersContainer = () => {
           setBinderToDelete(null);
         }}
       />
-      <div className="flex flex-col w-full min-h-0 grid-cols-1 p-2 space-y-2 md:space-y-0 md:gap-2 md:grid md:h-screen md:grid-cols-6">
+      <div className="flex flex-col w-full min-h-0 grid-cols-1 p-2 space-y-2 md:space-y-0 md:gap-2 md:grid md:flex-1 md:grid-cols-6">
         <div className="min-h-0 col-span-1">
           <SearchTab
             placeholder="binder"

@@ -1,5 +1,5 @@
 // Components
-import Sidebar from "../../components/organisms/sidebar";
+import Topbar from "@/components/organisms/topbar";
 import { useEffect, useState } from "react";
 import DatabaseMainSwitch from "./components/database-main-switch";
 import DatabaseSetContainer from "./components/database-set-container";
@@ -26,11 +26,11 @@ const DatabaseContainer = () => {
     dispatch(getWishlists(user));
   }, [user]);
   return (
-    <main className="relative flex flex-col w-screen min-h-screen overflow-hidden md:h-screen lg:flex-row">
+    <main className="relative flex flex-col w-screen min-h-screen overflow-hidden md:h-screen">
       <div className="absolute top-0 left-0 w-screen h-screen bg-[url('/assets/bg.jpg')] bg-cover bg-center -z-10 opacity-10" />
-      <Sidebar />
+      <Topbar />
       <UserHandler />
-      <div className="grid w-full p-4 gap-4 grid-rows-[auto,1fr] min-h-0">
+      <div className="grid flex-1 w-full p-4 gap-4 grid-rows-[auto,1fr] min-h-0">
         <div className="flex flex-row items-center justify-center space-x-2">
           <DatabaseMainSwitch
             name={DatabaseCategory.SET}
