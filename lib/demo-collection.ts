@@ -114,7 +114,13 @@ export const addDemoWishlistItem = (item: WishlistToSave, details?: DemoItemDeta
   update((c) => {
     const wishlist = c.wishlists.find((w) => w._id === item.wishlist);
     if (!wishlist || !details) return;
-    wishlist.items.push({ _id: newId(), name: item.name, type: item.type, wishlist: item.wishlist, ...details });
+    wishlist.items.push({ _id: newId(), name: item.name, type: item.type, wishlist: item.wishlist, target: item.target, ...details });
+  });
+
+export const setDemoWishlistItemTarget = (wishlistId: string, itemId: string, target?: number) =>
+  update((c) => {
+    const item = c.wishlists.find((w) => w._id === wishlistId)?.items.find((i) => i._id === itemId);
+    if (item) item.target = target;
   });
 
 export const deleteDemoWishlistItem = (wishlistId: string, itemId: string) =>

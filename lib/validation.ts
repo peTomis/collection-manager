@@ -9,11 +9,4 @@ export const parseObjectId = (value: string | string[] | undefined): ObjectId | 
   return id && ObjectId.isValid(id) && /^[0-9a-f]{24}$/i.test(id) ? new ObjectId(id) : null;
 };
 
-// Caps for user generated content
-export const LIMITS = {
-  NAME_LENGTH: 100,
-  LISTS_PER_USER: 50,
-  ITEMS_PER_LIST: 2000,
-  QUANTITY: 9999,
-  HISTORIC_PRICES_BATCH: 1000,
-};
+export { LIMITS } from "@/lib/limits";

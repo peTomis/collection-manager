@@ -68,9 +68,7 @@ const BinderItems = ({ binder }: { binder: BinderWithItems }) => {
     });
 
     const byNumber = (a: Row, b: Row) =>
-      Number(isSealed(a.item)) - Number(isSealed(b.item)) ||
-      (setIndex.get(a.item.item?.set) ?? 0) - (setIndex.get(b.item.item?.set) ?? 0) ||
-      (a.number ?? 0) - (b.number ?? 0);
+      Number(isSealed(a.item)) - Number(isSealed(b.item)) || (setIndex.get(a.item.item?.set) ?? 0) - (setIndex.get(b.item.item?.set) ?? 0) || (a.number ?? 0) - (b.number ?? 0);
     const compare: Record<Sort, (a: Row, b: Row) => number> = {
       number: byNumber,
       value: (a, b) => b.total - a.total,
@@ -106,7 +104,12 @@ const BinderItems = ({ binder }: { binder: BinderWithItems }) => {
             <circle cx="7" cy="7" r="5" />
             <line x1="11" y1="11" x2="14.5" y2="14.5" />
           </svg>
-          <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter this binder" className="flex-1 min-w-0 bg-transparent outline-none text-ink placeholder:text-ink-muted" />
+          <input
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Filter this binder"
+            className="flex-1 min-w-0 bg-transparent outline-none text-ink placeholder:text-ink-muted"
+          />
         </label>
         <label className="hidden lg:flex items-center gap-1.5 h-[38px] pl-3 pr-2 border border-line rounded-[9px] bg-paper text-[13px]">
           <span className="text-ink-muted">Sort</span>
@@ -164,14 +167,19 @@ const BinderGrid = ({ rows, page, setPage }: { rows: Row[]; page: number; setPag
   return (
     <>
       <div className="lg:flex-1 lg:min-h-0 binder-fit">
-        <div className="w-fit mx-auto p-2.5 lg:p-[22px] rounded-[14px] lg:rounded-2xl bg-binder shadow-[inset_0_0_0_1px_rgba(255,255,255,.04)] lg:grid lg:grid-cols-[auto_auto] lg:gap-[22px]">
+        <div className="w-fit mx-auto p-2.5 lg:p-[16px] rounded-[14px] lg:rounded-2xl bg-binder shadow-[inset_0_0_0_1px_rgba(255,255,255,.04)] lg:grid lg:grid-cols-[auto_auto] lg:gap-[16px]">
           <Page rows={pageRows(page)} className="lg:hidden" />
           <Page rows={pageRows(spread)} className="hidden lg:grid" />
           <Page rows={pageRows(spread + 1)} className="hidden lg:grid" />
         </div>
       </div>
 
-      <Pager className="lg:hidden" label={`Page ${page + 1} of ${pages}`} prev={page > 0 ? () => setPage(page - 1) : undefined} next={page < pages - 1 ? () => setPage(page + 1) : undefined} />
+      <Pager
+        className="lg:hidden"
+        label={`Page ${page + 1} of ${pages}`}
+        prev={page > 0 ? () => setPage(page - 1) : undefined}
+        next={page < pages - 1 ? () => setPage(page + 1) : undefined}
+      />
       <Pager
         className="hidden lg:flex"
         label={spread + 1 < pages ? `Pages ${spread + 1}–${spread + 2} of ${pages}` : `Page ${spread + 1} of ${pages}`}
@@ -190,7 +198,12 @@ const Page = ({ rows, className }: { rows: Row[]; className?: string }) => (
     {Array.from({ length: PAGE_SIZE }, (_, i) => rows[i]).map((r, i) =>
       r ? (
         <div key={r.item._id} className="flex flex-col gap-[5px] lg:gap-[7px] min-w-0">
-          <div className={cn("relative aspect-[63/88] rounded-[5px] lg:rounded-md grid place-items-center shadow-[0_1px_2px_rgba(29,27,24,.12),inset_0_0_0_1px_rgba(29,27,24,.06)]", stripes)}>
+          <div
+            className={cn(
+              "relative aspect-[63/88] rounded-[5px] lg:rounded-md grid place-items-center shadow-[0_1px_2px_rgba(29,27,24,.12),inset_0_0_0_1px_rgba(29,27,24,.06)]",
+              stripes,
+            )}
+          >
             <span className="absolute top-1 left-1 lg:top-1.5 lg:left-1.5 font-geist-mono font-medium text-[9px] lg:text-[10px] bg-paper text-ink px-1 lg:px-[5px] py-px lg:py-0.5 rounded-[3px]">
               {r.number !== undefined ? `#${r.number}` : "Sealed"}
             </span>
@@ -211,13 +224,14 @@ const Page = ({ rows, className }: { rows: Row[]; className?: string }) => (
           <div className="aspect-[63/88] rounded-[5px] lg:rounded-md border-[1.5px] border-dashed border-ink-muted/30" />
           <div className={LABEL_HEIGHT} />
         </div>
-      )
+      ),
     )}
   </div>
 );
 
 const Pager = ({ label, prev, next, className }: { label: string; prev?: () => void; next?: () => void; className?: string }) => {
-  const button = "w-11 h-11 lg:w-9 lg:h-9 rounded-[10px] lg:rounded-lg border border-line bg-paper disabled:text-ink-muted disabled:opacity-60 cursor-pointer disabled:cursor-default";
+  const button =
+    "w-11 h-11 lg:w-9 lg:h-9 rounded-[10px] lg:rounded-lg border border-line bg-paper disabled:text-ink-muted disabled:opacity-60 cursor-pointer disabled:cursor-default";
   return (
     <div className={cn("flex flex-none items-center justify-center gap-3.5 lg:gap-4 mt-3 mb-4 lg:mt-4 lg:mb-6 font-geist-mono font-medium text-[13px]", className)}>
       <button type="button" aria-label="Previous page" className={button} disabled={!prev} onClick={prev}>
@@ -252,14 +266,14 @@ const BinderList = ({ rows, setQuantity }: { rows: Row[]; setQuantity: (item: Bi
         className={cn(
           "grid grid-cols-[34px_minmax(0,1fr)_auto] gap-3 lg:gap-3.5 items-center px-3.5 lg:px-[18px] py-2.5 lg:py-2 text-sm",
           i > 0 && "border-t border-chip",
-          LIST_COLUMNS
+          LIST_COLUMNS,
         )}
       >
         <span className="hidden font-geist-mono text-[13px] text-ink-muted lg:block">{r.number !== undefined ? String(r.number).padStart(3, "0") : "—"}</span>
         <div className={cn("w-[34px] h-[47px] rounded-[3px]", stripes)} />
         <div className="min-w-0">
           <div className="font-medium truncate">
-            <span className="lg:hidden font-geist-mono text-xs font-normal text-ink-muted">{r.number !== undefined ? String(r.number).padStart(3, "0") + " " : ""}</span>
+            <span className="text-xs font-normal lg:hidden font-geist-mono text-ink-muted">{r.number !== undefined ? String(r.number).padStart(3, "0") + " " : ""}</span>
             {r.item.item?.name}
           </div>
           <div className="text-xs truncate text-ink-muted mt-0.5">
@@ -272,11 +286,11 @@ const BinderList = ({ rows, setQuantity }: { rows: Row[]; setQuantity: (item: Bi
           <Stepper className="mt-1.5 lg:hidden" quantity={r.item.quantity} onChange={(q) => setQuantity(r.item, q)} />
         </div>
         <span className="hidden truncate lg:block text-ink-muted">{variantLabel(r.item)}</span>
-        <span className="hidden lg:block font-geist-mono font-medium text-xs">{languageLabel(r.item)}</span>
+        <span className="hidden text-xs font-medium lg:block font-geist-mono">{languageLabel(r.item)}</span>
         <Stepper className="hidden lg:flex justify-self-center" quantity={r.item.quantity} onChange={(q) => setQuantity(r.item, q)} />
         <span className="hidden text-right lg:block font-geist-mono text-ink-muted">{eur(r.price)}</span>
         <div className="text-right">
-          <div className="font-geist-mono font-medium">{eur(r.total)}</div>
+          <div className="font-medium font-geist-mono">{eur(r.total)}</div>
           <div className={cn("lg:hidden font-geist-mono text-[11px]", deltaColor(r.change1m))}>{pct(r.change1m)}</div>
         </div>
         <span className={cn("hidden lg:block text-right font-geist-mono font-medium text-[13px]", deltaColor(r.change1m))}>{pct(r.change1m)}</span>

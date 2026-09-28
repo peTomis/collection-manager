@@ -169,6 +169,17 @@ const addItemToWishlist = async (user: ObjectId, item: WishlistToSave): Promise<
   return JSON.parse(JSON.stringify({ ...item, _id: result.insertedId }));
 };
 
+const setItemTarget = async (user: ObjectId, wishlist: string, id: string, target?: number): Promise<boolean> => {
+  await client.connect();
+  const _id = new ObjectId(id);
+  const db: Db = client.db("collection-manager");
+  const wishlistData = await db.collection("wishlists").findOne({ _id: new ObjectId(wishlist), user });
+  if (!wishlistData) return false;
+  const update = target === undefined ? { $unset: { target: "" } } : { $set: { target } };
+  const result = await db.collection("wishlist-items").updateOne({ _id, wishlist }, update);
+  return result.matchedCount === 1;
+};
+
 const deleteItemFromWishlist = async (user: ObjectId, wishlist: string, id: string): Promise<boolean> => {
   await client.connect();
   const _id = new ObjectId(id);
@@ -211,6 +222,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ message: "Invalid wishlist item data" });
       }
 
+      if (item._id) {
+        const success = await setItemTarget(user, item.wishlist, item._id, item.target);
+        if (success) {
+          return res.status(200).json({ message: "Wishlist item updated successfully" });
+        } else {
+          return res.status(404).json({ message: "Wishlist item not found" });
+        }
+      }
+
       if ((await countWishlistItems(item.wishlist)) >= LIMITS.ITEMS_PER_LIST) return res.status(409).json({ message: "Wishlist items limit reached" });
       const added = await addItemToWishlist(user, item);
       if (!added) return res.status(404).json({ message: "Wishlist not found" });
@@ -251,6 +271,7 @@ const validateWishlistItem = (item: any) => {
     type: Joi.string().valid(ItemType.CARD, ItemType.SEALED).required(),
     historicPrice: Joi.string().hex().length(24).required(),
     item: Joi.string().hex().length(24).required(),
+    target: Joi.number().min(0).max(10_000_000).optional(),
   });
   return schema.validate(item);
 };

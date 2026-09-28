@@ -1,4 +1,4 @@
-import { BinderItem, BinderWithItems, Card, CardHistoricPrice, CardVariantType, ItemType, Sealed, Set } from "@/types/mongodb";
+import { BinderWithItems, Card, CardHistoricPrice, CardVariantType, ItemType, ItemWithJoin, Sealed, Set, WishlistItem, WishlistWithItems } from "@/types/mongodb";
 import { getPastPrice, getPrice } from "@/utils/utils";
 import { change } from "@/lib/format";
 
@@ -11,17 +11,17 @@ export const VARIANT_LABELS: Record<CardVariantType, string> = {
   [CardVariantType.TWO_STAR]: "Two Star",
 };
 
-export const isSealed = (item: BinderItem) => item.type === ItemType.SEALED;
+export const isSealed = (item: ItemWithJoin) => item.type === ItemType.SEALED;
 
-export const cardNumber = (item: BinderItem) => (isSealed(item) ? undefined : (item.item as Card).number);
+export const cardNumber = (item: ItemWithJoin) => (isSealed(item) ? undefined : (item.item as Card).number);
 
 // "1st Edition" for cards, the product type ("Booster Box") for sealed
-export const variantLabel = (item: BinderItem) =>
+export const variantLabel = (item: ItemWithJoin) =>
   isSealed(item) ? (item.item as Sealed).type ?? "Sealed" : VARIANT_LABELS[(item.historicPrice as CardHistoricPrice)?.type] ?? "";
 
-export const languageLabel = (item: BinderItem) => item.historicPrice?.language?.toUpperCase() ?? "";
+export const languageLabel = (item: ItemWithJoin) => item.historicPrice?.language?.toUpperCase() ?? "";
 
-export const itemPrice = (item: BinderItem) => (item.historicPrice ? getPrice(item.historicPrice) : 0);
+export const itemPrice = (item: ItemWithJoin) => (item.historicPrice ? getPrice(item.historicPrice) : 0);
 
 export const summarizeBinder = (binder: BinderWithItems) => {
   let value = 0;
@@ -52,4 +52,22 @@ export const setCompletion = (binder: BinderWithItems, sets: Set[]) => {
   if (!set?.cards) return null;
   const owned = new globalThis.Set(cards.map((i) => (i.item as Card).number)).size;
   return { set: set.name, owned, total: set.cards, percent: Math.min(100, Math.round((owned / set.cards) * 100)) };
+};
+
+// A wishlist item is a "target hit" when its price is at or below the price the user set
+export const targetHit = (item: WishlistItem) => item.target !== undefined && itemPrice(item) > 0 && itemPrice(item) <= item.target;
+
+export const summarizeWishlist = (wishlist: WishlistWithItems) => {
+  let value = 0;
+  let targetValue = 0;
+  let sealed = 0;
+  for (const item of wishlist.items) {
+    const price = itemPrice(item);
+    value += price;
+    // Items without a target count at their current price
+    targetValue += item.target ?? price;
+    if (isSealed(item)) sealed++;
+  }
+  const count = wishlist.items.length;
+  return { value, targetValue, count, sealed, cards: count - sealed, hits: wishlist.items.filter(targetHit), label: count === 1 ? "1 item" : `${count} items` };
 };

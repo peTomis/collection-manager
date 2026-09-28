@@ -1,7 +1,7 @@
-import { Wishlist, WishlistToSave, WishlistWithItems } from "@/types/mongodb";
+import { WishlistItem, WishlistToSave, WishlistWithItems } from "@/types/mongodb";
 import { createSlice, Dispatch } from "@reduxjs/toolkit";
 import { DEMO_USER } from "@/types/constants";
-import { addDemoWishlistItem, createDemoWishlist, deleteDemoWishlist, deleteDemoWishlistItem, DemoItemDetails, getDemoWishlists } from "@/lib/demo-collection";
+import { addDemoWishlistItem, createDemoWishlist, deleteDemoWishlist, deleteDemoWishlistItem, DemoItemDetails, getDemoWishlists, setDemoWishlistItemTarget } from "@/lib/demo-collection";
 
 const initialState: {
   wishlist: null | WishlistWithItems;
@@ -113,6 +113,28 @@ export function addWishlistItem(user: string, item: WishlistToSave, details?: De
           },
           body: JSON.stringify({ item }),
         });
+      getWishlists(user)(dispatch);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+}
+
+// target: the price the user wants to pay, undefined to clear it
+export function setWishlistItemTarget(user: string, item: WishlistItem, target?: number) {
+  return async (dispatch: Dispatch) => {
+    try {
+      if (user === DEMO_USER) await setDemoWishlistItemTarget(item.wishlist, item._id, target);
+      else {
+        const toSave: WishlistToSave = { _id: item._id, name: item.name, type: item.type, item: item.item._id, historicPrice: item.historicPrice._id, wishlist: item.wishlist, target };
+        await fetch(`/api/wishlists?user=${user}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ item: toSave }),
+        });
+      }
       getWishlists(user)(dispatch);
     } catch (error) {
       console.error(error);

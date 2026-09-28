@@ -1,51 +1,75 @@
+// Libraries
+import { useEffect, useMemo } from "react";
+
+// State
+import { useDispatch, useSelector } from "@/redux/store";
+import { getBinders } from "@/redux/slices/binders";
+import { getWishlists } from "@/redux/slices/wishlists";
+import { getSets, setSet } from "@/redux/slices/sets";
+import { itemPrice } from "@/lib/items";
+import { useSetCatalog } from "./use-set-catalog";
+
 // Components
 import Topbar from "@/components/organisms/topbar";
-import { useEffect, useState } from "react";
-import DatabaseMainSwitch from "./components/database-main-switch";
-import DatabaseSetContainer from "./components/database-set-container";
-import DatabaseTypeContainer from "./components/database-type-container";
-import { getBinders } from "@/redux/slices/binders";
-import { useDispatch, useSelector } from "@/redux/store";
-import { getWishlists } from "@/redux/slices/wishlists";
-
-enum DatabaseCategory {
-  SET = "SET",
-  TYPE = "TYPE",
-}
+import SetRail from "./components/set-rail";
+import SetHeader from "./components/set-header";
+import SetItems from "./components/set-items";
 
 const DatabaseContainer = () => {
-  const [category, setCategory] = useState<DatabaseCategory>(DatabaseCategory.SET);
   const { user } = useSelector((state) => state.user);
+  const { set, sets: setsByRelease, loaded } = useSelector((state) => state.sets);
+  const { binders } = useSelector((state) => state.binders);
 
   const dispatch = useDispatch();
 
   useEffect(() => {
     if (!user) return;
+    dispatch(getSets(user));
+    // Destinations of "+ Binder" and "+ Wishlist", and what the user already owns
     dispatch(getBinders(user));
     dispatch(getWishlists(user));
   }, [user]);
+
+  const sets = useMemo(() => [...setsByRelease].reverse(), [setsByRelease]);
+
+  // Open the newest set until the user picks one
+  useEffect(() => {
+    if (!set && sets.length) dispatch(setSet(sets[0]));
+  }, [sets]);
+
+  const catalog = useSetCatalog(user, set?._id);
+
+  // Quantity owned per item and per set, across all binders
+  const owned = useMemo(() => {
+    const byItem = new Map<string, number>();
+    const totalsBySet = new Map<string, { count: number; value: number }>();
+    for (const item of binders.flatMap((b) => b.items)) {
+      const id = item.item?._id;
+      const setId = item.item?.set;
+      if (!id) continue;
+      byItem.set(id, (byItem.get(id) ?? 0) + item.quantity);
+      const totals = totalsBySet.get(setId) ?? { count: 0, value: 0 };
+      totalsBySet.set(setId, { count: totals.count + item.quantity, value: totals.value + itemPrice(item) * item.quantity });
+    }
+    return { byItem, totalsBySet };
+  }, [binders]);
+
+  // Desktop: fixed to the viewport, only the rail and the products scroll. Mobile: a normal scrolling page.
   return (
-    <main className="relative flex flex-col w-screen min-h-screen overflow-clip md:h-screen">
+    <main className="flex flex-col min-h-screen lg:w-screen lg:h-dvh lg:overflow-hidden font-geist text-ink">
       <Topbar />
-      <div className="grid flex-1 w-full p-4 gap-4 grid-rows-[auto,1fr] min-h-0">
-        <div className="flex flex-row items-center justify-center space-x-2">
-          <DatabaseMainSwitch
-            name={DatabaseCategory.SET}
-            onClick={function (): void {
-              setCategory(DatabaseCategory.SET);
-            }}
-            selected={category === DatabaseCategory.SET}
-          />
-          <DatabaseMainSwitch
-            name={DatabaseCategory.TYPE}
-            onClick={function (): void {
-              setCategory(DatabaseCategory.TYPE);
-            }}
-            selected={category === DatabaseCategory.TYPE}
-          />
-        </div>
-        {category === DatabaseCategory.SET && <DatabaseSetContainer />}
-        {category === DatabaseCategory.TYPE && <DatabaseTypeContainer />}
+      <div className="flex flex-col flex-1 w-full lg:min-h-0 max-w-[1440px] mx-auto lg:grid lg:grid-cols-[280px_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)]">
+        <SetRail sets={sets} selected={set} owned={owned.totalsBySet} onSelect={(s) => dispatch(setSet(s))} />
+        <section className="flex flex-col flex-1 min-w-0 px-4 pt-4 lg:min-h-0 lg:px-9 lg:pt-7">
+          {set ? (
+            <>
+              <SetHeader set={set} owned={owned.totalsBySet.get(set._id) ?? { count: 0, value: 0 }} />
+              <SetItems key={set._id} set={set} catalog={catalog} owned={owned.byItem} />
+            </>
+          ) : (
+            loaded && <div className="py-24 text-sm text-center text-ink-muted">No sets in the database yet.</div>
+          )}
+        </section>
       </div>
     </main>
   );

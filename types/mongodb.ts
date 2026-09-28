@@ -27,7 +27,7 @@ export interface Item {
   variant?: CardVariantType;
 }
 
-interface ItemWithJoin {
+export interface ItemWithJoin {
   _id: string;
   name: string;
   type: ItemType;
@@ -193,10 +193,13 @@ export interface WishlistToSave {
   item: string;
   historicPrice: string;
   wishlist: string;
+  // Price the user is willing to pay
+  target?: number;
 }
 
 export interface WishlistItem extends ItemWithJoin {
   wishlist: string;
+  target?: number;
 }
 
 export interface WishlistWithItems extends Wishlist {
