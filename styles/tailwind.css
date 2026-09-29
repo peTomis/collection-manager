@@ -69,8 +69,8 @@
   }
   body {
     @apply font-sans antialiased bg-canvas text-ink;
-    /* Room for the fixed mobile tab bar in the topbar */
-    @apply pb-[76px] md:pb-0;
+    /* Room for the fixed mobile tab bar in the topbar: 4px + 48px tabs + 8px (or the home indicator's safe area) + its border */
+    @apply pb-[calc(53px+max(8px,env(safe-area-inset-bottom)))] md:pb-0;
   }
 }
 

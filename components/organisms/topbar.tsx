@@ -18,6 +18,28 @@ import { targetHit } from "@/lib/items";
 import { fontVariables } from "@/lib/fonts";
 import { cn } from "@/lib/utils";
 
+// Tab bar icons: 20px line drawings in the search icon's stroke, filled on the active tab (details that must stay lines say fill="none")
+const TAB_ICONS: Record<string, React.ReactNode> = {
+  // A house
+  "/": <path d="M3 9.5 10 4l7 5.5V16a1 1 0 0 1-1 1h-3.5v-4.5h-5V17H4a1 1 0 0 1-1-1Z" />,
+  // A binder with its rings
+  "/binders": (
+    <>
+      <rect x="5" y="3" width="11" height="14" rx="1.5" />
+      <path d="M3.5 6.5h3M3.5 10h3M3.5 13.5h3" fill="none" />
+    </>
+  ),
+  // A heart
+  "/wishlists": <path d="M10 16.5s-6-3.6-6-8A3.3 3.3 0 0 1 10 6.3a3.3 3.3 0 0 1 6 2.2c0 4.4-6 8-6 8Z" />,
+  // A stack of cards
+  "/database": (
+    <>
+      <rect x="6.5" y="3" width="9" height="12" rx="1.5" />
+      <path d="M4.5 6v9.5A1.5 1.5 0 0 0 6 17h7" fill="none" />
+    </>
+  ),
+};
+
 const NAV = [
   { href: "/", label: "Home" },
   { href: "/binders", label: "Binders" },
@@ -138,16 +160,19 @@ const Topbar = () => {
       </div>
 
       {/* Mobile tab bar */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 px-2 pt-1.5 pb-[22px] border-t md:hidden border-line bg-paper">
+      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 px-2 pt-1 pb-[max(8px,env(safe-area-inset-bottom))] border-t md:hidden border-line bg-paper">
         {NAV.map((n) => {
           const active = isActive(pathname, n.href);
           return (
             <Link
               key={n.href}
               href={n.href}
-              className={cn("flex flex-col items-center justify-center gap-[5px] min-h-[48px] text-[11px] font-medium", active ? "text-ink" : "text-ink-muted")}
+              aria-current={active ? "page" : undefined}
+              className={cn("flex flex-col items-center justify-center gap-1 min-h-[48px] text-[11px] font-medium", active ? "text-ink" : "text-ink-muted")}
             >
-              <span className={cn("w-5 h-1 rounded-sm", active ? "bg-ink" : "bg-transparent")} />
+              <svg width="20" height="20" viewBox="0 0 20 20" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth={active ? 1.8 : 1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                {TAB_ICONS[n.href]}
+              </svg>
               <span>{n.label}</span>
             </Link>
           );
