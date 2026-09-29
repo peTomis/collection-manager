@@ -172,10 +172,10 @@ const BinderItems = ({ binder }: { binder: BinderWithItems }) => {
             ))}
           </select>
         </label>
-        <Link href="/database" className="hidden lg:flex items-center ml-auto h-[38px] px-4 rounded-[9px] bg-ink text-paper text-sm font-medium">
+        <Link href="/database" className="hidden lg:flex items-center ml-auto h-10 px-4 rounded-[10px] bg-ink text-paper text-sm font-medium">
           + Add cards
         </Link>
-        <Link href="/database" aria-label="Add cards" className="grid w-[46px] h-[46px] rounded-[10px] bg-ink text-paper text-[22px] place-items-center lg:hidden">
+        <Link href="/database" aria-label="Add cards" className="grid w-10 h-10 rounded-[10px] bg-ink text-paper text-[22px] place-items-center lg:hidden">
           +
         </Link>
       </div>

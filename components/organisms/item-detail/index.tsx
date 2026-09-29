@@ -1,5 +1,5 @@
 // Libraries
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 
@@ -57,27 +57,80 @@ const targetKey = (t: ItemDetailTarget) => (t.context === "database" ? `database
 
 // Card or sealed product with its price history, listings and other versions.
 // Desktop: a centered modal. Mobile: a bottom sheet.
-const ItemDetail = ({ target, onClose, onAdd }: ItemDetailProps) => (
-  <DialogPrimitive.Root open={!!target} onOpenChange={(o) => !o && onClose()}>
-    <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[rgba(29,27,24,.4)] dark:bg-black/60 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
-      <DialogPrimitive.Content
-        aria-describedby={undefined}
-        className={cn(
-          fontVariables,
-          "fixed z-50 flex flex-col font-geist text-ink bg-paper overflow-hidden outline-none",
-          "inset-x-0 bottom-0 max-h-[92dvh] rounded-t-[22px] data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom",
-          "lg:inset-x-auto lg:bottom-auto lg:top-16 lg:left-1/2 lg:-translate-x-1/2 lg:w-[1000px] lg:max-w-[calc(100vw-48px)] lg:max-h-[calc(100dvh-96px)] lg:rounded-[18px]",
-          "lg:shadow-[0_40px_80px_-20px_rgba(29,27,24,.5)] lg:data-[state=open]:slide-in-from-bottom-0 lg:data-[state=open]:fade-in-0 lg:data-[state=open]:zoom-in-95"
-        )}
-      >
-        {target && <Detail key={targetKey(target)} target={target} onClose={onClose} onAdd={onAdd} />}
-      </DialogPrimitive.Content>
-    </DialogPrimitive.Portal>
-  </DialogPrimitive.Root>
-);
+const ItemDetail = ({ target, onClose, onAdd }: ItemDetailProps) => {
+  const { sheet, handlers } = useSwipeToClose(onClose);
+  return (
+    <DialogPrimitive.Root open={!!target} onOpenChange={(o) => !o && onClose()}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[rgba(29,27,24,.4)] dark:bg-black/60 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Content
+          ref={sheet}
+          aria-describedby={undefined}
+          className={cn(
+            fontVariables,
+            "fixed z-50 flex flex-col font-geist text-ink bg-paper overflow-hidden outline-none",
+            "inset-x-0 bottom-0 max-h-[92dvh] rounded-t-[22px] data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom",
+            "lg:inset-x-auto lg:bottom-auto lg:top-16 lg:left-1/2 lg:-translate-x-1/2 lg:w-[1000px] lg:max-w-[calc(100vw-48px)] lg:max-h-[calc(100dvh-96px)] lg:rounded-[18px]",
+            "lg:shadow-[0_40px_80px_-20px_rgba(29,27,24,.5)] lg:data-[state=open]:slide-in-from-bottom-0 lg:data-[state=open]:fade-in-0 lg:data-[state=open]:zoom-in-95",
+          )}
+        >
+          {target && <Detail key={targetKey(target)} target={target} onClose={onClose} onAdd={onAdd} swipe={handlers} />}
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  );
+};
 
-const Detail = ({ target, onClose, onAdd }: { target: ItemDetailTarget; onClose: () => void; onAdd?: ItemDetailProps["onAdd"] }) => {
+type SwipeHandlers = Pick<React.HTMLAttributes<HTMLDivElement>, "onPointerDown" | "onPointerMove" | "onPointerUp" | "onPointerCancel">;
+
+// Mobile bottom sheet: dragging its top down moves it with the finger, and a long or quick enough drag closes it
+const useSwipeToClose = (onClose: () => void) => {
+  const sheet = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ id: number; y: number; t: number; dy: number; captured: boolean } | null>(null);
+
+  const move = (dy: number, animate: boolean) => {
+    const el = sheet.current;
+    if (!el) return;
+    el.style.transition = animate ? "transform .22s cubic-bezier(.2,.8,.2,1)" : "none";
+    el.style.transform = dy ? `translateY(${dy}px)` : "";
+  };
+
+  const release = (e: React.PointerEvent<HTMLDivElement>, cancelled: boolean) => {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId) return;
+    drag.current = null;
+    const velocity = d.dy / Math.max(1, e.timeStamp - d.t);
+    if (!cancelled && (d.dy > 120 || (d.dy > 30 && velocity > 0.5))) {
+      move(sheet.current?.offsetHeight ?? window.innerHeight, true);
+      setTimeout(onClose, 200);
+    } else move(0, true);
+  };
+
+  const handlers: SwipeHandlers = {
+    onPointerDown: (e) => {
+      // The desktop modal doesn't move
+      if (e.button !== 0 || window.matchMedia("(min-width: 1024px)").matches) return;
+      drag.current = { id: e.pointerId, y: e.clientY, t: e.timeStamp, dy: 0, captured: false };
+    },
+    onPointerMove: (e) => {
+      const d = drag.current;
+      if (!d || d.id !== e.pointerId) return;
+      d.dy = Math.max(0, e.clientY - d.y);
+      // Capture only once it is a drag, so a tap still reaches the close button
+      if (!d.captured && d.dy > 4) {
+        d.captured = true;
+        e.currentTarget.setPointerCapture(e.pointerId);
+      }
+      if (d.captured) move(d.dy, false);
+    },
+    onPointerUp: (e) => release(e, false),
+    onPointerCancel: (e) => release(e, true),
+  };
+
+  return { sheet, handlers };
+};
+
+const Detail = ({ target, onClose, onAdd, swipe }: { target: ItemDetailTarget; onClose: () => void; onAdd?: ItemDetailProps["onAdd"]; swipe: SwipeHandlers }) => {
   const kind = target.context === "database" ? target.product.kind : target.item.type;
   const item: Card | Sealed = target.context === "database" ? target.product.item : target.item.item;
   const variants: Variant[] = item.variants ?? [];
@@ -188,27 +241,29 @@ const Detail = ({ target, onClose, onAdd }: { target: ItemDetailTarget; onClose:
     <>
       <DialogPrimitive.Title className="sr-only">{name}</DialogPrimitive.Title>
 
-      {/* Header */}
-      <div className="flex justify-center pt-2.5 pb-1 lg:hidden">
-        <span className="w-10 h-[5px] rounded-full bg-line" />
-      </div>
-      <div className="flex flex-none items-center gap-2 lg:gap-3 pl-4 pr-2 lg:py-4 lg:pl-7 lg:pr-5 lg:border-b border-line">
-        <span className="flex-1 min-w-0 truncate text-xs lg:flex-none lg:text-[13px] text-ink-muted">{crumb}</span>
-        {target.context === "binder" &&
-          (isOwned(target.item) ? (
-            <span className="hidden lg:flex items-center gap-1.5 h-[26px] px-2.5 rounded-full bg-[color-mix(in_oklch,var(--cm-gain)_12%,transparent)] text-gain text-xs font-medium">
-              <span className="w-[7px] h-[7px] rotate-45 bg-current" />
-              In binder ×{target.item.quantity}
-            </span>
-          ) : (
-            <span className="hidden lg:flex items-center h-[26px] px-2.5 rounded-full border border-dashed border-line text-ink-muted text-xs font-medium">Missing</span>
-          ))}
-        <DialogPrimitive.Close
-          aria-label="Close"
-          className="w-11 h-11 lg:w-9 lg:h-9 lg:ml-auto grid place-items-center lg:border border-line rounded-lg text-[22px] lg:text-lg cursor-pointer hover:bg-chip"
-        >
-          ×
-        </DialogPrimitive.Close>
+      {/* Header: on mobile, the grab area of the sheet */}
+      <div {...swipe} className="flex-none touch-none lg:touch-auto">
+        <div className="flex justify-center pt-2.5 pb-1 lg:hidden">
+          <span className="w-10 h-[5px] rounded-full bg-line" />
+        </div>
+        <div className="flex flex-none items-center gap-2 lg:gap-3 pl-4 pr-2 lg:py-4 lg:pl-7 lg:pr-5 lg:border-b border-line">
+          <span className="flex-1 min-w-0 truncate text-xs lg:flex-none lg:text-[13px] text-ink-muted">{crumb}</span>
+          {target.context === "binder" &&
+            (isOwned(target.item) ? (
+              <span className="hidden lg:flex items-center gap-1.5 h-[26px] px-2.5 rounded-full bg-[color-mix(in_oklch,var(--cm-gain)_12%,transparent)] text-gain text-xs font-medium">
+                <span className="w-[7px] h-[7px] rotate-45 bg-current" />
+                In binder ×{target.item.quantity}
+              </span>
+            ) : (
+              <span className="hidden lg:flex items-center h-[26px] px-2.5 rounded-full border border-dashed border-line text-ink-muted text-xs font-medium">Missing</span>
+            ))}
+          <DialogPrimitive.Close
+            aria-label="Close"
+            className="w-11 h-11 lg:w-9 lg:h-9 lg:ml-auto grid place-items-center lg:border border-line rounded-lg text-[22px] lg:text-lg cursor-pointer hover:bg-chip"
+          >
+            ×
+          </DialogPrimitive.Close>
+        </div>
       </div>
 
       {/* Body */}
