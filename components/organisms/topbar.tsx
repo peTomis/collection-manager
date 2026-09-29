@@ -109,11 +109,7 @@ const Topbar = () => {
           {NAV.map((n) => {
             const active = isActive(pathname, n.href);
             return (
-              <Link
-                key={n.href}
-                href={n.href}
-                className={cn("px-3.5 py-2 rounded-lg text-sm font-medium", active ? "bg-chip text-ink" : "text-ink-muted hover:text-ink")}
-              >
+              <Link key={n.href} href={n.href} className={cn("px-3.5 py-2 rounded-lg text-sm font-medium", active ? "bg-chip text-ink" : "text-ink-muted hover:text-ink")}>
                 {n.label}
               </Link>
             );
@@ -152,7 +148,12 @@ const Topbar = () => {
             <Logo size={28} variant="mark" />
           </Link>
           <span className="flex-1 font-display font-semibold text-[19px] tracking-[-0.01em]">{title}</span>
-          <button type="button" onClick={() => setSearching(true)} className="grid w-11 h-11 bg-transparent border-0 cursor-pointer place-items-center text-ink" aria-label="Search">
+          <button
+            type="button"
+            onClick={() => setSearching(true)}
+            className="grid bg-transparent border-0 cursor-pointer w-11 h-11 place-items-center text-ink"
+            aria-label="Search"
+          >
             <SearchIcon size={18} />
           </button>
           {account}
@@ -160,7 +161,7 @@ const Topbar = () => {
       </div>
 
       {/* Mobile tab bar */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 px-2 pt-1 pb-[max(8px,env(safe-area-inset-bottom))] border-t md:hidden border-line bg-paper">
+      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 px-2 pt-1 pb-[max(12px,env(safe-area-inset-bottom))] border-t md:hidden border-line bg-paper">
         {NAV.map((n) => {
           const active = isActive(pathname, n.href);
           return (
@@ -170,7 +171,17 @@ const Topbar = () => {
               aria-current={active ? "page" : undefined}
               className={cn("flex flex-col items-center justify-center gap-1 min-h-[48px] text-[11px] font-medium", active ? "text-ink" : "text-ink-muted")}
             >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth={active ? 1.8 : 1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill={active ? "currentColor" : "none"}
+                stroke="currentColor"
+                strokeWidth={active ? 1.8 : 1.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
                 {TAB_ICONS[n.href]}
               </svg>
               <span>{n.label}</span>
