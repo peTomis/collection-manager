@@ -1,3 +1,7 @@
+// Components
+import LinkedList from "@/components/organisms/linked-list";
+import ListName from "@/components/organisms/list-name";
+
 // State
 import { WishlistWithItems } from "@/types/mongodb";
 import { summarizeWishlist } from "@/lib/items";
@@ -28,13 +32,14 @@ const WishlistHeader = ({ wishlist, onDelete }: WishlistHeaderProps) => {
       </div>
 
       <div className="flex flex-col gap-3.5 lg:flex-row lg:items-end lg:justify-between lg:gap-6 lg:mt-2">
-        <div className="flex items-start justify-between flex-1 min-w-0 gap-3">
-          <h1 className="font-display font-semibold text-[30px] lg:text-[40px] leading-[1.05] tracking-[-0.03em] truncate" title={wishlist.name}>
-            {wishlist.name}
-          </h1>
-          <button type="button" onClick={onDelete} className="flex-none mt-2 text-[13px] font-medium text-ink-muted lg:hidden">
-            Delete
-          </button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between min-w-0 gap-3">
+            <ListName key={wishlist._id} kind="wishlist" list={wishlist} />
+            <button type="button" onClick={onDelete} className="flex-none mt-2 text-[13px] font-medium text-ink-muted lg:hidden">
+              Delete
+            </button>
+          </div>
+          <LinkedList kind="wishlist" list={wishlist} />
         </div>
 
         {/* Mobile: one card with the cost to complete */}

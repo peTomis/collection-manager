@@ -1,5 +1,5 @@
 // Libraries
-import { useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 
@@ -12,7 +12,7 @@ import { ConfirmModal } from "@/components/atoms/modal";
 // State
 import { useDispatch, useSelector } from "@/redux/store";
 import { addBinderItem, changeBinderItemQuantity, deleteBinderItem } from "@/redux/slices/binders";
-import { deleteWishlistItem, setWishlistItemTarget } from "@/redux/slices/wishlists";
+import { acquireWishlistItem, deleteWishlistItem, setWishlistItemTarget } from "@/redux/slices/wishlists";
 import { BinderItem, Card, CardVariant, HistoricPrice, ItemType, Language, Sealed, SealedVariant, WishlistItem } from "@/types/mongodb";
 import { Product, displayName, historicPriceKey, priceKey } from "@/containers/database/use-set-catalog";
 import type { Destination } from "@/containers/database/components/add-item-modal";
@@ -24,6 +24,7 @@ import { fontVariables } from "@/lib/fonts";
 import { change, deltaColor, eur, pct, signedEur } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useListings, useVersionPrices } from "./use-item-detail";
+import { SwipeHandlers, useSwipeToClose } from "@/lib/use-swipe-to-close";
 
 // Where the detail was opened from decides its actions
 export type ItemDetailTarget =
@@ -79,55 +80,6 @@ const ItemDetail = ({ target, onClose, onAdd }: ItemDetailProps) => {
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
   );
-};
-
-type SwipeHandlers = Pick<React.HTMLAttributes<HTMLDivElement>, "onPointerDown" | "onPointerMove" | "onPointerUp" | "onPointerCancel">;
-
-// Mobile bottom sheet: dragging its top down moves it with the finger, and a long or quick enough drag closes it
-const useSwipeToClose = (onClose: () => void) => {
-  const sheet = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ id: number; y: number; t: number; dy: number; captured: boolean } | null>(null);
-
-  const move = (dy: number, animate: boolean) => {
-    const el = sheet.current;
-    if (!el) return;
-    el.style.transition = animate ? "transform .22s cubic-bezier(.2,.8,.2,1)" : "none";
-    el.style.transform = dy ? `translateY(${dy}px)` : "";
-  };
-
-  const release = (e: React.PointerEvent<HTMLDivElement>, cancelled: boolean) => {
-    const d = drag.current;
-    if (!d || d.id !== e.pointerId) return;
-    drag.current = null;
-    const velocity = d.dy / Math.max(1, e.timeStamp - d.t);
-    if (!cancelled && (d.dy > 120 || (d.dy > 30 && velocity > 0.5))) {
-      move(sheet.current?.offsetHeight ?? window.innerHeight, true);
-      setTimeout(onClose, 200);
-    } else move(0, true);
-  };
-
-  const handlers: SwipeHandlers = {
-    onPointerDown: (e) => {
-      // The desktop modal doesn't move
-      if (e.button !== 0 || window.matchMedia("(min-width: 1024px)").matches) return;
-      drag.current = { id: e.pointerId, y: e.clientY, t: e.timeStamp, dy: 0, captured: false };
-    },
-    onPointerMove: (e) => {
-      const d = drag.current;
-      if (!d || d.id !== e.pointerId) return;
-      d.dy = Math.max(0, e.clientY - d.y);
-      // Capture only once it is a drag, so a tap still reaches the close button
-      if (!d.captured && d.dy > 4) {
-        d.captured = true;
-        e.currentTarget.setPointerCapture(e.pointerId);
-      }
-      if (d.captured) move(d.dy, false);
-    },
-    onPointerUp: (e) => release(e, false),
-    onPointerCancel: (e) => release(e, true),
-  };
-
-  return { sheet, handlers };
 };
 
 const Detail = ({ target, onClose, onAdd, swipe }: { target: ItemDetailTarget; onClose: () => void; onAdd?: ItemDetailProps["onAdd"]; swipe: SwipeHandlers }) => {
@@ -571,9 +523,11 @@ const WishlistActions = ({ item, price, onClose }: { item: WishlistItem; price: 
   const changed = valid && rounded !== item.target;
   const gap = rounded !== undefined && valid && price > 0 ? (price <= rounded ? `${eur(rounded - price)} below target` : `${eur(price - rounded)} above target`) : undefined;
 
-  // Set binders only take cards of their set
-  const accepting = binders.filter((b) => binderAccepts(b, item.type, item.item));
-  const binder = accepting.find((b) => b._id === binderId) ?? accepting[0];
+  // Set binders only take cards of their set. The linked binder comes first.
+  const accepting = binders.filter((b) => binderAccepts(b, item.type, item.item)).sort((a, b) => Number(b.wishlist === item.wishlist) - Number(a.wishlist === item.wishlist));
+  // A linked wishlist's items go to its binder, without asking
+  const linked = accepting.find((b) => b.wishlist === item.wishlist);
+  const binder = linked ?? accepting.find((b) => b._id === binderId) ?? accepting[0];
 
   const save = () => {
     if (!user || !changed) return;
@@ -583,21 +537,7 @@ const WishlistActions = ({ item, price, onClose }: { item: WishlistItem; price: 
 
   const acquire = () => {
     if (!user || !binder) return;
-    const existing = binder.items.find((i) => i.historicPrice?._id === item.historicPrice?._id);
-    if (existing) {
-      // Fills a missing slot, or adds one more
-      const quantity = isOwned(existing) ? Math.min(existing.quantity + 1, LIMITS.QUANTITY) : 1;
-      dispatch(changeBinderItemQuantity(user, { ...existing, quantity, owned: true, item: existing.item._id, historicPrice: existing.historicPrice._id }));
-    } else {
-      dispatch(
-        addBinderItem(
-          user,
-          { name: item.name, type: item.type, item: item.item._id, historicPrice: item.historicPrice._id, quantity: 1, binder: binder._id },
-          { item: item.item, historicPrice: item.historicPrice }
-        )
-      );
-    }
-    dispatch(deleteWishlistItem(user, item.wishlist, item._id));
+    dispatch(acquireWishlistItem(user, item, binder));
     onClose();
   };
 
@@ -634,7 +574,7 @@ const WishlistActions = ({ item, price, onClose }: { item: WishlistItem; price: 
         </button>
         {binder ? (
           <>
-            {accepting.length > 1 && (
+            {!linked && accepting.length > 1 && (
               <select aria-label="Binder" value={binder._id} onChange={(e) => setBinderId(e.target.value)} className={cn(fieldClass, "min-w-0 flex-1 lg:flex-none lg:max-w-[180px] cursor-pointer outline-none")}>
                 {accepting.map((b) => (
                   <option key={b._id} value={b._id}>

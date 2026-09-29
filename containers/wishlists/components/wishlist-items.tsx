@@ -10,8 +10,7 @@ import ItemDetail from "@/components/organisms/item-detail";
 
 // State
 import { useDispatch, useSelector } from "@/redux/store";
-import { deleteWishlistItem, setWishlistItemTarget } from "@/redux/slices/wishlists";
-import { addBinderItem, changeBinderItemQuantity } from "@/redux/slices/binders";
+import { acquireWishlistItem, deleteWishlistItem, setWishlistItemTarget } from "@/redux/slices/wishlists";
 import { WishlistItem, WishlistWithItems } from "@/types/mongodb";
 import { cardNumber, isSealed, itemPrice, languageLabel, sealedPath, summarizeWishlist, targetHit, variantLabel, binderAccepts } from "@/lib/items";
 import { useSetsImages } from "@/lib/tcgdex";
@@ -37,7 +36,17 @@ const WishlistItems = ({ wishlist }: { wishlist: WishlistWithItems }) => {
   const [viewing, setViewing] = useState<WishlistItem | null>(null);
 
   const { sets } = useSelector((state) => state.sets);
+  const { binders } = useSelector((state) => state.binders);
+  const user = useSelector((state) => state.user.user) ?? "";
+  const dispatch = useDispatch();
   const summary = summarizeWishlist(wishlist);
+
+  // Got it: straight into the linked binder when it can take the item, otherwise ask which binder
+  const linkedBinder = binders.find((b) => b._id === wishlist.binder);
+  const acquire = (item: WishlistItem) => {
+    if (user && linkedBinder && binderAccepts(linkedBinder, item.type, item.item)) dispatch(acquireWishlistItem(user, item, linkedBinder));
+    else setAcquiring(item);
+  };
   const images = useSetsImages(wishlist.items.filter((i) => !isSealed(i)).map((i) => sets.find((s) => s._id === i.item?.set)?.tcgdex ?? ""));
 
   const rows = useMemo(() => {
@@ -90,7 +99,7 @@ const WishlistItems = ({ wishlist }: { wishlist: WishlistWithItems }) => {
         ) : (
           <div className="grid gap-2.5 lg:gap-4 lg:grid-cols-2 xl:grid-cols-3">
             {rows.map((r) => (
-              <WishlistCard key={r.item._id} row={r} onView={() => setViewing(r.item)} onEdit={() => setEditing(r.item)} onAcquire={() => setAcquiring(r.item)} />
+              <WishlistCard key={r.item._id} row={r} onView={() => setViewing(r.item)} onEdit={() => setEditing(r.item)} onAcquire={() => acquire(r.item)} />
             ))}
           </div>
         )}
@@ -263,8 +272,11 @@ const GotItModal = ({ item, onClose }: { item: WishlistItem | null; onClose: () 
   const user = useSelector((state) => state.user.user) ?? "";
   const dispatch = useDispatch();
 
-  // Set binders only take cards of their set
-  const accepting = item ? binders.filter((b) => binderAccepts(b, item.type, item.item)) : binders;
+  // Set binders only take cards of their set. The linked binder comes first.
+  // A copy: the store's array is frozen, and sort works in place
+  const accepting = (item ? binders.filter((b) => binderAccepts(b, item.type, item.item)) : [...binders]).sort(
+    (a, b) => Number(b.wishlist === item?.wishlist) - Number(a.wishlist === item?.wishlist)
+  );
   const selected = accepting.find((b) => b._id === binderId) ?? accepting[0];
 
   const close = () => {
@@ -274,19 +286,7 @@ const GotItModal = ({ item, onClose }: { item: WishlistItem | null; onClose: () 
 
   const confirm = () => {
     if (!item || !user || !selected) return;
-    const existing = selected.items.find((i) => i.historicPrice?._id === item.historicPrice?._id);
-    if (existing) {
-      dispatch(changeBinderItemQuantity(user, { ...existing, quantity: existing.quantity + 1, item: existing.item._id, historicPrice: existing.historicPrice._id }));
-    } else {
-      dispatch(
-        addBinderItem(
-          user,
-          { name: item.name, type: item.type, item: item.item._id, historicPrice: item.historicPrice._id, quantity: 1, binder: selected._id },
-          { item: item.item, historicPrice: item.historicPrice }
-        )
-      );
-    }
-    dispatch(deleteWishlistItem(user, item.wishlist, item._id));
+    dispatch(acquireWishlistItem(user, item, selected));
     close();
   };
 

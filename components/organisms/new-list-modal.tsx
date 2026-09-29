@@ -1,10 +1,11 @@
 // Libraries
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 
 // Components
 import SetIcon from "@/containers/database/components/set-icon";
+import SetPicker from "@/components/organisms/set-picker";
 
 // State
 import { useDispatch, useSelector } from "@/redux/store";
@@ -14,6 +15,7 @@ import { BinderItemToCreate, Card, CardVariantType, HistoricPrice, ItemType, Lan
 import { NewListItem } from "@/lib/demo-collection";
 import { Catalog, priceKey, useSetCatalog } from "@/containers/database/use-set-catalog";
 import { setCardCount, setSealedCount } from "@/containers/database/components/set-rail";
+import { setEra } from "@/lib/sets";
 import { getPrice } from "@/utils/utils";
 import { VARIANT_LABELS, isOwned } from "@/lib/items";
 import { LIMITS } from "@/lib/limits";
@@ -81,7 +83,12 @@ const NewListModal = ({ open, onClose, type: initialType, switchable, set: initi
   const [targetPercent, setTargetPercent] = useState("10");
   const [skipOwned, setSkipOwned] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [failed, setFailed] = useState(false);
+  // Also create the other kind of list, linked to this one
+  const [linked, setLinked] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // The set picker is open on top of the modal
+  const [picking, setPicking] = useState(false);
+  const changeSet = useRef<HTMLButtonElement>(null);
 
   const user = useSelector((state) => state.user.user) ?? "";
   const { sets: setsByRelease } = useSelector((state) => state.sets);
@@ -102,7 +109,9 @@ const NewListModal = ({ open, onClose, type: initialType, switchable, set: initi
     setAddAs("missing");
     setTargetPercent("10");
     setSkipOwned(false);
-    setFailed(false);
+    setLinked(false);
+    setError(null);
+    setPicking(false);
   }
 
   const close = () => {
@@ -110,11 +119,15 @@ const NewListModal = ({ open, onClose, type: initialType, switchable, set: initi
     onClose();
   };
 
+  // Newest first, as in the Database; the newest set until the user picks one
   const sets = useMemo(() => [...setsByRelease].reverse(), [setsByRelease]);
   const set = sets.find((s) => s._id === setId) ?? initialSet ?? sets[0];
   const fromSet = source === "set" && !!set;
   const isBinder = type === "binder";
   const missing = isBinder && addAs === "missing";
+  const other = isBinder ? "wishlist" : "binder";
+  // What the wishlist gets: the set's items when it is the wishlist, the missing ones when it mirrors a binder
+  const wishlistGetsItems = !isBinder || (linked && missing);
 
   const catalog = useSetCatalog(user || null, open && fromSet ? set._id : undefined);
 
@@ -130,6 +143,12 @@ const NewListModal = ({ open, onClose, type: initialType, switchable, set: initi
   const vers = chosenVersions.length ? chosenVersions : availableVersions.slice(0, 1);
 
   // Versions already owned in any binder, by price id (one per item, language and version)
+  // Items owned per set, shown in the picker
+  const ownedBySet = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const i of binders.flatMap((b) => b.items).filter(isOwned)) if (i.item?.set) counts.set(i.item.set, (counts.get(i.item.set) ?? 0) + 1);
+    return counts;
+  }, [binders]);
   const ownedIds = useMemo(() => new globalThis.Set(binders.flatMap((b) => b.items.filter(isOwned).map((i) => i.historicPrice?._id))), [binders]);
   const isOwnedAlready = (c: Candidate) => !!c.historicPrice && ownedIds.has(c.historicPrice._id);
 
@@ -141,7 +160,8 @@ const NewListModal = ({ open, onClose, type: initialType, switchable, set: initi
   const percent = Number(targetPercent.replace(",", "."));
   const validPercent = targetPercent.trim() === "" || (Number.isFinite(percent) && percent >= 0 && percent < 100);
 
-  const suggestedName = fromSet ? `${set.name} ${isBinder ? "Complete" : "Wants"}` : "";
+  // A list made from a set is named after it
+  const suggestedName = fromSet ? set.name : "";
   const finalName = (name ?? suggestedName).trim();
   const loading = fromSet && !catalog;
   const tooMany = toAdd.length > LIMITS.ITEMS_PER_LIST;
@@ -149,7 +169,9 @@ const NewListModal = ({ open, onClose, type: initialType, switchable, set: initi
 
   const itemsLabel = (n: number) => (n === 1 ? "1 item" : `${n} items`);
   const summary = !fromSet
-    ? "Starts empty. Add items from the Database."
+    ? linked
+      ? `Both start empty. Missing items stay in sync.`
+      : "Starts empty. Add items from the Database."
     : loading
       ? `Loading ${set.name}…`
       : tooMany
@@ -162,6 +184,7 @@ const NewListModal = ({ open, onClose, type: initialType, switchable, set: initi
                 : isBinder
                   ? `${itemsLabel(toAdd.length)} added as owned`
                   : `${itemsLabel(toAdd.length)} · about ${eur(total)} to complete`,
+              linked && (isBinder ? (missing ? "same in a linked wishlist" : "linked wishlist starts empty") : "tracked as missing in a linked binder"),
               withoutPrice && `${withoutPrice} without a price left out`,
             ]
               .filter(Boolean)
@@ -170,22 +193,26 @@ const NewListModal = ({ open, onClose, type: initialType, switchable, set: initi
   const save = async () => {
     if (!valid || !user || saving) return;
     setSaving(true);
-    setFailed(false);
+    setError(null);
     const details = (c: Candidate) => ({ item: c.item, historicPrice: c.historicPrice! });
     const base = (c: Candidate) => ({ name: c.name, type: c.type, item: c.item._id, historicPrice: c.historicPrice!._id });
-    let created: boolean;
-    if (isBinder) {
-      const items: NewListItem<BinderItemToCreate>[] = fromSet ? toAdd.map((c) => ({ item: { ...base(c), quantity: 1, ...(missing && { owned: false }) }, details: details(c) })) : [];
-      // A set binder only takes cards of its set, so a set with sealed products becomes an ordinary binder
-      const setBinder = fromSet && scope === "cards" ? set._id : undefined;
-      created = await dispatch(createBinder(user, finalName, setBinder, items));
-    } else {
-      const off = targetPercent.trim() === "" ? 0 : percent;
-      const target = (c: Candidate) => (off ? Math.round(getPrice(c.historicPrice!) * (100 - off)) / 100 : undefined);
-      created = await dispatch(createWishlist(user, finalName, fromSet ? toAdd.map((c) => ({ item: { ...base(c), target: target(c) }, details: details(c) })) : []));
-    }
+    const off = targetPercent.trim() === "" ? 0 : percent;
+    const target = (c: Candidate) => (off ? Math.round(getPrice(c.historicPrice!) * (100 - off)) / 100 : undefined);
+
+    // A binder mirroring a wishlist tracks its items as missing
+    const binderItems: NewListItem<BinderItemToCreate>[] = fromSet
+      ? toAdd.map((c) => ({ item: { ...base(c), quantity: 1, ...((!isBinder || missing) && { owned: false }) }, details: details(c) }))
+      : [];
+    const wishlistItems = fromSet && wishlistGetsItems ? toAdd.map((c) => ({ item: { ...base(c), target: target(c) }, details: details(c) })) : [];
+    // A set binder only takes cards of its set, so a set with sealed products becomes an ordinary binder
+    const setBinder = fromSet && scope === "cards" ? set._id : undefined;
+
+    const id = await dispatch(isBinder ? createBinder(user, finalName, setBinder, binderItems) : createWishlist(user, finalName, wishlistItems));
+    // The linked list comes second, pointing at the first
+    const mirrored = !id || !linked || !!(await dispatch(isBinder ? createWishlist(user, finalName, wishlistItems, id) : createBinder(user, finalName, setBinder, binderItems, id)));
     setSaving(false);
-    if (!created) return setFailed(true);
+    if (!id) return setError(`Couldn't create the ${type}. Try again in a moment.`);
+    if (!mirrored) return setError(`The ${type} was created, but not its linked ${other}.`);
     close();
     const page = isBinder ? "/binders" : "/wishlists";
     if (router.pathname !== page) router.push(page);
@@ -287,6 +314,25 @@ const NewListModal = ({ open, onClose, type: initialType, switchable, set: initi
               </div>
             </div>
 
+            <button type="button" onClick={() => setLinked((l) => !l)} className="flex items-start gap-3 text-left cursor-pointer">
+              <span
+                className={cn(
+                  "grid flex-none w-5 h-5 lg:w-[18px] lg:h-[18px] mt-px rounded-[5px] border-[1.5px] border-ink place-items-center text-paper text-xs font-semibold",
+                  linked && "bg-ink",
+                )}
+              >
+                {linked && "✓"}
+              </span>
+              <span>
+                <span className="block text-sm lg:text-[15px] font-medium">Also create a linked {other}</span>
+                <span className="block mt-0.5 text-xs lg:text-[13px] text-ink-muted">
+                  {isBinder
+                    ? "It holds this binder's missing items: mark one owned and it leaves the wishlist, remove it from the wishlist and the binder stops tracking it."
+                    : "It tracks these items as missing: remove one here and it leaves the binder, mark it owned there and it leaves this wishlist."}
+                </span>
+              </span>
+            </button>
+
             {fromSet && (
               <div className="flex flex-col gap-3.5 p-3.5 border lg:gap-4 lg:p-[18px] rounded-xl bg-canvas border-line">
                 <div className="flex items-center gap-2.5 min-h-11 lg:gap-3">
@@ -294,23 +340,22 @@ const NewListModal = ({ open, onClose, type: initialType, switchable, set: initi
                   <div className="flex-1 min-w-0">
                     <div className="text-[15px] font-medium truncate">{set.name}</div>
                     <div className="text-xs text-ink-muted">
-                      {[set.releasedAt && new Date(set.releasedAt).getFullYear(), setCardCount(set) && `${setCardCount(set)} cards`, setSealedCount(set) && `${setSealedCount(set)} sealed`]
-                        .filter(Boolean)
-                        .join(" · ")}
+                      <span className="hidden lg:inline">{[setEra(set), set.releasedAt && new Date(set.releasedAt).getFullYear()].filter(Boolean).join(" · ")} · </span>
+                      {`${setCardCount(set)} cards · ${setSealedCount(set)} sealed`}
                     </div>
                   </div>
-                  {/* The native picker sits invisibly over the button: a searchable list on mobile for free */}
-                  <label className="relative flex-none text-[13px] font-medium cursor-pointer lg:h-8 lg:px-3 lg:flex lg:items-center lg:border lg:border-line lg:rounded-lg lg:bg-paper lg:hover:bg-chip">
-                    <span className="hidden lg:inline">Change set</span>
+                  <button
+                    ref={changeSet}
+                    type="button"
+                    onClick={() => setPicking(true)}
+                    className={cn(
+                      "flex-none h-11 px-1 text-[13px] font-medium whitespace-nowrap cursor-pointer lg:h-8 lg:px-3 lg:border lg:rounded-lg",
+                      picking ? "lg:bg-ink lg:text-paper lg:border-ink" : "lg:bg-paper lg:border-line lg:hover:bg-chip",
+                    )}
+                  >
+                    <span className="hidden lg:inline">Change set ▾</span>
                     <span className="lg:hidden">Change ›</span>
-                    <select aria-label="Set" value={set._id} onChange={(e) => setSetId(e.target.value)} className="absolute inset-0 w-full opacity-0 cursor-pointer">
-                      {sets.map((s) => (
-                        <option key={s._id} value={s._id}>
-                          {s.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  </button>
                 </div>
 
                 <div className="flex flex-col gap-3.5 lg:gap-2.5">
@@ -353,7 +398,7 @@ const NewListModal = ({ open, onClose, type: initialType, switchable, set: initi
                       <Pills multiple options={availableVersions.map((v) => ({ value: v, label: VARIANT_LABELS[v] }))} value={vers} onChange={(v) => setVersions(toggle(vers, v))} />
                     </Row>
                   )}
-                  {!isBinder && (
+                  {wishlistGetsItems && (
                     <Row label="Targets">
                       <div className="flex flex-wrap items-center gap-2 text-[13px]">
                         <span className="flex items-center h-10 lg:h-[34px] px-3 border rounded-lg border-line bg-paper font-geist-mono font-medium focus-within:border-ink">
@@ -393,7 +438,7 @@ const NewListModal = ({ open, onClose, type: initialType, switchable, set: initi
           </div>
 
           <div className="flex flex-col flex-none gap-2.5 px-4 pt-3.5 pb-[max(28px,env(safe-area-inset-bottom))] border-t border-line lg:flex-row lg:items-center lg:gap-3 lg:py-4 lg:pl-7 lg:pr-5 lg:bg-canvas">
-            <p className={cn("text-[13px]", failed ? "text-loss" : "text-ink-muted")}>{failed ? `Couldn't create the ${type}. Try again in a moment.` : summary}</p>
+            <p className={cn("text-[13px]", error ? "text-loss" : "text-ink-muted")}>{error ?? summary}</p>
             <div className="flex gap-2 lg:ml-auto">
               <button type="button" onClick={close} className="hidden h-10 px-3.5 text-sm font-medium cursor-pointer lg:block">
                 Cancel
@@ -410,6 +455,7 @@ const NewListModal = ({ open, onClose, type: initialType, switchable, set: initi
           </div>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
+      <SetPicker open={picking} onClose={() => setPicking(false)} anchor={changeSet} sets={sets} selected={set?._id} owned={ownedBySet} onSelect={(s) => setSetId(s._id)} />
     </DialogPrimitive.Root>
   );
 };

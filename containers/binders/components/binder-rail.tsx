@@ -38,18 +38,19 @@ const BinderRail = () => {
             type="button"
             onClick={() => select(b)}
             className={cn(
-              "grid w-full grid-cols-[minmax(0,1fr)_auto] gap-2 p-3 mb-0.5 text-left rounded-[9px] border cursor-pointer",
+              "grid w-full grid-cols-[minmax(0,1fr)_auto] gap-x-2 p-3 mb-0.5 text-left rounded-[9px] border cursor-pointer",
               b._id === binder?._id ? "bg-paper border-line" : "border-transparent hover:bg-paper/60"
             )}
           >
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className={cn("flex-none w-[7px] h-[7px] rounded-full", dotColor(summary))} />
-                <span className="text-sm font-medium truncate">{b.name}</span>
-              </div>
-              <div className="text-xs text-ink-muted mt-[3px] ml-[15px]">{summary.count}</div>
+            <div className="flex items-center min-w-0 gap-2">
+              <span className={cn("flex-none w-[7px] h-[7px] rounded-full", dotColor(summary))} />
+              <span className="text-sm font-medium truncate">{b.name}</span>
             </div>
             <span className="font-geist-mono font-medium text-[13px]">{eur(summary.value)}</span>
+            {/* Under the name and the value, so the counts use the whole row */}
+            <div className="col-span-2 text-xs truncate text-ink-muted mt-[3px] ml-[15px]" title={summary.count}>
+              {summary.count}
+            </div>
           </button>
         ))}
       </aside>

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "@/redux/store";
 import { deleteBinder, getBinders, setBinder } from "@/redux/slices/binders";
 import { getSets } from "@/redux/slices/sets";
+import { getWishlists } from "@/redux/slices/wishlists";
 
 // Components
 import Topbar from "@/components/organisms/topbar";
@@ -27,6 +28,8 @@ const BindersContainer = () => {
     if (!user) return;
     dispatch(getBinders(user));
     dispatch(getSets(user));
+    // The wishlist a binder is linked to
+    dispatch(getWishlists(user));
   }, [user]);
 
   // Keep the selected binder in sync with the latest fetch, falling back to the first one

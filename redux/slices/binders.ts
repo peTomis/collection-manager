@@ -2,7 +2,8 @@ import { BinderItemToCreate, BinderToSave, BinderWithItems } from "@/types/mongo
 import { createSlice, Dispatch } from "@reduxjs/toolkit";
 import { DEMO_USER } from "@/types/constants";
 import { getPortfolio } from "./portfolio";
-import { createDemoBinder, deleteDemoBinder, deleteDemoBinderItem, deleteDemoBinderItems, DemoItemDetails, getDemoBinders, NewListItem, saveDemoBinderItem } from "@/lib/demo-collection";
+import { getWishlists } from "./wishlists";
+import { createDemoBinder, deleteDemoBinder, deleteDemoBinderItem, deleteDemoBinderItems, DemoItemDetails, renameDemoList, unlinkDemoBinder, getDemoBinders, NewListItem, saveDemoBinderItem } from "@/lib/demo-collection";
 
 const initialState: {
   binder: null | BinderWithItems;
@@ -53,8 +54,8 @@ const toSave = (item: BinderToSave): BinderToSave => ({
   ...(item.owned === false && { owned: false }),
 });
 
-// After a change to what the user owns: the binders and the portfolio totals computed from them
-const refresh = (user: string, dispatch: Dispatch) => Promise.all([getBinders(user)(dispatch), getPortfolio(user)(dispatch)]);
+// After a change to what the user owns: the binders, the portfolio totals computed from them, and the wishlists linked binders mirror
+const refresh = (user: string, dispatch: Dispatch) => Promise.all([getBinders(user)(dispatch), getPortfolio(user)(dispatch), getWishlists(user)(dispatch)]);
 
 // Returns the binders it fetched
 export function getBinders(user: string) {
@@ -81,30 +82,70 @@ export function setBinder(binder: BinderWithItems | null) {
 }
 
 // set: id of the set for a set binder, which only takes cards of that set. items: the binder's first items.
-// The new binder becomes the selected one. Returns whether it was created.
-export function createBinder(user: string, name: string, set?: string, items: NewListItem<BinderItemToCreate>[] = []) {
-  return async (dispatch: Dispatch): Promise<boolean> => {
+// wishlist: a wishlist to link it to, whose items already match the binder's missing ones.
+// The new binder becomes the selected one. Returns its id, or null if it wasn't created.
+export function createBinder(user: string, name: string, set?: string, items: NewListItem<BinderItemToCreate>[] = [], wishlist?: string) {
+  return async (dispatch: Dispatch): Promise<string | null> => {
     try {
       let id: string | undefined;
-      if (user === DEMO_USER) id = await createDemoBinder(name, set, items);
+      if (user === DEMO_USER) id = await createDemoBinder(name, set, items, wishlist);
       else {
         const response = await fetch(`/api/binders?user=${user}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ binder: { name, ...(set && { set }) }, items: items.map((i) => i.item) }),
+          body: JSON.stringify({ binder: { name, ...(set && { set }), ...(wishlist && { wishlist }) }, items: items.map((i) => i.item) }),
         });
-        if (!response.ok) return false;
+        if (!response.ok) return null;
         id = (await response.json())?.item?._id;
       }
       const [binders] = await refresh(user, dispatch);
       const created = binders.find((b) => b._id === id);
       if (created) dispatch(setBinderSuccess(created));
-      return true;
+      return id ?? null;
     } catch (error) {
       console.error(error);
-      return false;
+      return null;
+    }
+  };
+}
+
+export function renameBinder(user: string, id: string, name: string) {
+  return async (dispatch: Dispatch) => {
+    try {
+      if (user === DEMO_USER) await renameDemoList("binder", id, name);
+      else
+        await fetch(`/api/binders?user=${user}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ rename: { id, name } }),
+        });
+      await refresh(user, dispatch);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+}
+
+// The binder and its wishlist both stay, and stop mirroring each other
+export function unlinkBinder(user: string, id: string) {
+  return async (dispatch: Dispatch) => {
+    try {
+      if (user === DEMO_USER) await unlinkDemoBinder(id);
+      else
+        await fetch(`/api/binders?user=${user}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ unlink: id }),
+        });
+      refresh(user, dispatch);
+    } catch (error) {
+      console.error(error);
     }
   };
 }

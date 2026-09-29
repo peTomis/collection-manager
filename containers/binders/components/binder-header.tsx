@@ -1,3 +1,7 @@
+// Components
+import LinkedList from "@/components/organisms/linked-list";
+import ListName from "@/components/organisms/list-name";
+
 // State
 import { useSelector } from "@/redux/store";
 import { BinderWithItems } from "@/types/mongodb";
@@ -34,9 +38,7 @@ const BinderHeader = ({ binder, onDelete }: BinderHeaderProps) => {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between lg:gap-6 lg:mt-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between min-w-0 gap-3">
-            <h1 className="font-display font-semibold text-[30px] lg:text-[40px] leading-[1.05] tracking-[-0.03em] truncate" title={binder.name}>
-              {binder.name}
-            </h1>
+            <ListName key={binder._id} kind="binder" list={binder} />
             <button type="button" onClick={onDelete} className="flex-none mt-2 text-[13px] font-medium text-ink-muted lg:hidden">
               Delete
             </button>
@@ -56,6 +58,7 @@ const BinderHeader = ({ binder, onDelete }: BinderHeaderProps) => {
               <span>{summary.count}</span>
             )}
           </div>
+          <LinkedList kind="binder" list={binder} />
         </div>
 
         {/* Stats: a 2×2 card on mobile, a row of right-aligned figures on desktop */}

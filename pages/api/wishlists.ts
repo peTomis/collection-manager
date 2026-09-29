@@ -3,6 +3,7 @@ import { Db, ObjectId, WithoutId } from "mongodb";
 import { NextApiRequest, NextApiResponse } from "next";
 import client from "@/lib/mongodb";
 import { getUserId } from "@/lib/auth";
+import { linkable, mirrorToBinder, setLink, unmirrorFromBinder } from "@/lib/mirror";
 import { LIMITS, parseObjectId } from "@/lib/validation";
 import * as Joi from "joi";
 
@@ -170,9 +171,11 @@ const deleteWishlist = async (id: string, user: ObjectId): Promise<boolean> => {
   await client.connect();
   const _id = new ObjectId(id);
   const db: Db = client.db("collection-manager");
-  const result = await db.collection("wishlists").deleteOne({ _id, user });
-  if (result.deletedCount !== 1) return false;
+  const deleted = await db.collection("wishlists").findOneAndDelete({ _id, user });
+  if (!deleted) return false;
   await db.collection("wishlist-items").deleteMany({ wishlist: id, user });
+  // The linked binder stays, unlinked, with its missing slots
+  await setLink(db, user, "binders", deleted.binder, undefined);
   return true;
 };
 
@@ -192,6 +195,7 @@ const addItemToWishlist = async (user: ObjectId, item: WishlistToSave): Promise<
     ...(item.target !== undefined && { target: item.target }),
   };
   const result = await db.collection("wishlist-items").insertOne(itemData);
+  await mirrorToBinder(db, user, wishlistData.binder, item);
   return JSON.parse(JSON.stringify({ ...itemData, _id: result.insertedId }));
 };
 
@@ -212,8 +216,10 @@ const deleteItemFromWishlist = async (user: ObjectId, wishlist: string, id: stri
   const db: Db = client.db("collection-manager");
   const wishlistData = await db.collection("wishlists").findOne({ _id: new ObjectId(wishlist), user });
   if (!wishlistData) return false;
-  const result = await db.collection("wishlist-items").deleteOne({ _id, wishlist, user });
-  return result.deletedCount === 1;
+  const deleted = await db.collection("wishlist-items").findOneAndDelete({ _id, wishlist, user });
+  if (!deleted) return false;
+  await unmirrorFromBinder(db, user, wishlistData.binder, deleted.historicPrice);
+  return true;
 };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -235,12 +241,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const item = await fetchWishlist(id, user);
     return res.status(200).json({ item });
   } else if (req.method === "POST") {
+    // Rename: { rename: { id, name } }
+    if (req.body?.rename) {
+      const id = parseObjectId(req.body.rename.id);
+      if (!id || validateWishlist({ name: req.body.rename.name }).error) return res.status(400).json({ message: "Invalid wishlist name" });
+      await client.connect();
+      const result = await client.db("collection-manager").collection("wishlists").updateOne({ _id: id, user }, { $set: { name: String(req.body.rename.name).trim() } });
+      if (!result.matchedCount) return res.status(404).json({ message: "Wishlist not found" });
+      return res.status(200).json({});
+    }
+
     if (req.body?.wishlist) {
       if (validateWishlist(req.body.wishlist).error) return res.status(400).json({ message: "Invalid wishlist data" });
       if ((await countWishlists(user)) >= LIMITS.LISTS_PER_USER) return res.status(409).json({ message: "Wishlists limit reached" });
       const items = (req.body.items ?? []) as WishlistItemToCreate[];
       if (validateNewWishlistItems(items).error) return res.status(400).json({ message: "Invalid wishlist item data" });
-      const newWishlist = await saveWishlist({ name: req.body.wishlist.name, user }, items);
+      // Linked to a binder: the two keep their missing items in step (the caller sends matching items)
+      const binder = req.body.wishlist.binder as string | undefined;
+      await client.connect();
+      const db = client.db("collection-manager");
+      if (!(await linkable(db, user, "binders", binder))) return res.status(409).json({ message: "Binder not found or already linked" });
+      const newWishlist = await saveWishlist({ name: req.body.wishlist.name, user, ...(binder && { binder }) }, items);
+      await setLink(db, user, "binders", binder, newWishlist._id);
       return res.status(201).json({ item: newWishlist });
     }
 
@@ -287,6 +309,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 const validateWishlist = (wishlist: any) => {
   const schema = Joi.object({
     name: Joi.string().trim().min(1).max(LIMITS.NAME_LENGTH).required(),
+    binder: Joi.string().hex().length(24).optional(),
   });
   return schema.validate(wishlist);
 };

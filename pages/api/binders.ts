@@ -4,6 +4,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import client from "@/lib/mongodb";
 import { getUserId } from "@/lib/auth";
 import { refreshPortfolio } from "@/lib/portfolio";
+import { linkable, mirrorToWishlist, setLink, unmirrorFromWishlist } from "@/lib/mirror";
 import { LIMITS, parseObjectId } from "@/lib/validation";
 import * as Joi from "joi";
 
@@ -178,9 +179,11 @@ const deleteBinder = async (id: string, user: ObjectId): Promise<boolean> => {
   await client.connect();
   const _id = new ObjectId(id);
   const db: Db = client.db("collection-manager");
-  const result = await db.collection("binders").deleteOne({ _id, user });
-  if (result.deletedCount !== 1) return false;
+  const deleted = await db.collection("binders").findOneAndDelete({ _id, user });
+  if (!deleted) return false;
   await db.collection("binder-items").deleteMany({ binder: id, user });
+  // The linked wishlist stays, unlinked
+  await setLink(db, user, "wishlists", deleted.wishlist, undefined);
   return true;
 };
 
@@ -197,6 +200,7 @@ const addItemToBinder = async (user: ObjectId, item: BinderToSave): Promise<Bind
   // Only the known fields are stored, stamped with the owner
   const itemData = { name: item.name, type: item.type, item: item.item, historicPrice: item.historicPrice, quantity: item.quantity, ...(item.owned === false && { owned: false }), binder: item.binder, user };
   const result = await db.collection("binder-items").insertOne(itemData);
+  await mirrorToWishlist(db, user, binderData.wishlist, item, item.owned === false);
   return JSON.parse(JSON.stringify({ ...itemData, _id: result.insertedId }));
 };
 
@@ -208,8 +212,10 @@ const changeItemQuantity = async (user: ObjectId, binder: string, id: string, qu
   const binderData = await db.collection("binders").findOne({ _id: new ObjectId(binder), user });
   if (!binderData) return false;
   const update = owned === false ? { $set: { quantity, owned } } : { $set: { quantity }, $unset: { owned: "" } };
-  const result = await db.collection("binder-items").updateOne({ _id, binder, user }, update);
-  return result.matchedCount === 1;
+  const updated = await db.collection("binder-items").findOneAndUpdate({ _id, binder, user }, update);
+  if (!updated) return false;
+  await mirrorToWishlist(db, user, binderData.wishlist, updated as unknown as BinderToSave, owned === false);
+  return true;
 };
 
 const deleteItemFromBinder = async (user: ObjectId, binder: string, id: string): Promise<boolean> => {
@@ -218,8 +224,10 @@ const deleteItemFromBinder = async (user: ObjectId, binder: string, id: string):
   const db: Db = client.db("collection-manager");
   const binderData = await db.collection("binders").findOne({ _id: new ObjectId(binder), user });
   if (!binderData) return false;
-  const result = await db.collection("binder-items").deleteOne({ _id, binder, user });
-  return result.deletedCount === 1;
+  const deleted = await db.collection("binder-items").findOneAndDelete({ _id, binder, user });
+  if (!deleted) return false;
+  if (deleted.owned === false) await unmirrorFromWishlist(db, user, binderData.wishlist, [deleted.historicPrice]);
+  return true;
 };
 
 const deleteItemsFromBinder = async (user: ObjectId, binder: string, ids: string[]): Promise<number> => {
@@ -227,7 +235,10 @@ const deleteItemsFromBinder = async (user: ObjectId, binder: string, ids: string
   const db: Db = client.db("collection-manager");
   const binderData = await db.collection("binders").findOne({ _id: new ObjectId(binder), user });
   if (!binderData) return 0;
-  const result = await db.collection("binder-items").deleteMany({ _id: { $in: ids.map((id) => new ObjectId(id)) }, binder, user });
+  const match = { _id: { $in: ids.map((id) => new ObjectId(id)) }, binder, user };
+  const missing = await db.collection("binder-items").find({ ...match, owned: false }, { projection: { historicPrice: 1 } }).toArray();
+  const result = await db.collection("binder-items").deleteMany(match);
+  await unmirrorFromWishlist(db, user, binderData.wishlist, missing.map((i) => i.historicPrice));
   return result.deletedCount;
 };
 
@@ -260,6 +271,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const item = await fetchBinder(id, user);
     return res.status(200).json({ item });
   } else if (req.method === "POST") {
+    // Unlink a binder and its wishlist: both stay, and stop mirroring each other
+    if (req.body?.unlink) {
+      const id = parseObjectId(req.body.unlink);
+      if (!id) return res.status(400).json({ message: "Invalid binder ID" });
+      await client.connect();
+      const db = client.db("collection-manager");
+      const binderData = await db.collection("binders").findOne({ _id: id, user });
+      if (!binderData) return res.status(404).json({ message: "Binder not found" });
+      await setLink(db, user, "binders", String(id), undefined);
+      await setLink(db, user, "wishlists", binderData.wishlist, undefined);
+      return res.status(200).json({});
+    }
+
+    // Rename: { rename: { id, name } }
+    if (req.body?.rename) {
+      const id = parseObjectId(req.body.rename.id);
+      if (!id || validateBinder({ name: req.body.rename.name }).error) return res.status(400).json({ message: "Invalid binder name" });
+      await client.connect();
+      const result = await client.db("collection-manager").collection("binders").updateOne({ _id: id, user }, { $set: { name: String(req.body.rename.name).trim() } });
+      if (!result.matchedCount) return res.status(404).json({ message: "Binder not found" });
+      return res.status(200).json({});
+    }
+
     if (req.body?.binder) {
       if (validateBinder(req.body.binder).error) return res.status(400).json({ message: "Invalid binder data" });
       if ((await countBinders(user)) >= LIMITS.LISTS_PER_USER) return res.status(409).json({ message: "Binders limit reached" });
@@ -268,7 +302,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const set = req.body.binder.set ? new ObjectId(req.body.binder.set as string) : undefined;
       if (set && !(await setExists(set))) return res.status(400).json({ message: "Set not found" });
       if (set && items.length && !(await itemsFitSet(set, items))) return res.status(422).json({ message: "Only cards of the binder's set can be added" });
-      const newBinder = await saveBinder({ name: req.body.binder.name, user, ...(set && { set }) }, items);
+      // Linked to a wishlist: the two keep their missing items in step (the caller sends matching items)
+      const wishlist = req.body.binder.wishlist as string | undefined;
+      await client.connect();
+      const db = client.db("collection-manager");
+      if (!(await linkable(db, user, "wishlists", wishlist))) return res.status(409).json({ message: "Wishlist not found or already linked" });
+      const newBinder = await saveBinder({ name: req.body.binder.name, user, ...(set && { set }), ...(wishlist && { wishlist }) }, items);
+      await setLink(db, user, "wishlists", wishlist, newBinder._id);
       if (items.length) await updatePortfolio(user);
       return res.status(201).json({ item: newBinder });
     }
@@ -329,6 +369,7 @@ const validateBinder = (binder: any) => {
   const schema = Joi.object({
     name: Joi.string().trim().min(1).max(LIMITS.NAME_LENGTH).required(),
     set: Joi.string().hex().length(24).optional(),
+    wishlist: Joi.string().hex().length(24).optional(),
   });
   return schema.validate(binder);
 };

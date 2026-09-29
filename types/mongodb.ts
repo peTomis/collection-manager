@@ -153,6 +153,8 @@ export interface Binder {
   name: string;
   // Set binder: only cards of this set can be added, and they are shown with their number
   set?: ObjectId;
+  // Linked wishlist: it holds this binder's missing items (see lib/mirror.ts)
+  wishlist?: string;
 }
 
 export interface BinderWithItems extends Binder {
@@ -185,6 +187,8 @@ export interface Wishlist {
   _id: string;
   user: ObjectId;
   name: string;
+  // Linked binder: this wishlist holds its missing items (see lib/mirror.ts)
+  binder?: string;
 }
 
 export interface WishlistToSave {
