@@ -16,7 +16,8 @@ const SetIcon = ({ set, className }: { set: Set; className?: string }) => {
 
   return (
     <span className={cn("relative flex-none", className)}>
-      {src && missing !== src && <img src={src} alt="" className="absolute inset-0 object-contain w-full h-full" onError={() => setMissing(src)} />}
+      {/* Slightly inside its box; the symbols are black, so they turn white in dark mode */}
+      {src && missing !== src && <img src={src} alt="" className="absolute inset-0 object-contain w-full h-full scale-[.8] dark:invert" onError={() => setMissing(src)} />}
     </span>
   );
 };

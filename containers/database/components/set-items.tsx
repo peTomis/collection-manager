@@ -1,5 +1,5 @@
 // Libraries
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 // Components
 import CardArt from "@/components/atoms/card-art";
@@ -49,9 +49,12 @@ interface SetItemsProps {
   set: Set;
   catalog: Catalog | null;
   owned: Map<string, number>;
+  // A card or sealed product to show once the set has loaded, e.g. picked in the top bar search
+  openItem?: string;
+  onOpened?: () => void;
 }
 
-const SetItems = ({ set, catalog, owned }: SetItemsProps) => {
+const SetItems = ({ set, catalog, owned, openItem, onOpened }: SetItemsProps) => {
   const [tab, setTab] = useState<Tab>("all");
   const [adding, setAdding] = useState<{ product: Product; destination: Destination; variant?: number } | null>(null);
   const [viewing, setViewing] = useState<Product | null>(null);
@@ -75,6 +78,15 @@ const SetItems = ({ set, catalog, owned }: SetItemsProps) => {
       };
     });
   }, [catalog, owned, set, images]);
+
+  useEffect(() => {
+    if (!catalog || !openItem) return;
+    const card = catalog.cards.find((c) => c._id === openItem);
+    const sealed = catalog.sealed.find((s) => s._id === openItem);
+    if (card) setViewing({ kind: ItemType.CARD, item: card });
+    else if (sealed) setViewing({ kind: ItemType.SEALED, item: sealed });
+    onOpened?.();
+  }, [catalog, openItem]);
 
   const counts = new Map(TABS.map((t) => [t.value, rows.filter((r) => matches(r.product, t.value)).length]));
   const visible = rows.filter((r) => matches(r.product, tab));
