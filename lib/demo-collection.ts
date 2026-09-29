@@ -139,9 +139,10 @@ export const unlinkDemoBinder = (id: string) =>
 
 export const deleteDemoBinder = (id: string) =>
   update((c) => {
+    // The linked wishlist goes too
     const binder = c.binders.find((b) => b._id === id);
     c.binders = c.binders.filter((b) => b._id !== id);
-    setLink(c, "wishlist", binder?.wishlist, undefined);
+    if (binder?.wishlist) c.wishlists = c.wishlists.filter((w) => w._id !== binder.wishlist);
   });
 
 export const saveDemoBinderItem = (item: BinderToSave, details?: DemoItemDetails) =>
@@ -194,9 +195,10 @@ export const createDemoWishlist = async (name: string, items: NewListItem<Wishli
 
 export const deleteDemoWishlist = (id: string) =>
   update((c) => {
+    // The linked binder goes too
     const wishlist = c.wishlists.find((w) => w._id === id);
     c.wishlists = c.wishlists.filter((w) => w._id !== id);
-    setLink(c, "binder", wishlist?.binder, undefined);
+    if (wishlist?.binder) c.binders = c.binders.filter((b) => b._id !== wishlist.binder);
   });
 
 export const addDemoWishlistItem = (item: WishlistToSave, details?: DemoItemDetails) =>

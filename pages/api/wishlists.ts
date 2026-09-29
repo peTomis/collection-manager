@@ -3,7 +3,8 @@ import { Db, ObjectId, WithoutId } from "mongodb";
 import { NextApiRequest, NextApiResponse } from "next";
 import client from "@/lib/mongodb";
 import { getUserId } from "@/lib/auth";
-import { linkable, mirrorToBinder, setLink, unmirrorFromBinder } from "@/lib/mirror";
+import { deleteLinked, linkable, mirrorToBinder, setLink, unmirrorFromBinder } from "@/lib/mirror";
+import { refreshPortfolio } from "@/lib/portfolio";
 import { LIMITS, parseObjectId } from "@/lib/validation";
 import * as Joi from "joi";
 
@@ -174,8 +175,14 @@ const deleteWishlist = async (id: string, user: ObjectId): Promise<boolean> => {
   const deleted = await db.collection("wishlists").findOneAndDelete({ _id, user });
   if (!deleted) return false;
   await db.collection("wishlist-items").deleteMany({ wishlist: id, user });
-  // The linked binder stays, unlinked, with its missing slots
-  await setLink(db, user, "binders", deleted.binder, undefined);
+  // The linked binder goes too, and what it owned leaves the portfolio
+  if (await deleteLinked(db, user, "binders", deleted.binder)) {
+    try {
+      await refreshPortfolio(db, user);
+    } catch (error) {
+      console.error("Portfolio update failed", error);
+    }
+  }
   return true;
 };
 

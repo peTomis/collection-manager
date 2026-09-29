@@ -1,5 +1,6 @@
 import { BinderWithItems, WishlistItem, WishlistItemToCreate, WishlistToSave, WishlistWithItems } from "@/types/mongodb";
 import { addBinderItem, changeBinderItemQuantity, getBinders } from "./binders";
+import { getPortfolio } from "./portfolio";
 import { isOwned } from "@/lib/items";
 import { LIMITS } from "@/lib/limits";
 import { createSlice, Dispatch } from "@reduxjs/toolkit";
@@ -127,7 +128,8 @@ export function deleteWishlist(user: string, id: string) {
         await fetch(`/api/wishlists?user=${user}&id=${id}`, {
           method: "DELETE",
         });
-      refresh(user, dispatch);
+      // The linked binder went too: the portfolio no longer counts it
+      await Promise.all([refresh(user, dispatch), getPortfolio(user)(dispatch)]);
     } catch (error) {
       console.error(error);
     }

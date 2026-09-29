@@ -55,9 +55,19 @@ export const linkable = async (db: Db, user: ObjectId, collection: "binders" | "
   return (await db.collection(collection).countDocuments({ _id: new ObjectId(id), user, [field]: { $exists: false } }, { limit: 1 })) === 1;
 };
 
-// Point the other list back at the new one, or drop its link when the new one is deleted
+// Point the other list back at the new one, or drop its link when the two are unlinked
 export const setLink = async (db: Db, user: ObjectId, collection: "binders" | "wishlists", id: string | undefined, to: string | undefined) => {
   if (!id) return;
   const field = collection === "binders" ? "wishlist" : "binder";
   await db.collection(collection).updateOne({ _id: new ObjectId(id), user }, to ? { $set: { [field]: to } } : { $unset: { [field]: "" } });
+};
+
+// A deleted list takes its linked one along, with everything in it. Whether there was one to delete.
+export const deleteLinked = async (db: Db, user: ObjectId, collection: "binders" | "wishlists", id: string | undefined) => {
+  if (!id) return false;
+  const deleted = await db.collection(collection).findOneAndDelete({ _id: new ObjectId(id), user });
+  if (!deleted) return false;
+  if (collection === "binders") await db.collection("binder-items").deleteMany({ binder: id, user });
+  else await db.collection("wishlist-items").deleteMany({ wishlist: id, user });
+  return true;
 };

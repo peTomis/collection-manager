@@ -4,7 +4,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import client from "@/lib/mongodb";
 import { getUserId } from "@/lib/auth";
 import { refreshPortfolio } from "@/lib/portfolio";
-import { linkable, mirrorToWishlist, setLink, unmirrorFromWishlist } from "@/lib/mirror";
+import { deleteLinked, linkable, mirrorToWishlist, setLink, unmirrorFromWishlist } from "@/lib/mirror";
 import { LIMITS, parseObjectId } from "@/lib/validation";
 import * as Joi from "joi";
 
@@ -182,8 +182,8 @@ const deleteBinder = async (id: string, user: ObjectId): Promise<boolean> => {
   const deleted = await db.collection("binders").findOneAndDelete({ _id, user });
   if (!deleted) return false;
   await db.collection("binder-items").deleteMany({ binder: id, user });
-  // The linked wishlist stays, unlinked
-  await setLink(db, user, "wishlists", deleted.wishlist, undefined);
+  // The linked wishlist goes too
+  await deleteLinked(db, user, "wishlists", deleted.wishlist);
   return true;
 };
 

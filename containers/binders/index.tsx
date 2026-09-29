@@ -21,6 +21,7 @@ const BindersContainer = () => {
 
   const { binder, binders, loaded } = useSelector((state) => state.binders);
   const { user } = useSelector((state) => state.user);
+  const linkedWishlist = useSelector((state) => state.wishlists.wishlists.find((w) => !!binder?.wishlist && w._id === binder.wishlist));
 
   const dispatch = useDispatch();
 
@@ -70,7 +71,7 @@ const BindersContainer = () => {
         onClose={() => setDeleting(false)}
         onConfirm={() => user && binder && dispatch(deleteBinder(user, binder._id))}
         title="Delete binder"
-        description={`Delete ${binder?.name ?? "this binder"} and everything in it? This can't be undone.`}
+        description={`Delete ${binder?.name ?? "this binder"} and everything in it?${linkedWishlist ? ` Its linked wishlist ${linkedWishlist.name} is deleted too.` : ""} This can't be undone.`}
         confirmLabel="Delete"
       />
     </main>

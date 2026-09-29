@@ -95,7 +95,7 @@ const Linked = ({ source, other, name, id }: { source: Source; other: "binder" |
         title={deleting ? `Delete ${name}?` : `Linked ${other}`}
         description={
           deleting
-            ? `The ${other} and everything in it are deleted. This can't be undone.`
+            ? `${name} and this ${source.kind} are deleted, with everything in them. This can't be undone.`
             : `${name} holds the missing items of this ${source.kind} and stays in sync with it. Unlink it to keep both lists as they are, without syncing.`
         }
         footer={
@@ -112,7 +112,7 @@ const Linked = ({ source, other, name, id }: { source: Source; other: "binder" |
                   close();
                 }}
               >
-                Delete {other}
+                Delete both
               </button>
             </>
           ) : (
