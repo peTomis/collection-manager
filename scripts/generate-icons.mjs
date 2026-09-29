@@ -25,10 +25,10 @@ const icon = ({ background, ink }, scale) => {
 };
 
 const OUTPUTS = [
-  { name: "apple-touch-icon", size: 180, scale: 0.62 },
-  { name: "icon-192", size: 192, scale: 0.62 },
-  { name: "icon-512", size: 512, scale: 0.62 },
-  { name: "icon-maskable-512", size: 512, scale: 0.5 },
+  { name: "apple-touch-icon", size: 180, scale: 0.9 },
+  { name: "icon-192", size: 192, scale: 0.9 },
+  { name: "icon-512", size: 512, scale: 0.9 },
+  { name: "icon-maskable-512", size: 512, scale: 0.88 },
 ];
 
 for (const theme of Object.values(THEMES)) {

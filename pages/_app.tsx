@@ -7,6 +7,7 @@ import { useDispatch } from "@/redux/store";
 import { setUser } from "@/redux/slices/user";
 import { DEMO_USER } from "@/types/constants";
 import { fontVariables } from "@/lib/fonts";
+import { useHomeScreenIcons } from "@/lib/home-screen";
 
 // Signed in users see their own collection, everyone else sees the demo one.
 function SessionUser() {
@@ -22,6 +23,7 @@ function SessionUser() {
 }
 
 function CustomApp({ Component, pageProps: { session, ...pageProps } }: AppProps) {
+  useHomeScreenIcons();
   return (
     <SessionProvider session={session}>
       <Providers>
