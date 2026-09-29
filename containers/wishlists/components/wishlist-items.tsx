@@ -137,8 +137,11 @@ const WishlistCard = ({ row: r, onView, onEdit, onAcquire }: { row: Row; onView:
   return (
     <div
       className={cn(
-        "grid grid-cols-[64px_minmax(0,1fr)] lg:grid-cols-[96px_minmax(0,1fr)] gap-3 lg:gap-4 p-3 lg:p-4 bg-paper rounded-xl border",
-        r.hit ? "border-gain shadow-[0_0_0_3px_color-mix(in_oklch,var(--cm-gain)_12%,transparent)]" : "border-line"
+        "grid grid-cols-[64px_minmax(0,1fr)] lg:grid-cols-[96px_minmax(0,1fr)] gap-3 lg:gap-4 p-3 lg:p-4 rounded-xl border",
+        // Target hit: a faint green wash over the card
+        r.hit
+          ? "border-gain bg-[color-mix(in_oklch,var(--cm-gain)_10%,rgb(var(--cm-paper)))] dark:bg-[color-mix(in_oklch,var(--cm-gain)_3%,rgb(var(--cm-paper)))] shadow-[0_0_0_3px_color-mix(in_oklch,var(--cm-gain)_12%,transparent)]"
+          : "border-line bg-paper"
       )}
     >
       <button

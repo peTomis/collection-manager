@@ -586,8 +586,8 @@ const WishlistActions = ({ item, price, onClose }: { item: WishlistItem; price: 
                 ))}
               </select>
             )}
-            <button type="button" className={cn(primaryClass, "flex-1 lg:flex-none whitespace-nowrap")} onClick={acquire}>
-              Got it → Move to binder
+            <button type="button" className={cn(primaryClass, "flex-1 max-w-[200px] ml-auto lg:ml-0 lg:w-[200px] whitespace-nowrap")} onClick={acquire}>
+              Got it
             </button>
           </>
         ) : (
