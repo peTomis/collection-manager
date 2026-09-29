@@ -68,6 +68,12 @@ const Topbar = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  React.useEffect(() => {
+    const isIos = /iPhone|iPad|iPod/.test(window.navigator.userAgent) || (window.navigator.platform === "MacIntel" && window.navigator.maxTouchPoints > 1);
+    const standalone = window.matchMedia("(display-mode: standalone)").matches || Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone);
+    document.documentElement.classList.toggle("app-ios-installed", isIos && standalone);
+  }, []);
+
   // Alerts: wishlist items whose price is at or below the user's target
   const user = useSelector((state) => state.user.user);
   const { wishlists, loaded: wishlistsLoaded } = useSelector((state) => state.wishlists);
@@ -161,7 +167,7 @@ const Topbar = () => {
       </div>
 
       {/* Mobile tab bar */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 px-2 pt-1 pb-[max(12px,env(safe-area-inset-bottom))] border-t md:hidden border-line bg-paper">
+      <nav className="mobile-tab-bar fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 px-2 pt-1 pb-[max(4px,env(safe-area-inset-bottom))] border-t md:hidden border-line bg-paper">
         {NAV.map((n) => {
           const active = isActive(pathname, n.href);
           return (
