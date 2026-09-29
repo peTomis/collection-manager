@@ -155,13 +155,26 @@ const Detail = ({ target, onClose, onAdd, swipe }: { target: ItemDetailTarget; o
         ? ["Wishlists", wishlists.find((w) => w._id === target.item.wishlist)?.name].filter(Boolean).join(" / ")
         : ["Database", set?.name].filter(Boolean).join(" / ");
 
-  const art = (className: string) => (
-    <div className={cn("relative aspect-[63/88] grid place-items-center overflow-hidden bg-[repeating-linear-gradient(135deg,var(--cm-pocket-a)_0_7px,var(--cm-pocket-b)_7px_14px)]", className)}>
-      <span className="font-geist-mono text-[11px] text-ink-muted">{isCard ? "card art" : "product shot"}</span>
-      {image && <CardArt image={image} alt={name} />}
-      {!isCard && (item as Sealed).path && <SealedArt path={(item as Sealed).path!} alt={name} />}
-    </div>
-  );
+  // The art opens the shown version on Cardmarket
+  const cardmarketUrl = [historicPrice?.url, currentVariant?.url].find((u) => u?.startsWith("https://"));
+
+  const art = (className: string) => {
+    const artClass = cn("relative aspect-[63/88] grid place-items-center overflow-hidden bg-[repeating-linear-gradient(135deg,var(--cm-pocket-a)_0_7px,var(--cm-pocket-b)_7px_14px)]", className);
+    const content = (
+      <>
+        <span className="font-geist-mono text-[11px] text-ink-muted">{isCard ? "card art" : "product shot"}</span>
+        {image && <CardArt image={image} alt={name} />}
+        {!isCard && (item as Sealed).path && <SealedArt path={(item as Sealed).path!} alt={name} />}
+      </>
+    );
+    return cardmarketUrl ? (
+      <a href={cardmarketUrl} target="_blank" rel="noopener noreferrer" title="Open on Cardmarket" className={cn(artClass, "cursor-pointer transition-opacity hover:opacity-90")}>
+        {content}
+      </a>
+    ) : (
+      <div className={artClass}>{content}</div>
+    );
+  };
 
   const chipList = (className: string) => (
     <div className={cn("flex flex-wrap gap-1 lg:gap-1.5", className)}>
