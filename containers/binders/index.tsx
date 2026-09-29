@@ -9,7 +9,8 @@ import { getSets } from "@/redux/slices/sets";
 // Components
 import Topbar from "@/components/organisms/topbar";
 import { ConfirmModal } from "@/components/atoms/modal";
-import BinderRail, { NewBinderModal } from "./components/binder-rail";
+import NewListModal from "@/components/organisms/new-list-modal";
+import BinderRail from "./components/binder-rail";
 import BinderHeader from "./components/binder-header";
 import BinderItems from "./components/binder-items";
 
@@ -60,7 +61,7 @@ const BindersContainer = () => {
         </section>
       </div>
 
-      <NewBinderModal open={creating} onClose={() => setCreating(false)} />
+      <NewListModal type="binder" open={creating} onClose={() => setCreating(false)} />
       <ConfirmModal
         open={deleting}
         onClose={() => setDeleting(false)}

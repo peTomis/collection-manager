@@ -13,6 +13,9 @@ export const VARIANT_LABELS: Record<CardVariantType, string> = {
 
 export const isSealed = (item: ItemWithJoin) => item.type === ItemType.SEALED;
 
+// Binder items are owned unless they are a missing slot, which counts for nothing but completion
+export const isOwned = (item: { owned?: boolean }) => item.owned !== false;
+
 export const cardNumber = (item: ItemWithJoin) => (isSealed(item) ? undefined : (item.item as Card).number);
 
 // "1st Edition" for cards, the product type ("Booster Box") for sealed
@@ -41,7 +44,12 @@ export const summarizeBinder = (binder: BinderWithItems) => {
   let value1m = 0;
   let cards = 0;
   let sealed = 0;
+  let missing = 0;
   for (const item of binder.items) {
+    if (!isOwned(item)) {
+      missing++;
+      continue;
+    }
     if (item.historicPrice) {
       value += getPrice(item.historicPrice) * item.quantity;
       value1w += getPastPrice(item.historicPrice, "1w") * item.quantity;
@@ -50,8 +58,8 @@ export const summarizeBinder = (binder: BinderWithItems) => {
     if (item.type === ItemType.SEALED) sealed += item.quantity;
     else cards += item.quantity;
   }
-  const count = [cards && `${cards} cards`, sealed && `${sealed} sealed`].filter(Boolean).join(" · ") || "Empty";
-  return { value, cards, sealed, count, change1w: change(value, value1w), change1m: change(value, value1m) };
+  const count = [cards && `${cards} cards`, sealed && `${sealed} sealed`, missing && `${missing} missing`].filter(Boolean).join(" · ") || "Empty";
+  return { value, cards, sealed, missing, count, change1w: change(value, value1w), change1m: change(value, value1m) };
 };
 
 // How much of a set the binder holds: its own set for a set binder, otherwise the set all its cards come from (if they do)
@@ -61,7 +69,7 @@ export const setCompletion = (binder: BinderWithItems, sets: Set[]) => {
   if (!setId || cards.some((i) => i.item.set !== setId)) return null;
   const set = sets.find((s) => s._id === setId);
   if (!set?.cards) return null;
-  const owned = new globalThis.Set(cards.map((i) => (i.item as Card).number)).size;
+  const owned = new globalThis.Set(cards.filter(isOwned).map((i) => (i.item as Card).number)).size;
   return { set: set.name, owned, total: set.cards, percent: Math.min(100, Math.round((owned / set.cards) * 100)) };
 };
 

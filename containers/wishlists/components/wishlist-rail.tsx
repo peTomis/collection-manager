@@ -2,11 +2,11 @@
 import { useState } from "react";
 
 // Components
-import Modal, { modalButton } from "@/components/atoms/modal";
+import NewListModal from "@/components/organisms/new-list-modal";
 
 // State
 import { useDispatch, useSelector } from "@/redux/store";
-import { createWishlist, setWishlist } from "@/redux/slices/wishlists";
+import { setWishlist } from "@/redux/slices/wishlists";
 import { WishlistWithItems } from "@/types/mongodb";
 import { summarizeWishlist } from "@/lib/items";
 import { eur } from "@/lib/format";
@@ -77,53 +77,8 @@ const WishlistRail = () => {
         </button>
       </div>
 
-      <NewWishlistModal open={creating} onClose={() => setCreating(false)} />
+      <NewListModal type="wishlist" open={creating} onClose={() => setCreating(false)} />
     </>
-  );
-};
-
-export const NewWishlistModal = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
-  const [name, setName] = useState("");
-  const user = useSelector((state) => state.user.user) ?? "";
-  const dispatch = useDispatch();
-
-  const close = () => {
-    setName("");
-    onClose();
-  };
-
-  const save = () => {
-    if (!name.trim() || !user) return;
-    dispatch(createWishlist(user, name.trim()));
-    close();
-  };
-
-  return (
-    <Modal
-      open={open}
-      onClose={close}
-      title="New wishlist"
-      description="Choose a name for your wishlist."
-      footer={
-        <>
-          <button type="button" className={modalButton.secondary} onClick={close}>
-            Cancel
-          </button>
-          <button type="button" className={modalButton.primary} disabled={!name.trim()} onClick={save}>
-            Create
-          </button>
-        </>
-      }
-    >
-      <input
-        autoFocus
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && save()}
-        placeholder="e.g. Chase list"
-        className="w-full h-[42px] px-3 rounded-[9px] border border-line bg-canvas text-sm text-ink placeholder:text-ink-muted outline-none focus:border-ink-muted"
-      />
-    </Modal>
   );
 };
 

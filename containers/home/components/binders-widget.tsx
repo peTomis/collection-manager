@@ -7,7 +7,7 @@ import { setBinder } from "@/redux/slices/binders";
 import { BinderWithItems, ItemType } from "@/types/mongodb";
 import { getPrice } from "@/utils/utils";
 import { deltaColor, eur, pct } from "@/lib/format";
-import { summarizeBinder } from "@/lib/items";
+import { isOwned, summarizeBinder } from "@/lib/items";
 import { cn } from "@/lib/utils";
 
 const summarize = (binder: BinderWithItems) => ({ binder, ...summarizeBinder(binder) });
@@ -23,7 +23,7 @@ const BindersWidget = () => {
   // Cards vs sealed share of the total value
   const cardsValue = binders
     .flatMap((b) => b.items)
-    .filter((i) => i.type !== ItemType.SEALED)
+    .filter((i) => i.type !== ItemType.SEALED && isOwned(i))
     .reduce((acc, i) => acc + getPrice(i.historicPrice) * i.quantity, 0);
   const cardsShare = total ? (cardsValue / total) * 100 : 50;
 

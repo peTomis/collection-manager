@@ -30,7 +30,7 @@ const RULES = {
   "binder-items": {
     schema: {
       required: ["user", "binder", "item", "historicPrice", "type", "quantity"],
-      properties: { user: objectId, binder: hexId, item: hexId, historicPrice: hexId, type: itemType, quantity: { ...number, minimum: 1 } },
+      properties: { user: objectId, binder: hexId, item: hexId, historicPrice: hexId, type: itemType, quantity: { ...number, minimum: 1 }, owned: { bsonType: "bool" } },
     },
     indexes: [{ user: 1, binder: 1 }],
   },

@@ -167,11 +167,18 @@ export interface BinderToSave {
   historicPrice: string;
   quantity: number;
   binder: string;
+  // false for a missing slot: tracked in the binder but not owned yet
+  owned?: boolean;
 }
+
+// An item created together with its binder
+export type BinderItemToCreate = Omit<BinderToSave, "_id" | "binder">;
 
 export interface BinderItem extends ItemWithJoin {
   binder: string;
   quantity: number;
+  // false for a missing slot, missing (undefined) on items the user owns
+  owned?: boolean;
 }
 
 export interface Wishlist {
@@ -190,6 +197,9 @@ export interface WishlistToSave {
   // Price the user is willing to pay
   target?: number;
 }
+
+// An item created together with its wishlist
+export type WishlistItemToCreate = Omit<WishlistToSave, "_id" | "wishlist">;
 
 export interface WishlistItem extends ItemWithJoin {
   wishlist: string;

@@ -12,7 +12,7 @@ import { addBinderItem, changeBinderItemQuantity } from "@/redux/slices/binders"
 import { addWishlistItem } from "@/redux/slices/wishlists";
 import { CardVariant, ItemType, SealedVariant, Set } from "@/types/mongodb";
 import { getPrice } from "@/utils/utils";
-import { VARIANT_LABELS, binderAccepts } from "@/lib/items";
+import { VARIANT_LABELS, binderAccepts, isOwned } from "@/lib/items";
 import { LIMITS } from "@/lib/limits";
 import { Catalog, Product, displayName, priceKey } from "../use-set-catalog";
 import { eur } from "@/lib/format";
@@ -87,8 +87,9 @@ const AddItemModal = ({ set, catalog, product, destination, initialVariant = 0, 
     const details = { item: product.item, historicPrice };
     if (mode === "binder") {
       if (existingBinderItem) {
-        const newQuantity = Math.min(existingBinderItem.quantity + qty, LIMITS.QUANTITY);
-        dispatch(changeBinderItemQuantity(user, { ...existingBinderItem, quantity: newQuantity, item: existingBinderItem.item._id, historicPrice: existingBinderItem.historicPrice._id }));
+        // Fills a missing slot, or adds to what the user has
+        const newQuantity = isOwned(existingBinderItem) ? Math.min(existingBinderItem.quantity + qty, LIMITS.QUANTITY) : qty;
+        dispatch(changeBinderItemQuantity(user, { ...existingBinderItem, quantity: newQuantity, owned: true, item: existingBinderItem.item._id, historicPrice: existingBinderItem.historicPrice._id }));
       } else {
         dispatch(addBinderItem(user, { ...item, quantity: qty, binder: list._id }, details));
       }
@@ -113,7 +114,7 @@ const AddItemModal = ({ set, catalog, product, destination, initialVariant = 0, 
               Cancel
             </button>
             <button type="button" className={modalButton.primary} disabled={!valid} onClick={confirm}>
-              {mode === "binder" ? (existingBinderItem ? "Add another" : "Add to binder") : "Add to wishlist"}
+              {mode === "binder" ? (existingBinderItem && isOwned(existingBinderItem) ? "Add another" : "Add to binder") : "Add to wishlist"}
             </button>
           </>
         ) : (
@@ -192,7 +193,9 @@ const AddItemModal = ({ set, catalog, product, destination, initialVariant = 0, 
 
         {existingBinderItem && (
           <p className="-mt-1 text-xs text-ink-muted">
-            You already have {existingBinderItem.quantity} in {list?.name}. This adds to that quantity.
+            {isOwned(existingBinderItem)
+              ? `You already have ${existingBinderItem.quantity} in ${list?.name}. This adds to that quantity.`
+              : `It's missing in ${list?.name}. This marks it owned.`}
           </p>
         )}
         {onWishlist && <p className="-mt-1 text-xs text-ink-muted">This version is already on {list?.name}.</p>}

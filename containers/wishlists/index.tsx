@@ -10,7 +10,8 @@ import { getSets } from "@/redux/slices/sets";
 // Components
 import Topbar from "@/components/organisms/topbar";
 import { ConfirmModal } from "@/components/atoms/modal";
-import WishlistRail, { NewWishlistModal } from "./components/wishlist-rail";
+import NewListModal from "@/components/organisms/new-list-modal";
+import WishlistRail from "./components/wishlist-rail";
 import WishlistHeader from "./components/wishlist-header";
 import WishlistItems from "./components/wishlist-items";
 
@@ -63,7 +64,7 @@ const WishlistsContainer = () => {
         </section>
       </div>
 
-      <NewWishlistModal open={creating} onClose={() => setCreating(false)} />
+      <NewListModal type="wishlist" open={creating} onClose={() => setCreating(false)} />
       <ConfirmModal
         open={deleting}
         onClose={() => setDeleting(false)}

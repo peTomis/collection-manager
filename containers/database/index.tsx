@@ -7,6 +7,7 @@ import { getBinders } from "@/redux/slices/binders";
 import { getWishlists } from "@/redux/slices/wishlists";
 import { getSets, setSet } from "@/redux/slices/sets";
 import { useSetCatalog } from "./use-set-catalog";
+import { isOwned } from "@/lib/items";
 
 // Components
 import Topbar from "@/components/organisms/topbar";
@@ -41,7 +42,7 @@ const DatabaseContainer = () => {
   // Quantity owned per item across all binders, for the "Owned ×N" badges
   const owned = useMemo(() => {
     const byItem = new Map<string, number>();
-    for (const item of binders.flatMap((b) => b.items)) {
+    for (const item of binders.flatMap((b) => b.items).filter(isOwned)) {
       const id = item.item?._id;
       if (id) byItem.set(id, (byItem.get(id) ?? 0) + item.quantity);
     }

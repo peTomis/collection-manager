@@ -8,6 +8,7 @@ import Segmented from "@/components/atoms/segmented";
 import { useSelector } from "@/redux/store";
 import { getPrice } from "@/utils/utils";
 import { change, deltaColor, eur, pct, signedEur } from "@/lib/format";
+import { isOwned } from "@/lib/items";
 import { cn } from "@/lib/utils";
 
 type Period = "24h" | "7d" | "30d" | "1y" | "all";
@@ -54,7 +55,7 @@ const NetWorth = () => {
   const start = points[0]?.value ?? value;
   const delta = value - start;
 
-  const binderItems = binders.flatMap((b) => b.items);
+  const binderItems = binders.flatMap((b) => b.items).filter(isOwned);
   const wishlistItems = wishlists.flatMap((w) => w.items ?? []);
   const stats = [
     { label: "Cards", value: eur(portfolio?.cardsValue ?? 0), sub: `${portfolio?.cardsQuantity ?? 0} cards` },

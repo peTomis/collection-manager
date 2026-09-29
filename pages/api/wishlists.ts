@@ -1,4 +1,4 @@
-import { Wishlist, WishlistItem, WishlistToSave, ItemType } from "@/types/mongodb";
+import { Wishlist, WishlistItem, WishlistItemToCreate, WishlistToSave, ItemType } from "@/types/mongodb";
 import { Db, ObjectId, WithoutId } from "mongodb";
 import { NextApiRequest, NextApiResponse } from "next";
 import client from "@/lib/mongodb";
@@ -143,10 +143,26 @@ const fetchWishlist = async (_id: ObjectId, user: ObjectId): Promise<Wishlist> =
   return JSON.parse(JSON.stringify(item));
 };
 
-const saveWishlist = async (wishlist: WithoutId<Wishlist>): Promise<Wishlist> => {
+// items: the wishlist's first items, e.g. a whole set added at once
+const saveWishlist = async (wishlist: WithoutId<Wishlist>, items: WishlistItemToCreate[] = []): Promise<Wishlist> => {
   await client.connect();
   const db: Db = client.db("collection-manager");
   const result = await db.collection("wishlists").insertOne(wishlist);
+  const id = String(result.insertedId);
+  if (items.length) {
+    // Only the known fields are stored, stamped with the owner
+    await db.collection("wishlist-items").insertMany(
+      items.map((i) => ({
+        name: i.name,
+        type: i.type,
+        item: i.item,
+        historicPrice: i.historicPrice,
+        wishlist: id,
+        user: wishlist.user,
+        ...(i.target !== undefined && { target: i.target }),
+      }))
+    );
+  }
   return JSON.parse(JSON.stringify({ ...wishlist, _id: result.insertedId }));
 };
 
@@ -222,7 +238,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.body?.wishlist) {
       if (validateWishlist(req.body.wishlist).error) return res.status(400).json({ message: "Invalid wishlist data" });
       if ((await countWishlists(user)) >= LIMITS.LISTS_PER_USER) return res.status(409).json({ message: "Wishlists limit reached" });
-      const newWishlist = await saveWishlist({ name: req.body.wishlist.name, user });
+      const items = (req.body.items ?? []) as WishlistItemToCreate[];
+      if (validateNewWishlistItems(items).error) return res.status(400).json({ message: "Invalid wishlist item data" });
+      const newWishlist = await saveWishlist({ name: req.body.wishlist.name, user }, items);
       return res.status(201).json({ item: newWishlist });
     }
 
@@ -273,15 +291,22 @@ const validateWishlist = (wishlist: any) => {
   return schema.validate(wishlist);
 };
 
+const itemFields = {
+  name: Joi.string().max(200).required(),
+  type: Joi.string().valid(ItemType.CARD, ItemType.SEALED).required(),
+  historicPrice: Joi.string().hex().length(24).required(),
+  item: Joi.string().hex().length(24).required(),
+  target: Joi.number().min(0).max(10_000_000).optional(),
+};
+
 const validateWishlistItem = (item: any) => {
   const schema = Joi.object({
     _id: Joi.string().hex().length(24).optional(),
     wishlist: Joi.string().hex().length(24).required(),
-    name: Joi.string().max(200).required(),
-    type: Joi.string().valid(ItemType.CARD, ItemType.SEALED).required(),
-    historicPrice: Joi.string().hex().length(24).required(),
-    item: Joi.string().hex().length(24).required(),
-    target: Joi.number().min(0).max(10_000_000).optional(),
+    ...itemFields,
   });
   return schema.validate(item);
 };
+
+// Items created together with their wishlist, which has no id yet
+const validateNewWishlistItems = (items: any) => Joi.array().items(Joi.object(itemFields)).max(LIMITS.ITEMS_PER_LIST).validate(items);

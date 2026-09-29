@@ -17,7 +17,7 @@ import { BinderItem, Card, CardVariant, HistoricPrice, ItemType, Language, Seale
 import { Product, displayName, historicPriceKey, priceKey } from "@/containers/database/use-set-catalog";
 import type { Destination } from "@/containers/database/components/add-item-modal";
 import { getPastPrice, getPrice, PricePeriod } from "@/utils/utils";
-import { VARIANT_LABELS, binderAccepts } from "@/lib/items";
+import { VARIANT_LABELS, binderAccepts, isOwned } from "@/lib/items";
 import { useCardInfo, useSetImages } from "@/lib/tcgdex";
 import { LIMITS } from "@/lib/limits";
 import { fontVariables } from "@/lib/fonts";
@@ -132,7 +132,7 @@ const Detail = ({ target, onClose, onAdd }: { target: ItemDetailTarget; onClose:
         ]
       : [{ k: "Product", v: (item as Sealed).type ?? "Sealed" }]),
     ...(set?.releasedAt ? [{ k: "Released", v: new Date(set.releasedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) }] : []),
-    ...(target.context === "binder" ? [{ k: "Value", v: `${eur(price * target.item.quantity)} · ×${target.item.quantity}` }] : []),
+    ...(target.context === "binder" ? [{ k: "Value", v: isOwned(target.item) ? `${eur(price * target.item.quantity)} · ×${target.item.quantity}` : "Missing" }] : []),
   ];
 
   // Current version first, then the others in the item's order
@@ -194,12 +194,15 @@ const Detail = ({ target, onClose, onAdd }: { target: ItemDetailTarget; onClose:
       </div>
       <div className="flex flex-none items-center gap-2 lg:gap-3 pl-4 pr-2 lg:py-4 lg:pl-7 lg:pr-5 lg:border-b border-line">
         <span className="flex-1 min-w-0 truncate text-xs lg:flex-none lg:text-[13px] text-ink-muted">{crumb}</span>
-        {target.context === "binder" && (
-          <span className="hidden lg:flex items-center gap-1.5 h-[26px] px-2.5 rounded-full bg-[color-mix(in_oklch,var(--cm-gain)_12%,transparent)] text-gain text-xs font-medium">
-            <span className="w-[7px] h-[7px] rotate-45 bg-current" />
-            In binder ×{target.item.quantity}
-          </span>
-        )}
+        {target.context === "binder" &&
+          (isOwned(target.item) ? (
+            <span className="hidden lg:flex items-center gap-1.5 h-[26px] px-2.5 rounded-full bg-[color-mix(in_oklch,var(--cm-gain)_12%,transparent)] text-gain text-xs font-medium">
+              <span className="w-[7px] h-[7px] rotate-45 bg-current" />
+              In binder ×{target.item.quantity}
+            </span>
+          ) : (
+            <span className="hidden lg:flex items-center h-[26px] px-2.5 rounded-full border border-dashed border-line text-ink-muted text-xs font-medium">Missing</span>
+          ))}
         <DialogPrimitive.Close
           aria-label="Close"
           className="w-11 h-11 lg:w-9 lg:h-9 lg:ml-auto grid place-items-center lg:border border-line rounded-lg text-[22px] lg:text-lg cursor-pointer hover:bg-chip"
@@ -386,10 +389,10 @@ const primaryClass = "h-12 lg:h-[38px] px-[18px] rounded-[10px] lg:rounded-[9px]
 const secondaryClass = "h-12 lg:h-[38px] px-3.5 rounded-[10px] lg:rounded-[9px] border border-line bg-paper text-sm font-medium cursor-pointer hover:bg-chip disabled:opacity-40 disabled:cursor-default";
 const removeClass = "h-12 lg:h-[38px] px-3.5 bg-transparent text-loss text-sm font-medium cursor-pointer";
 
-const Stepper = ({ value, onChange }: { value: number; onChange: (v: number) => void }) => {
+const Stepper = ({ value, onChange, disabled }: { value: number; onChange: (v: number) => void; disabled?: boolean }) => {
   const button = "w-11 h-11 lg:w-9 lg:h-9 grid place-items-center text-lg lg:text-[18px] cursor-pointer disabled:opacity-30 disabled:cursor-default";
   return (
-    <div className="flex items-center border border-line rounded-[10px] lg:rounded-[9px] bg-paper">
+    <div className={cn("flex items-center border border-line rounded-[10px] lg:rounded-[9px] bg-paper", disabled && "opacity-40 pointer-events-none")}>
       <button type="button" aria-label="Decrease quantity" className={button} disabled={value <= 1} onClick={() => onChange(value - 1)}>
         −
       </button>
@@ -401,9 +404,10 @@ const Stepper = ({ value, onChange }: { value: number; onChange: (v: number) => 
   );
 };
 
-// Change the quantity, move the item to another binder or remove it
+// Mark it owned or missing, change the quantity, move the item to another binder or remove it
 const BinderActions = ({ item, onClose }: { item: BinderItem; onClose: () => void }) => {
   const [quantity, setQuantity] = useState(item.quantity);
+  const [owned, setOwned] = useState(isOwned(item));
   const [removing, setRemoving] = useState(false);
   const { binders } = useSelector((state) => state.binders);
   const user = useSelector((state) => state.user.user) ?? "";
@@ -413,9 +417,11 @@ const BinderActions = ({ item, onClose }: { item: BinderItem; onClose: () => voi
   // Set binders only take cards of their set
   const destinations = binders.filter((b) => b._id !== item.binder && binderAccepts(b, item.type, item.item));
 
+  const changed = quantity !== item.quantity || owned !== isOwned(item);
+
   const save = () => {
-    if (!user || quantity === item.quantity) return;
-    dispatch(changeBinderItemQuantity(user, { ...item, quantity, item: item.item._id, historicPrice: item.historicPrice?._id }));
+    if (!user || !changed) return;
+    dispatch(changeBinderItemQuantity(user, { ...item, quantity, owned, item: item.item._id, historicPrice: item.historicPrice?._id }));
     onClose();
   };
 
@@ -425,12 +431,14 @@ const BinderActions = ({ item, onClose }: { item: BinderItem; onClose: () => voi
     if (!user || !destination) return;
     const existing = destination.items.find((i) => i.historicPrice?._id === item.historicPrice?._id);
     if (existing) {
-      dispatch(changeBinderItemQuantity(user, { ...existing, quantity: Math.min(existing.quantity + quantity, LIMITS.QUANTITY), item: existing.item._id, historicPrice: existing.historicPrice._id }));
+      // Owned wins: an owned item fills a missing slot there
+      const total = isOwned(existing) && owned ? Math.min(existing.quantity + quantity, LIMITS.QUANTITY) : isOwned(existing) ? existing.quantity : quantity;
+      dispatch(changeBinderItemQuantity(user, { ...existing, quantity: total, owned: owned || isOwned(existing), item: existing.item._id, historicPrice: existing.historicPrice._id }));
     } else {
       dispatch(
         addBinderItem(
           user,
-          { name: item.name, type: item.type, item: item.item._id, historicPrice: item.historicPrice._id, quantity, binder: destination._id },
+          { name: item.name, type: item.type, item: item.item._id, historicPrice: item.historicPrice._id, quantity, owned, binder: destination._id },
           { item: item.item, historicPrice: item.historicPrice }
         )
       );
@@ -443,8 +451,16 @@ const BinderActions = ({ item, onClose }: { item: BinderItem; onClose: () => voi
     <>
       <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:gap-3.5">
         <div className="flex items-center justify-between gap-3.5">
-          <span className="text-sm lg:text-[13px] text-ink-muted">Quantity</span>
-          <Stepper value={quantity} onChange={setQuantity} />
+          <button type="button" role="switch" aria-checked={owned} onClick={() => setOwned(!owned)} className="flex items-center gap-2.5 text-sm lg:text-[13px] font-medium cursor-pointer">
+            <span className={cn("relative w-10 h-6 rounded-full transition-colors", owned ? "bg-gain" : "bg-line")}>
+              <span className={cn("absolute top-[3px] w-[18px] h-[18px] rounded-full bg-paper shadow-sm transition-[left]", owned ? "left-[19px]" : "left-[3px]")} />
+            </span>
+            Owned
+          </button>
+          <span className="flex items-center gap-2.5 lg:ml-2">
+            <span className={cn("text-sm lg:text-[13px] text-ink-muted", !owned && "opacity-40")}>Quantity</span>
+            <Stepper value={quantity} onChange={setQuantity} disabled={!owned} />
+          </span>
         </div>
         <div className="grid grid-cols-[auto_1fr_2fr] gap-2 lg:flex lg:ml-auto">
           <button type="button" className={removeClass} onClick={() => setRemoving(true)}>
@@ -465,7 +481,7 @@ const BinderActions = ({ item, onClose }: { item: BinderItem; onClose: () => voi
               </select>
             </label>
           )}
-          <button type="button" className={cn(primaryClass, destinations.length === 0 && "col-span-2")} disabled={quantity === item.quantity} onClick={save}>
+          <button type="button" className={cn(primaryClass, destinations.length === 0 && "col-span-2")} disabled={!changed} onClick={save}>
             Save
           </button>
         </div>
@@ -514,7 +530,9 @@ const WishlistActions = ({ item, price, onClose }: { item: WishlistItem; price: 
     if (!user || !binder) return;
     const existing = binder.items.find((i) => i.historicPrice?._id === item.historicPrice?._id);
     if (existing) {
-      dispatch(changeBinderItemQuantity(user, { ...existing, quantity: Math.min(existing.quantity + 1, LIMITS.QUANTITY), item: existing.item._id, historicPrice: existing.historicPrice._id }));
+      // Fills a missing slot, or adds one more
+      const quantity = isOwned(existing) ? Math.min(existing.quantity + 1, LIMITS.QUANTITY) : 1;
+      dispatch(changeBinderItemQuantity(user, { ...existing, quantity, owned: true, item: existing.item._id, historicPrice: existing.historicPrice._id }));
     } else {
       dispatch(
         addBinderItem(

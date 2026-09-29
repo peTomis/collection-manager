@@ -1,7 +1,8 @@
-import { Binder, BinderToSave, BinderWithItems } from "@/types/mongodb";
+import { BinderItemToCreate, BinderToSave, BinderWithItems } from "@/types/mongodb";
 import { createSlice, Dispatch } from "@reduxjs/toolkit";
 import { DEMO_USER } from "@/types/constants";
-import { createDemoBinder, deleteDemoBinder, deleteDemoBinderItem, DemoItemDetails, getDemoBinders, saveDemoBinderItem } from "@/lib/demo-collection";
+import { getPortfolio } from "./portfolio";
+import { createDemoBinder, deleteDemoBinder, deleteDemoBinderItem, deleteDemoBinderItems, DemoItemDetails, getDemoBinders, NewListItem, saveDemoBinderItem } from "@/lib/demo-collection";
 
 const initialState: {
   binder: null | BinderWithItems;
@@ -40,18 +41,31 @@ export const { startLoading, getBindersSuccess, setBinderSuccess } = slice.actio
 
 export default slice.reducer;
 
+// Only the fields the API takes: callers often spread a joined BinderItem, whose extra fields (user, …) it rejects
+const toSave = (item: BinderToSave): BinderToSave => ({
+  ...(item._id && { _id: item._id }),
+  name: item.name,
+  type: item.type,
+  item: item.item,
+  historicPrice: item.historicPrice,
+  quantity: item.quantity,
+  binder: item.binder,
+  ...(item.owned === false && { owned: false }),
+});
+
+// After a change to what the user owns: the binders and the portfolio totals computed from them
+const refresh = (user: string, dispatch: Dispatch) => Promise.all([getBinders(user)(dispatch), getPortfolio(user)(dispatch)]);
+
+// Returns the binders it fetched
 export function getBinders(user: string) {
-  return async (dispatch: Dispatch) => {
+  return async (dispatch: Dispatch): Promise<BinderWithItems[]> => {
     try {
-      if (user === DEMO_USER) {
-        dispatch(getBindersSuccess(await getDemoBinders()));
-        return;
-      }
-      const response = await fetch(`/api/binders?user=${user}&withcards=true`, { method: "GET" });
-      const data = await response.json();
-      dispatch(getBindersSuccess(data?.items ?? []));
+      const binders: BinderWithItems[] = user === DEMO_USER ? await getDemoBinders() : ((await (await fetch(`/api/binders?user=${user}&withcards=true`, { method: "GET" })).json())?.items ?? []);
+      dispatch(getBindersSuccess(binders));
+      return binders;
     } catch (error) {
       console.error(error);
+      return [];
     }
   };
 }
@@ -66,22 +80,31 @@ export function setBinder(binder: BinderWithItems | null) {
   };
 }
 
-// set: id of the set for a set binder, which only takes cards of that set
-export function createBinder(user: string, name: string, set?: string) {
-  return async (dispatch: Dispatch) => {
+// set: id of the set for a set binder, which only takes cards of that set. items: the binder's first items.
+// The new binder becomes the selected one. Returns whether it was created.
+export function createBinder(user: string, name: string, set?: string, items: NewListItem<BinderItemToCreate>[] = []) {
+  return async (dispatch: Dispatch): Promise<boolean> => {
     try {
-      if (user === DEMO_USER) await createDemoBinder(name, set);
-      else
-        await fetch(`/api/binders?user=${user}`, {
+      let id: string | undefined;
+      if (user === DEMO_USER) id = await createDemoBinder(name, set, items);
+      else {
+        const response = await fetch(`/api/binders?user=${user}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ binder: { name, ...(set && { set }) } }),
+          body: JSON.stringify({ binder: { name, ...(set && { set }) }, items: items.map((i) => i.item) }),
         });
-      await getBinders(user)(dispatch);
+        if (!response.ok) return false;
+        id = (await response.json())?.item?._id;
+      }
+      const [binders] = await refresh(user, dispatch);
+      const created = binders.find((b) => b._id === id);
+      if (created) dispatch(setBinderSuccess(created));
+      return true;
     } catch (error) {
       console.error(error);
+      return false;
     }
   };
 }
@@ -94,7 +117,7 @@ export function deleteBinder(user: string, id: string) {
         await fetch(`/api/binders?user=${user}&id=${id}`, {
           method: "DELETE",
         });
-      getBinders(user)(dispatch);
+      refresh(user, dispatch);
     } catch (error) {
       console.error(error);
     }
@@ -112,9 +135,9 @@ export function addBinderItem(user: string, item: BinderToSave, details?: DemoIt
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ item }),
+          body: JSON.stringify({ item: toSave(item) }),
         });
-      getBinders(user)(dispatch);
+      refresh(user, dispatch);
     } catch (error) {
       console.error(error);
     }
@@ -131,9 +154,28 @@ export function changeBinderItemQuantity(user: string, item: BinderToSave, detai
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ item }),
+          body: JSON.stringify({ item: toSave(item) }),
         });
-      getBinders(user)(dispatch);
+      refresh(user, dispatch);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+}
+
+export function deleteBinderItems(user: string, binderId: string, itemIds: string[]) {
+  return async (dispatch: Dispatch) => {
+    try {
+      if (user === DEMO_USER) await deleteDemoBinderItems(binderId, itemIds);
+      else
+        await fetch(`/api/binders?user=${user}&id=${binderId}`, {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ itemIds }),
+        });
+      refresh(user, dispatch);
     } catch (error) {
       console.error(error);
     }
@@ -148,7 +190,7 @@ export function deleteBinderItem(user: string, binderId: string, itemId: string)
         await fetch(`/api/binders?user=${user}&id=${binderId}&itemId=${itemId}`, {
           method: "DELETE",
         });
-      getBinders(user)(dispatch);
+      refresh(user, dispatch);
     } catch (error) {
       console.error(error);
     }

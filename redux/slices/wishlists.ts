@@ -1,7 +1,7 @@
-import { WishlistItem, WishlistToSave, WishlistWithItems } from "@/types/mongodb";
+import { WishlistItem, WishlistItemToCreate, WishlistToSave, WishlistWithItems } from "@/types/mongodb";
 import { createSlice, Dispatch } from "@reduxjs/toolkit";
 import { DEMO_USER } from "@/types/constants";
-import { addDemoWishlistItem, createDemoWishlist, deleteDemoWishlist, deleteDemoWishlistItem, DemoItemDetails, getDemoWishlists, setDemoWishlistItemTarget } from "@/lib/demo-collection";
+import { addDemoWishlistItem, createDemoWishlist, deleteDemoWishlist, deleteDemoWishlistItem, DemoItemDetails, getDemoWishlists, NewListItem, setDemoWishlistItemTarget } from "@/lib/demo-collection";
 
 const initialState: {
   wishlist: null | WishlistWithItems;
@@ -40,18 +40,17 @@ export const { startLoading, getWishlistsSuccess, setWishlistSuccess } = slice.a
 
 export default slice.reducer;
 
+// Returns the wishlists it fetched
 export function getWishlists(user: string) {
-  return async (dispatch: Dispatch) => {
+  return async (dispatch: Dispatch): Promise<WishlistWithItems[]> => {
     try {
-      if (user === DEMO_USER) {
-        dispatch(getWishlistsSuccess(await getDemoWishlists()));
-        return;
-      }
-      const response = await fetch(`/api/wishlists?user=${user}&withcards=true`, { method: "GET" });
-      const data = await response.json();
-      dispatch(getWishlistsSuccess(data?.items ?? []));
+      const wishlists: WishlistWithItems[] =
+        user === DEMO_USER ? await getDemoWishlists() : ((await (await fetch(`/api/wishlists?user=${user}&withcards=true`, { method: "GET" })).json())?.items ?? []);
+      dispatch(getWishlistsSuccess(wishlists));
+      return wishlists;
     } catch (error) {
       console.error(error);
+      return [];
     }
   };
 }
@@ -66,21 +65,30 @@ export function setWishlist(wishlist: WishlistWithItems | null) {
   };
 }
 
-export function createWishlist(user: string, name: string) {
-  return async (dispatch: Dispatch) => {
+// items: the wishlist's first items. The new wishlist becomes the selected one. Returns whether it was created.
+export function createWishlist(user: string, name: string, items: NewListItem<WishlistItemToCreate>[] = []) {
+  return async (dispatch: Dispatch): Promise<boolean> => {
     try {
-      if (user === DEMO_USER) await createDemoWishlist(name);
-      else
-        await fetch(`/api/wishlists?user=${user}`, {
+      let id: string | undefined;
+      if (user === DEMO_USER) id = await createDemoWishlist(name, items);
+      else {
+        const response = await fetch(`/api/wishlists?user=${user}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ wishlist: { name } }),
+          body: JSON.stringify({ wishlist: { name }, items: items.map((i) => i.item) }),
         });
-      await getWishlists(user)(dispatch);
+        if (!response.ok) return false;
+        id = (await response.json())?.item?._id;
+      }
+      const wishlists = await getWishlists(user)(dispatch);
+      const created = wishlists.find((w) => w._id === id);
+      if (created) dispatch(setWishlistSuccess(created));
+      return true;
     } catch (error) {
       console.error(error);
+      return false;
     }
   };
 }

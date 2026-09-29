@@ -1,10 +1,10 @@
 // Client-side demo collection for visitors who are not signed in.
 // It starts from the static public/demo-collection.json (see scripts/generate-demo.mjs) and every edit is saved
 // in this browser's localStorage: the demo never reads or writes the database.
-import { BinderToSave, BinderWithItems, Card, HistoricPrice, Portfolio, Sealed, WishlistToSave, WishlistWithItems } from "@/types/mongodb";
+import { BinderItemToCreate, BinderToSave, BinderWithItems, Card, HistoricPrice, Portfolio, Sealed, WishlistItemToCreate, WishlistToSave, WishlistWithItems } from "@/types/mongodb";
 import { DEMO_USER } from "@/types/constants";
 import { getPrice } from "@/utils/utils";
-import { binderAccepts } from "@/lib/items";
+import { binderAccepts, isOwned } from "@/lib/items";
 
 const STORAGE_KEY = "demo-collection";
 
@@ -19,6 +19,12 @@ interface DemoCollection {
 export interface DemoItemDetails {
   item: Card | Sealed;
   historicPrice: HistoricPrice;
+}
+
+// An item created together with its list, with the documents the demo shows it with
+export interface NewListItem<T> {
+  item: T;
+  details: DemoItemDetails;
 }
 
 let cache: DemoCollection | null = null;
@@ -68,10 +74,18 @@ export const resetDemoCollection = () => {
 // Copies: Redux freezes what it stores, while the cache is edited in place
 export const getDemoBinders = async () => structuredClone((await load()).binders);
 
-export const createDemoBinder = (name: string, set?: string) =>
-  update((c) => {
-    c.binders.push({ _id: newId(), user: DEMO_USER as unknown as BinderWithItems["user"], name, items: [], ...(set && { set: set as unknown as BinderWithItems["set"] }) });
+// Returns the id of the new binder
+export const createDemoBinder = async (name: string, set?: string, items: NewListItem<BinderItemToCreate>[] = []) => {
+  const _id = newId();
+  await update((c) => {
+    const binder: BinderWithItems = { _id, user: DEMO_USER as unknown as BinderWithItems["user"], name, items: [], ...(set && { set: set as unknown as BinderWithItems["set"] }) };
+    binder.items = items
+      .filter(({ item, details }) => binderAccepts(binder, item.type, details.item))
+      .map(({ item, details }) => ({ _id: newId(), name: item.name, type: item.type, binder: _id, quantity: item.quantity, ...(item.owned === false && { owned: false }), ...details }));
+    c.binders.push(binder);
   });
+  return _id;
+};
 
 export const deleteDemoBinder = (id: string) =>
   update((c) => {
@@ -85,10 +99,18 @@ export const saveDemoBinderItem = (item: BinderToSave, details?: DemoItemDetails
     const existing = item._id ? binder.items.find((i) => i._id === item._id) : undefined;
     if (existing) {
       existing.quantity = item.quantity;
+      if (item.owned === false) existing.owned = false;
+      else delete existing.owned;
       return;
     }
     if (!details || !binderAccepts(binder, item.type, details.item)) return;
-    binder.items.push({ _id: newId(), name: item.name, type: item.type, binder: item.binder, quantity: item.quantity, ...details });
+    binder.items.push({ _id: newId(), name: item.name, type: item.type, binder: item.binder, quantity: item.quantity, ...(item.owned === false && { owned: false }), ...details });
+  });
+
+export const deleteDemoBinderItems = (binderId: string, itemIds: string[]) =>
+  update((c) => {
+    const binder = c.binders.find((b) => b._id === binderId);
+    if (binder) binder.items = binder.items.filter((i) => !itemIds.includes(i._id));
   });
 
 export const deleteDemoBinderItem = (binderId: string, itemId: string) =>
@@ -101,10 +123,19 @@ export const deleteDemoBinderItem = (binderId: string, itemId: string) =>
 
 export const getDemoWishlists = async () => structuredClone((await load()).wishlists);
 
-export const createDemoWishlist = (name: string) =>
-  update((c) => {
-    c.wishlists.push({ _id: newId(), user: DEMO_USER as unknown as WishlistWithItems["user"], name, items: [] });
+// Returns the id of the new wishlist
+export const createDemoWishlist = async (name: string, items: NewListItem<WishlistItemToCreate>[] = []) => {
+  const _id = newId();
+  await update((c) => {
+    c.wishlists.push({
+      _id,
+      user: DEMO_USER as unknown as WishlistWithItems["user"],
+      name,
+      items: items.map(({ item, details }) => ({ _id: newId(), name: item.name, type: item.type, wishlist: _id, target: item.target, ...details })),
+    });
   });
+  return _id;
+};
 
 export const deleteDemoWishlist = (id: string) =>
   update((c) => {
@@ -134,7 +165,7 @@ export const deleteDemoWishlistItem = (wishlistId: string, itemId: string) =>
 
 export const getDemoPortfolio = async (): Promise<Portfolio> => {
   const { binders, historicValue } = await load();
-  const items = binders.flatMap((b) => b.items);
+  const items = binders.flatMap((b) => b.items).filter(isOwned);
   const valueOf = (type: string) => items.filter((i) => i.type === type).reduce((acc, i) => acc + getPrice(i.historicPrice) * i.quantity, 0);
   const quantityOf = (type: string) => items.filter((i) => i.type === type).reduce((acc, i) => acc + i.quantity, 0);
 

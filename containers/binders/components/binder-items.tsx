@@ -11,11 +11,12 @@ import ItemDetail from "@/components/organisms/item-detail";
 
 // State
 import { useDispatch, useSelector } from "@/redux/store";
-import { changeBinderItemQuantity, deleteBinderItem } from "@/redux/slices/binders";
+import { changeBinderItemQuantity, deleteBinderItems } from "@/redux/slices/binders";
 import { BinderItem, BinderWithItems } from "@/types/mongodb";
 import { getPastPrice } from "@/utils/utils";
-import { binderSetId, cardNumber, isSealed, itemPrice, languageLabel, sealedPath, variantLabel } from "@/lib/items";
+import { binderSetId, cardNumber, isOwned, isSealed, itemPrice, languageLabel, sealedPath, variantLabel } from "@/lib/items";
 import { useSetsImages } from "@/lib/tcgdex";
+import { LIMITS } from "@/lib/limits";
 import { change, deltaColor, eur, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +44,9 @@ export interface Row {
   image?: string;
 }
 
+// Missing slots show a faded image, their badges and labels stay readable
+const artClass = (item: BinderItem) => (isOwned(item) ? undefined : "opacity-25 grayscale");
+
 const stripes = "bg-[repeating-linear-gradient(135deg,var(--cm-pocket-a)_0_6px,var(--cm-pocket-b)_6px_12px)]";
 
 const BinderItems = ({ binder }: { binder: BinderWithItems }) => {
@@ -50,7 +54,9 @@ const BinderItems = ({ binder }: { binder: BinderWithItems }) => {
   const [sort, setSort] = useState<Sort>("number");
   const [filter, setFilter] = useState("");
   const [page, setPage] = useState(0);
-  const [removing, setRemoving] = useState<BinderItem | null>(null);
+  // Items picked in the list, by id
+  const [selected, setSelected] = useState<globalThis.Set<string>>(new globalThis.Set());
+  const [removing, setRemoving] = useState(false);
   const [viewing, setViewing] = useState<BinderItem | null>(null);
 
   const { sets } = useSelector((state) => state.sets);
@@ -77,7 +83,7 @@ const BinderItems = ({ binder }: { binder: BinderWithItems }) => {
         number: numbered ? number : undefined,
         set: setName.get(item.item?.set) ?? "",
         price,
-        total: price * item.quantity,
+        total: isOwned(item) ? price * item.quantity : 0,
         change1m: item.historicPrice ? change(price, getPastPrice(item.historicPrice, "1m")) : 0,
         image: number !== undefined && tcgdex ? images.get(tcgdex)?.get(number) : undefined,
       };
@@ -98,18 +104,45 @@ const BinderItems = ({ binder }: { binder: BinderWithItems }) => {
   }, [binder, sets, filter, sort, images]);
 
   useEffect(() => setPage(0), [binder._id, filter, sort]);
+  useEffect(() => setSelected(new globalThis.Set()), [binder._id]);
 
+  // Only ids still in the binder count, e.g. after a refresh
+  const selectedIds = binder.items.filter((i) => selected.has(i._id)).map((i) => i._id);
+  const toggleSelected = (id: string) =>
+    setSelected((s) => {
+      const next = new globalThis.Set(s);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  // Select every row shown (the filter applies), or clear them if they all are
+  const toggleAll = () => {
+    const shown = rows.map((r) => r.item._id);
+    const all = shown.every((id) => selected.has(id));
+    setSelected((s) => {
+      const next = new globalThis.Set(s);
+      shown.forEach((id) => (all ? next.delete(id) : next.add(id)));
+      return next;
+    });
+  };
+
+  // Down to 0 keeps the item as a missing slot, removing it is a separate action
   const setQuantity = (item: BinderItem, quantity: number) => {
-    if (!user || quantity < 0) return;
-    if (quantity === 0) return setRemoving(item);
-    dispatch(changeBinderItemQuantity(user, { ...item, quantity, item: item.item._id, historicPrice: item.historicPrice?._id }));
+    if (!user || quantity < 0 || quantity > LIMITS.QUANTITY) return;
+    const change = quantity === 0 ? { owned: false } : { quantity };
+    dispatch(changeBinderItemQuantity(user, { ...item, ...change, item: item.item._id, historicPrice: item.historicPrice?._id }));
+  };
+
+  // A missing slot the user just got
+  const markOwned = (item: BinderItem) => {
+    if (!user) return;
+    dispatch(changeBinderItemQuantity(user, { ...item, owned: true, item: item.item._id, historicPrice: item.historicPrice?._id }));
   };
 
   return (
     <div className="flex flex-col lg:flex-1 lg:min-h-0">
       <div className="flex flex-none flex-wrap items-center gap-2 lg:gap-2.5 mt-4 mb-3.5 lg:mt-6 lg:mb-5 lg:pt-5 lg:border-t border-line">
         <Segmented
-          className="flex-1 bg-paper lg:flex-none"
+          className="grid flex-1 grid-cols-2 bg-paper lg:flex-none lg:w-44"
           options={[
             { value: "grid", label: "Binder" },
             { value: "list", label: "List" },
@@ -159,17 +192,46 @@ const BinderItems = ({ binder }: { binder: BinderWithItems }) => {
       ) : view === "grid" ? (
         <BinderGrid rows={rows} page={page} setPage={setPage} onView={setViewing} />
       ) : (
-        <BinderList rows={rows} numbered={numbered} setQuantity={setQuantity} onView={setViewing} />
+        <>
+          {selectedIds.length > 0 && (
+            <div className="flex flex-none items-center gap-1 lg:gap-2 h-11 lg:h-[42px] mb-2.5 lg:mb-3 pl-3.5 pr-1.5 rounded-[10px] bg-ink text-paper text-[13px] font-medium">
+              <span className="mr-auto">{selectedIds.length} selected</span>
+              <button type="button" onClick={toggleAll} className="h-8 px-2.5 rounded-lg cursor-pointer hover:bg-paper/10">
+                {rows.every((r) => selected.has(r.item._id)) ? "Unselect all" : `Select all (${rows.length})`}
+              </button>
+              <button type="button" onClick={() => setSelected(new globalThis.Set())} className="h-8 px-2.5 rounded-lg cursor-pointer hover:bg-paper/10">
+                Clear
+              </button>
+              <button type="button" onClick={() => setRemoving(true)} className="h-8 px-3 text-white rounded-lg cursor-pointer bg-loss">
+                Delete
+              </button>
+            </div>
+          )}
+          <BinderList
+            rows={rows}
+            numbered={numbered}
+            setQuantity={setQuantity}
+            markOwned={markOwned}
+            onView={setViewing}
+            selected={selected}
+            onSelect={toggleSelected}
+            onSelectAll={toggleAll}
+          />
+        </>
       )}
 
       <ItemDetail target={viewing ? { context: "binder", item: viewing } : null} onClose={() => setViewing(null)} />
       <ConfirmModal
-        open={!!removing}
-        onClose={() => setRemoving(null)}
-        onConfirm={() => removing && dispatch(deleteBinderItem(user, binder._id, removing._id))}
-        title="Remove item"
-        description={`Remove ${removing?.item?.name ?? "this item"} from ${binder.name}?`}
-        confirmLabel="Remove"
+        open={removing}
+        onClose={() => setRemoving(false)}
+        onConfirm={() => {
+          if (!user || !selectedIds.length) return;
+          dispatch(deleteBinderItems(user, binder._id, selectedIds));
+          setSelected(new globalThis.Set());
+        }}
+        title={selectedIds.length === 1 ? "Delete item" : `Delete ${selectedIds.length} items`}
+        description={`Delete ${selectedIds.length === 1 ? (binder.items.find((i) => i._id === selectedIds[0])?.item?.name ?? "this item") : `${selectedIds.length} items`} from ${binder.name}? This can't be undone.`}
+        confirmLabel="Delete"
       />
     </div>
   );
@@ -227,14 +289,18 @@ const Page = ({ rows, onView, className }: { rows: Row[]; onView: (item: BinderI
           >
             <span className="hidden px-1 text-center lg:block font-geist-mono text-[10px] text-ink-muted">{variantLabel(r.item)}</span>
             {/* Before the badges so they stay on top of the art */}
-            {r.image && <CardArt image={r.image} alt={r.item.item?.name ?? ""} />}
-            {sealedPath(r.item) && <SealedArt path={sealedPath(r.item)!} alt={r.item.item?.name ?? ""} />}
+            {r.image && <CardArt image={r.image} alt={r.item.item?.name ?? ""} className={artClass(r.item)} />}
+            {sealedPath(r.item) && <SealedArt path={sealedPath(r.item)!} alt={r.item.item?.name ?? ""} className={artClass(r.item)} />}
             {(r.number !== undefined || isSealed(r.item)) && (
               <span className="absolute top-1 left-1 lg:top-1.5 lg:left-1.5 font-geist-mono font-medium text-[9px] lg:text-[10px] bg-paper text-ink px-1 lg:px-[5px] py-px lg:py-0.5 rounded-[3px]">
                 {r.number !== undefined ? `#${r.number}` : "Sealed"}
               </span>
             )}
-            {r.item.quantity > 1 && (
+            {!isOwned(r.item) ? (
+              <span className="absolute top-1 right-1 lg:top-1.5 lg:right-1.5 font-geist-mono font-medium text-[9px] lg:text-[10px] bg-paper text-ink px-1 lg:px-[5px] py-px lg:py-0.5 rounded-[3px]">
+                Missing
+              </span>
+            ) : r.item.quantity > 1 && (
               <span className="absolute top-1 right-1 lg:top-1.5 lg:right-1.5 font-geist-mono font-medium text-[9px] lg:text-[10px] bg-ink text-paper px-1 lg:px-[5px] py-px lg:py-0.5 rounded-[3px]">
                 ×{r.item.quantity}
               </span>
@@ -273,22 +339,29 @@ const Pager = ({ label, prev, next, className }: { label: string; prev?: () => v
 
 // With and without the set number column (set binders only)
 const LIST_COLUMNS = {
-  numbered: "lg:grid-cols-[48px_34px_minmax(0,1.6fr)_1.1fr_0.5fr_104px_0.9fr_0.9fr_0.8fr]",
-  plain: "lg:grid-cols-[34px_minmax(0,1.6fr)_1.1fr_0.5fr_104px_0.9fr_0.9fr_0.8fr]",
+  numbered: "lg:grid-cols-[18px_48px_34px_minmax(0,1.6fr)_1.1fr_0.5fr_104px_0.9fr_0.9fr_0.8fr]",
+  plain: "lg:grid-cols-[18px_34px_minmax(0,1.6fr)_1.1fr_0.5fr_104px_0.9fr_0.9fr_0.8fr]",
 };
 
 interface BinderListProps {
   rows: Row[];
   numbered: boolean;
   setQuantity: (item: BinderItem, quantity: number) => void;
+  markOwned: (item: BinderItem) => void;
   onView: (item: BinderItem) => void;
+  selected: globalThis.Set<string>;
+  onSelect: (id: string) => void;
+  onSelectAll: () => void;
 }
 
-const BinderList = ({ rows, numbered, setQuantity, onView }: BinderListProps) => {
+const BinderList = ({ rows, numbered, setQuantity, markOwned, onView, selected, onSelect, onSelectAll }: BinderListProps) => {
   const columns = numbered ? LIST_COLUMNS.numbered : LIST_COLUMNS.plain;
+  const allSelected = rows.every((r) => selected.has(r.item._id));
+  const someSelected = !allSelected && rows.some((r) => selected.has(r.item._id));
   return (
     <div className="mb-4 border lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:mb-6 bg-paper border-line rounded-xl">
       <div className={cn("hidden lg:grid sticky top-0 z-10 bg-paper gap-3.5 px-[18px] py-3 text-xs font-medium text-ink-muted border-b border-line", columns)}>
+        <Checkbox label="Select all" checked={allSelected} mixed={someSelected} onChange={onSelectAll} />
         {numbered && <span>#</span>}
         <span />
         <span>Card</span>
@@ -303,11 +376,13 @@ const BinderList = ({ rows, numbered, setQuantity, onView }: BinderListProps) =>
         <div
           key={r.item._id}
           className={cn(
-            "grid grid-cols-[34px_minmax(0,1fr)_auto] gap-3 lg:gap-3.5 items-center px-3.5 lg:px-[18px] py-2.5 lg:py-2 text-sm",
+            "grid grid-cols-[18px_34px_minmax(0,1fr)_auto] gap-3 lg:gap-3.5 items-center px-3.5 lg:px-[18px] py-2.5 lg:py-2 text-sm",
             i > 0 && "border-t border-chip",
+            selected.has(r.item._id) && "bg-chip/60",
             columns,
           )}
         >
+          <Checkbox label={`Select ${r.item.item?.name ?? "item"}`} checked={selected.has(r.item._id)} onChange={() => onSelect(r.item._id)} />
           {numbered && <span className="hidden font-geist-mono text-[13px] text-ink-muted lg:block">{r.number !== undefined ? String(r.number).padStart(3, "0") : "—"}</span>}
           <button
             type="button"
@@ -315,8 +390,8 @@ const BinderList = ({ rows, numbered, setQuantity, onView }: BinderListProps) =>
             onClick={() => onView(r.item)}
             className={cn("relative w-[34px] h-[47px] rounded-[3px] overflow-hidden cursor-pointer", stripes)}
           >
-            {r.image && <CardArt image={r.image} alt={r.item.item?.name ?? ""} />}
-            {sealedPath(r.item) && <SealedArt path={sealedPath(r.item)!} alt={r.item.item?.name ?? ""} />}
+            {r.image && <CardArt image={r.image} alt={r.item.item?.name ?? ""} className={artClass(r.item)} />}
+            {sealedPath(r.item) && <SealedArt path={sealedPath(r.item)!} alt={r.item.item?.name ?? ""} className={artClass(r.item)} />}
           </button>
           <div className="min-w-0">
             <div className="font-medium truncate cursor-pointer hover:underline" onClick={() => onView(r.item)}>
@@ -330,14 +405,22 @@ const BinderList = ({ rows, numbered, setQuantity, onView }: BinderListProps) =>
                 · {variantLabel(r.item)} · {languageLabel(r.item)}
               </span>
             </div>
-            <Stepper className="mt-1.5 lg:hidden" quantity={r.item.quantity} onChange={(q) => setQuantity(r.item, q)} />
+            {isOwned(r.item) ? (
+              <Stepper className="mt-1.5 lg:hidden" quantity={r.item.quantity} onChange={(q) => setQuantity(r.item, q)} />
+            ) : (
+              <MarkOwned className="flex mt-1.5 lg:hidden" onClick={() => markOwned(r.item)} />
+            )}
           </div>
           <span className="hidden truncate lg:block text-ink-muted">{variantLabel(r.item)}</span>
           <span className="hidden text-xs font-medium lg:block font-geist-mono">{languageLabel(r.item)}</span>
-          <Stepper className="hidden lg:flex justify-self-center" quantity={r.item.quantity} onChange={(q) => setQuantity(r.item, q)} />
+          {isOwned(r.item) ? (
+            <Stepper className="hidden lg:flex justify-self-center" quantity={r.item.quantity} onChange={(q) => setQuantity(r.item, q)} />
+          ) : (
+            <MarkOwned className="hidden lg:flex justify-self-center" onClick={() => markOwned(r.item)} />
+          )}
           <span className="hidden text-right lg:block font-geist-mono text-ink-muted">{eur(r.price)}</span>
           <div className="text-right">
-            <div className="font-medium font-geist-mono">{eur(r.total)}</div>
+            <div className={cn("font-medium font-geist-mono", !isOwned(r.item) && "text-ink-muted")}>{isOwned(r.item) ? eur(r.total) : "Missing"}</div>
             <div className={cn("lg:hidden font-geist-mono text-[11px]", deltaColor(r.change1m))}>{pct(r.change1m)}</div>
           </div>
           <span className={cn("hidden lg:block text-right font-geist-mono font-medium text-[13px]", deltaColor(r.change1m))}>{pct(r.change1m)}</span>
@@ -361,5 +444,28 @@ const Stepper = ({ quantity, onChange, className }: { quantity: number; onChange
     </div>
   );
 };
+
+const Checkbox = ({ label, checked, mixed, onChange }: { label: string; checked: boolean; mixed?: boolean; onChange: () => void }) => (
+  <button
+    type="button"
+    role="checkbox"
+    aria-label={label}
+    aria-checked={mixed ? "mixed" : checked}
+    onClick={onChange}
+    className={cn(
+      "grid w-[18px] h-[18px] rounded-[5px] border-[1.5px] place-items-center text-paper text-[11px] font-semibold leading-none cursor-pointer before:absolute before:-inset-3 relative",
+      checked || mixed ? "bg-ink border-ink" : "border-ink-muted/50 hover:border-ink"
+    )}
+  >
+    {checked ? "✓" : mixed ? "−" : ""}
+  </button>
+);
+
+// Missing slots have no quantity yet: one tap marks them owned
+const MarkOwned = ({ onClick, className }: { onClick: () => void; className?: string }) => (
+  <button type="button" onClick={onClick} className={cn("items-center h-[30px] px-2.5 w-fit border border-dashed border-line rounded-lg text-xs font-medium text-ink-muted hover:text-ink hover:border-ink-muted cursor-pointer", className)}>
+    + Got it
+  </button>
+);
 
 export default BinderItems;

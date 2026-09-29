@@ -3,9 +3,10 @@ import { useState } from "react";
 
 // Utils
 import { cardImage } from "@/lib/tcgdex";
+import { cn } from "@/lib/utils";
 
 // TCGdex card image covering its (relative) placeholder once loaded; removes itself if TCGdex has no image for the card
-const CardArt = ({ image, alt }: { image: string; alt: string }) => {
+const CardArt = ({ image, alt, className }: { image: string; alt: string; className?: string }) => {
   const [failed, setFailed] = useState(false);
   if (failed) return null;
   return (
@@ -15,7 +16,7 @@ const CardArt = ({ image, alt }: { image: string; alt: string }) => {
       alt={alt}
       loading="lazy"
       onError={() => setFailed(true)}
-      className="absolute inset-0 object-cover w-full h-full"
+      className={cn("absolute inset-0 object-cover w-full h-full", className)}
     />
   );
 };
