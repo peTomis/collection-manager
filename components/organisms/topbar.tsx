@@ -6,6 +6,7 @@ import { useRouter } from "next/router";
 // Components
 import Logo from "@/components/atoms/logo";
 import SettingsPanel, { useProfile } from "@/components/organisms/settings-panel";
+import SearchPalette from "@/components/organisms/search-palette";
 import { useTheme } from "@/lib/theme";
 
 // State
@@ -23,9 +24,22 @@ const isActive = (pathname: string, href: string) => (href === "/" ? pathname ==
 
 const Topbar = () => {
   const [open, setOpen] = React.useState(false);
+  const [searching, setSearching] = React.useState(false);
   const { pathname } = useRouter();
   const profile = useProfile();
   const [theme, setTheme] = useTheme();
+
+  // ⌘K / Ctrl+K opens the search from anywhere
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearching(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const title = NAV.find((n) => isActive(pathname, n.href))?.label ?? "";
 
@@ -61,12 +75,15 @@ const Topbar = () => {
             );
           })}
         </nav>
-        {/* Search is a placeholder for now */}
-        <div className="flex-1 max-w-[420px] flex items-center gap-2.5 h-[38px] px-3 border border-line rounded-[9px] bg-canvas text-ink-muted text-sm">
+        <button
+          type="button"
+          onClick={() => setSearching(true)}
+          className="flex-1 max-w-[420px] flex items-center gap-2.5 h-[38px] px-3 border border-line rounded-[9px] bg-canvas text-ink-muted text-sm text-left cursor-pointer hover:border-ink-muted"
+        >
           <SearchIcon size={15} />
           <span className="flex-1">Search cards, sets, sealed…</span>
           <span className="font-geist-mono font-medium text-[11px] px-1.5 py-0.5 border border-line rounded-[5px] bg-paper">⌘K</span>
-        </div>
+        </button>
         <div className="flex items-center gap-2.5 ml-auto">{account}</div>
       </div>
 
@@ -77,7 +94,7 @@ const Topbar = () => {
             <Logo size={28} variant="mark" />
           </Link>
           <span className="flex-1 font-display font-semibold text-[19px] tracking-[-0.01em]">{title}</span>
-          <button type="button" className="grid w-11 h-11 bg-transparent border-0 place-items-center text-ink" aria-label="Search">
+          <button type="button" onClick={() => setSearching(true)} className="grid w-11 h-11 bg-transparent border-0 cursor-pointer place-items-center text-ink" aria-label="Search">
             <SearchIcon size={18} />
           </button>
           {account}
@@ -101,6 +118,7 @@ const Topbar = () => {
         })}
       </nav>
 
+      <SearchPalette open={searching} onOpenChange={setSearching} />
       <SettingsPanel open={open} onOpenChange={setOpen} theme={theme} onThemeChange={setTheme} />
     </header>
   );

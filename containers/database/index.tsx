@@ -1,5 +1,6 @@
 // Libraries
 import { useEffect, useMemo } from "react";
+import { useRouter } from "next/router";
 
 // State
 import { useDispatch, useSelector } from "@/redux/store";
@@ -21,6 +22,10 @@ const DatabaseContainer = () => {
   const { binders } = useSelector((state) => state.binders);
 
   const dispatch = useDispatch();
+  const router = useRouter();
+  // From the top bar search: the set to open, and a card or sealed product to show in it
+  const querySet = typeof router.query.set === "string" ? router.query.set : undefined;
+  const queryItem = typeof router.query.item === "string" ? router.query.item : undefined;
 
   useEffect(() => {
     if (!user) return;
@@ -32,10 +37,14 @@ const DatabaseContainer = () => {
 
   const sets = useMemo(() => [...setsByRelease].reverse(), [setsByRelease]);
 
-  // Open the newest set until the user picks one
+  // Open the searched set, otherwise the newest one until the user picks one
   useEffect(() => {
-    if (!set && sets.length) dispatch(setSet(sets[0]));
-  }, [sets]);
+    const searched = querySet && sets.find((s) => s._id === querySet);
+    if (searched) dispatch(setSet(searched));
+    else if (!set && sets.length) dispatch(setSet(sets[0]));
+    // Only a set: nothing else to open, so the URL can go back to /database
+    if (searched && !queryItem) router.replace("/database", undefined, { shallow: true });
+  }, [sets, querySet]);
 
   const catalog = useSetCatalog(user, set?._id);
 
@@ -59,7 +68,14 @@ const DatabaseContainer = () => {
           {set ? (
             <>
               <SetHeader set={set} />
-              <SetItems key={set._id} set={set} catalog={catalog} owned={owned} />
+              <SetItems
+                key={set._id}
+                set={set}
+                catalog={catalog}
+                owned={owned}
+                openItem={set._id === querySet ? queryItem : undefined}
+                onOpened={() => router.replace("/database", undefined, { shallow: true })}
+              />
             </>
           ) : (
             loaded && <div className="py-24 text-sm text-center text-ink-muted">No sets in the database yet.</div>
