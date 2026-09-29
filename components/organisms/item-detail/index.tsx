@@ -8,6 +8,7 @@ import Segmented from "@/components/atoms/segmented";
 import CardArt from "@/components/atoms/card-art";
 import SealedArt from "@/components/atoms/sealed-art";
 import { ConfirmModal } from "@/components/atoms/modal";
+import TargetSuggestions from "@/components/atoms/target-suggestions";
 
 // State
 import { useDispatch, useSelector } from "@/redux/store";
@@ -548,6 +549,8 @@ const WishlistActions = ({ item, price, onClose }: { item: WishlistItem; price: 
   };
 
   return (
+    <div className="flex flex-col gap-2.5">
+    <TargetSuggestions historicPrice={item.historicPrice} value={value} onPick={(v) => setValue(String(v))} />
     <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:gap-3.5">
       <div className="flex items-center gap-3">
         <label className={cn(fieldClass, "flex-1 lg:flex-none")}>
@@ -593,6 +596,7 @@ const WishlistActions = ({ item, price, onClose }: { item: WishlistItem; price: 
           </Link>
         )}
       </div>
+    </div>
     </div>
   );
 };

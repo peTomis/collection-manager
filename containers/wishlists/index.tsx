@@ -1,5 +1,6 @@
 // Libraries
 import { useEffect, useState } from "react";
+import { useRouter } from "next/router";
 
 // State
 import { useDispatch, useSelector } from "@/redux/store";
@@ -38,6 +39,15 @@ const WishlistsContainer = () => {
     if (current !== wishlist) dispatch(setWishlist(current));
   }, [wishlists]);
 
+  // From the top bar alerts: the wishlist to open, and the item to show in it
+  const router = useRouter();
+  const queryWishlist = typeof router.query.wishlist === "string" ? router.query.wishlist : undefined;
+  const queryItem = typeof router.query.item === "string" ? router.query.item : undefined;
+  useEffect(() => {
+    const target = queryWishlist && wishlists.find((w) => w._id === queryWishlist);
+    if (target && target !== wishlist) dispatch(setWishlist(target));
+  }, [wishlists, queryWishlist]);
+
   // Desktop: fixed to the viewport, only the items scroll. Mobile: a normal scrolling page.
   return (
     <main className="flex flex-col min-h-screen lg:w-screen lg:h-dvh lg:overflow-hidden font-geist text-ink">
@@ -48,7 +58,11 @@ const WishlistsContainer = () => {
           {wishlist ? (
             <>
               <WishlistHeader wishlist={wishlist} onDelete={() => setDeleting(true)} />
-              <WishlistItems wishlist={wishlist} />
+              <WishlistItems
+                wishlist={wishlist}
+                openItem={wishlist._id === queryWishlist ? queryItem : undefined}
+                onOpened={() => router.replace("/wishlists", undefined, { shallow: true })}
+              />
             </>
           ) : (
             loaded && (

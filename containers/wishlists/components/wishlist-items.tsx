@@ -1,5 +1,5 @@
 // Libraries
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 // Components
@@ -7,6 +7,7 @@ import Modal, { modalButton } from "@/components/atoms/modal";
 import CardArt from "@/components/atoms/card-art";
 import SealedArt from "@/components/atoms/sealed-art";
 import ItemDetail from "@/components/organisms/item-detail";
+import TargetSuggestions from "@/components/atoms/target-suggestions";
 
 // State
 import { useDispatch, useSelector } from "@/redux/store";
@@ -30,10 +31,25 @@ interface Row {
 const stripes = "bg-[repeating-linear-gradient(135deg,var(--cm-stripe-a)_0_6px,var(--cm-stripe-b)_6px_12px)]";
 const gainSoft = "bg-[color-mix(in_oklch,var(--cm-gain)_12%,transparent)]";
 
-const WishlistItems = ({ wishlist }: { wishlist: WishlistWithItems }) => {
+interface WishlistItemsProps {
+  wishlist: WishlistWithItems;
+  // An item to show right away, e.g. picked in the top bar alerts
+  openItem?: string;
+  onOpened?: () => void;
+}
+
+const WishlistItems = ({ wishlist, openItem, onOpened }: WishlistItemsProps) => {
   const [editing, setEditing] = useState<WishlistItem | null>(null);
   const [acquiring, setAcquiring] = useState<WishlistItem | null>(null);
   const [viewing, setViewing] = useState<WishlistItem | null>(null);
+
+  useEffect(() => {
+    if (!openItem) return;
+    const item = wishlist.items.find((i) => i._id === openItem);
+    if (!item) return;
+    setViewing(item);
+    onOpened?.();
+  }, [openItem, wishlist]);
 
   const { sets } = useSelector((state) => state.sets);
   const { binders } = useSelector((state) => state.binders);
@@ -180,12 +196,12 @@ const WishlistCard = ({ row: r, onView, onEdit, onAcquire }: { row: Row; onView:
           </div>
         </div>
         <div className={cn(gapClass, "mt-2")}>{gap}</div>
-        <div className="flex gap-1.5 mt-auto pt-3.5">
-          <button type="button" onClick={onAcquire} className={cn(acquireClass, "flex-1 h-[34px] text-[13px]")}>
-            Got it → Binder
-          </button>
+        <div className="flex justify-end gap-1.5 mt-auto pt-3.5">
           <button type="button" onClick={onEdit} className="h-[34px] px-2.5 border border-line rounded-lg bg-transparent text-[13px] font-medium cursor-pointer hover:bg-chip">
             Edit
+          </button>
+          <button type="button" onClick={onAcquire} className={cn(acquireClass, "flex-1 max-w-[100px] h-[34px] text-[13px]")}>
+            Got it
           </button>
         </div>
       </div>
@@ -261,6 +277,7 @@ const EditTargetModal = ({ item, onClose }: { item: WishlistItem | null; onClose
         placeholder="No target"
         className={cn(inputClass, "font-geist-mono")}
       />
+      <TargetSuggestions className="mt-3" historicPrice={item?.historicPrice} value={value} onPick={(v) => setValue(String(v))} />
     </Modal>
   );
 };

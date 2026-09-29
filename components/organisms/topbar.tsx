@@ -7,9 +7,14 @@ import { useRouter } from "next/router";
 import Logo from "@/components/atoms/logo";
 import SettingsPanel, { useProfile } from "@/components/organisms/settings-panel";
 import SearchPalette from "@/components/organisms/search-palette";
+import AlertsMenu from "@/components/organisms/alerts-menu";
 import { useTheme } from "@/lib/theme";
 
 // State
+import { useDispatch, useSelector } from "@/redux/store";
+import { getWishlists } from "@/redux/slices/wishlists";
+import { getSets } from "@/redux/slices/sets";
+import { targetHit } from "@/lib/items";
 import { fontVariables } from "@/lib/fonts";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +45,23 @@ const Topbar = () => {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  // Alerts: wishlist items whose price is at or below the user's target
+  const user = useSelector((state) => state.user.user);
+  const { wishlists, loaded: wishlistsLoaded } = useSelector((state) => state.wishlists);
+  const setsLoaded = useSelector((state) => state.sets.loaded);
+  const dispatch = useDispatch();
+  React.useEffect(() => {
+    if (user && !wishlistsLoaded) dispatch(getWishlists(user));
+  }, [user]);
+  const hits = wishlists.flatMap((w) => w.items.filter(targetHit).map((item) => ({ item, wishlist: w })));
+  const alerts = hits.length;
+  const [alertsOpen, setAlertsOpen] = React.useState(false);
+  const alertsButton = React.useRef<HTMLButtonElement>(null);
+  // Set logos for the list
+  React.useEffect(() => {
+    if (alertsOpen && user && !setsLoaded) dispatch(getSets(user));
+  }, [alertsOpen]);
 
   const title = NAV.find((n) => isActive(pathname, n.href))?.label ?? "";
 
@@ -84,7 +106,21 @@ const Topbar = () => {
           <span className="flex-1">Search cards, sets, sealed…</span>
           <span className="font-geist-mono font-medium text-[11px] px-1.5 py-0.5 border border-line rounded-[5px] bg-paper">⌘K</span>
         </button>
-        <div className="flex items-center gap-2.5 ml-auto">{account}</div>
+        <div className="flex items-center gap-2.5 ml-auto">
+          {alerts > 0 && (
+            <button
+              ref={alertsButton}
+              type="button"
+              onClick={() => setAlertsOpen(true)}
+              title="Wishlist items at or below your target price"
+              className="flex items-center gap-2 h-[38px] px-3 border border-line rounded-[9px] text-[13px] font-medium cursor-pointer hover:bg-chip"
+            >
+              <span className="w-2 h-2 rounded-full bg-gain" />
+              {alerts === 1 ? "1 alert" : `${alerts} alerts`}
+            </button>
+          )}
+          {account}
+        </div>
       </div>
 
       {/* Mobile */}
@@ -119,6 +155,7 @@ const Topbar = () => {
       </nav>
 
       <SearchPalette open={searching} onOpenChange={setSearching} />
+      <AlertsMenu open={alertsOpen && alerts > 0} onClose={() => setAlertsOpen(false)} anchor={alertsButton} hits={hits} />
       <SettingsPanel open={open} onOpenChange={setOpen} theme={theme} onThemeChange={setTheme} />
     </header>
   );
