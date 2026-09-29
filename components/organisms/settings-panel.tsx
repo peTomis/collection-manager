@@ -18,7 +18,7 @@ export const initials = (name?: string | null) =>
     .map((w) => w[0].toUpperCase())
     .join("") || "?";
 
-// Avatar initials, "DE" for the demo collection.
+// Avatar initials, "DE" for the demo collection, and the account picture when signed in (the users.image saved at sign in).
 export const useProfile = () => {
   const { user } = useSelector((state) => state.user);
   const { data: session } = useSession();
@@ -27,6 +27,7 @@ export const useProfile = () => {
   return {
     isDemo,
     initials: !user ? "" : isDemo ? "DE" : initials(session?.user?.name),
+    image: !user || isDemo ? undefined : session?.user?.image ?? undefined,
     name: isDemo ? "Demo collection" : session?.user?.name ?? "",
     sub: isDemo ? "Saved in this browser only" : session?.user?.email ?? "",
   };

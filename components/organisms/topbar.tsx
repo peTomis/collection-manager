@@ -93,14 +93,24 @@ const Topbar = () => {
 
   const title = NAV.find((n) => isActive(pathname, n.href))?.label ?? "";
 
+  // The account picture, or the initials when there is none or it fails to load
+  const [imageFailed, setImageFailed] = React.useState(false);
+  React.useEffect(() => setImageFailed(false), [profile.image]);
+  const showImage = !!profile.image && !imageFailed;
+
   const account = (
     <button
       type="button"
       title="Settings"
       onClick={() => setOpen(true)}
-      className="grid w-[38px] h-[38px] rounded-full bg-gold place-items-center text-[#1D1B18] text-[13px] font-semibold cursor-pointer shadow-[0_0_0_2px_rgb(var(--cm-paper)),0_0_0_3px_rgb(var(--cm-line))]"
+      className="grid w-[38px] h-[38px] overflow-hidden rounded-full bg-gold place-items-center text-[#1D1B18] text-[13px] font-semibold cursor-pointer shadow-[0_0_0_2px_rgb(var(--cm-paper)),0_0_0_3px_rgb(var(--cm-line))]"
     >
-      {profile.initials}
+      {showImage ? (
+        // Google avatars can refuse requests that carry a referrer
+        <img src={profile.image} alt="" referrerPolicy="no-referrer" onError={() => setImageFailed(true)} className="object-cover w-full h-full" />
+      ) : (
+        profile.initials
+      )}
     </button>
   );
 
