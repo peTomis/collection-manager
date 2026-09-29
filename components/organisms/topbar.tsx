@@ -5,7 +5,7 @@ import { useRouter } from "next/router";
 
 // Components
 import Logo from "@/components/atoms/logo";
-import SettingsPanel, { useProfile } from "@/components/organisms/settings-panel";
+import SettingsPanel, { Avatar } from "@/components/organisms/settings-panel";
 import SearchPalette from "@/components/organisms/search-palette";
 import AlertsMenu from "@/components/organisms/alerts-menu";
 import { useTheme } from "@/lib/theme";
@@ -53,7 +53,6 @@ const Topbar = () => {
   const [open, setOpen] = React.useState(false);
   const [searching, setSearching] = React.useState(false);
   const { pathname } = useRouter();
-  const profile = useProfile();
   const [theme, setTheme] = useTheme();
 
   // ⌘K / Ctrl+K opens the search from anywhere
@@ -93,24 +92,9 @@ const Topbar = () => {
 
   const title = NAV.find((n) => isActive(pathname, n.href))?.label ?? "";
 
-  // The account picture, or the initials when there is none or it fails to load
-  const [imageFailed, setImageFailed] = React.useState(false);
-  React.useEffect(() => setImageFailed(false), [profile.image]);
-  const showImage = !!profile.image && !imageFailed;
-
   const account = (
-    <button
-      type="button"
-      title="Settings"
-      onClick={() => setOpen(true)}
-      className="grid w-[38px] h-[38px] overflow-hidden rounded-full bg-gold place-items-center text-[#1D1B18] text-[13px] font-semibold cursor-pointer shadow-[0_0_0_2px_rgb(var(--cm-paper)),0_0_0_3px_rgb(var(--cm-line))]"
-    >
-      {showImage ? (
-        // Google avatars can refuse requests that carry a referrer
-        <img src={profile.image} alt="" referrerPolicy="no-referrer" onError={() => setImageFailed(true)} className="object-cover w-full h-full" />
-      ) : (
-        profile.initials
-      )}
+    <button type="button" title="Settings" onClick={() => setOpen(true)} className="grid rounded-full cursor-pointer shadow-[0_0_0_2px_rgb(var(--cm-paper)),0_0_0_3px_rgb(var(--cm-line))]">
+      <Avatar className="w-[38px] h-[38px] text-[13px]" />
     </button>
   );
 

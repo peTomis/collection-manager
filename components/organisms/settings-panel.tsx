@@ -1,4 +1,5 @@
 // Libraries
+import { useEffect, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { signIn, signOut, useSession } from "next-auth/react";
 
@@ -31,6 +32,24 @@ export const useProfile = () => {
     name: isDemo ? "Demo collection" : session?.user?.name ?? "",
     sub: isDemo ? "Saved in this browser only" : session?.user?.email ?? "",
   };
+};
+
+// The account picture, or the initials when there is none or it fails to load
+export const Avatar = ({ className }: { className?: string }) => {
+  const profile = useProfile();
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [profile.image]);
+
+  return (
+    <span className={cn("grid overflow-hidden rounded-full bg-gold place-items-center text-[#1D1B18] font-semibold", className)}>
+      {profile.image && !failed ? (
+        // Google avatars can refuse requests that carry a referrer
+        <img src={profile.image} alt="" referrerPolicy="no-referrer" onError={() => setFailed(true)} className="object-cover w-full h-full" />
+      ) : (
+        profile.initials
+      )}
+    </span>
+  );
 };
 
 const THEMES: { value: Theme; label: string }[] = [
@@ -74,7 +93,7 @@ const SettingsPanel = ({ open, onOpenChange, theme, onThemeChange }: SettingsPan
 
           <div className="flex-1 px-4 overflow-y-auto md:px-6">
             <div className="flex items-center gap-3 md:gap-3.5 py-[18px] md:py-[22px] border-b border-line">
-              <div className="grid flex-none w-12 h-12 md:w-14 md:h-14 rounded-full bg-gold place-items-center text-[#1D1B18] font-semibold text-base md:text-lg">{profile.initials}</div>
+              <Avatar className="flex-none w-12 h-12 md:w-14 md:h-14 text-base md:text-lg" />
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-[15px] md:text-base truncate">{profile.name}</div>
                 <div className="text-xs md:text-[13px] text-ink-muted mt-0.5 truncate">{profile.sub}</div>
