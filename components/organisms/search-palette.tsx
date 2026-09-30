@@ -172,6 +172,31 @@ const SearchPalette = ({ open, onOpenChange }: { open: boolean; onOpenChange: (o
 
   useEffect(() => setActive(0), [items]);
 
+  // On mobile the sheet follows the visual viewport: iOS pans the page when the keyboard opens, which would push the
+  // input off the top, and the results should end above the keyboard rather than behind it
+  const [viewport, setViewport] = useState<{ top: number; height: number } | null>(null);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!open || !vv) return;
+    const mobile = window.matchMedia("(max-width: 767px)");
+    const update = () => setViewport(mobile.matches ? { top: vv.offsetTop, height: vv.height } : null);
+    update();
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    mobile.addEventListener("change", update);
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+      mobile.removeEventListener("change", update);
+      setViewport(null);
+    };
+  }, [open]);
+
+  // Dropping the keyboard, to see the results behind it
+  const dismissKeyboard = () => {
+    if (document.activeElement instanceof HTMLInputElement) document.activeElement.blur();
+  };
+
   const close = () => {
     setQuery("");
     onOpenChange(false);
@@ -213,6 +238,10 @@ const SearchPalette = ({ open, onOpenChange }: { open: boolean; onOpenChange: (o
       const next = (active + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
       setActive(next);
       document.getElementById(`search-${items[next].key}`)?.scrollIntoView({ block: "nearest" });
+    } else if (e.key === "Enter" && viewport) {
+      // The keyboard's Search key only closes it on mobile, the results are then tapped
+      e.preventDefault();
+      dismissKeyboard();
     } else if (e.key === "Enter" && items[active]) {
       e.preventDefault();
       go(items[active]);
@@ -227,6 +256,7 @@ const SearchPalette = ({ open, onOpenChange }: { open: boolean; onOpenChange: (o
           <DialogPrimitive.Content
             aria-describedby={undefined}
             onKeyDown={onKeyDown}
+            style={viewport ? { top: viewport.top, height: viewport.height, bottom: "auto" } : undefined}
             className={cn(
               fontVariables,
               "fixed z-50 flex flex-col overflow-hidden bg-paper font-geist text-ink outline-none inset-0 pt-[env(safe-area-inset-top)]",
@@ -243,6 +273,7 @@ const SearchPalette = ({ open, onOpenChange }: { open: boolean; onOpenChange: (o
               <input
                 autoFocus
                 aria-label="Search cards, sets, sealed"
+                enterKeyHint="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search cards, sets, sealed…"
@@ -252,7 +283,7 @@ const SearchPalette = ({ open, onOpenChange }: { open: boolean; onOpenChange: (o
               <DialogPrimitive.Close className="h-11 px-2.5 text-sm font-medium cursor-pointer md:hidden">Cancel</DialogPrimitive.Close>
             </div>
 
-            <div className="flex-1 min-h-0 p-2 overflow-y-auto">
+            <div className="flex-1 min-h-0 p-2 overflow-y-auto overscroll-contain" onTouchMove={dismissKeyboard}>
               {q.length < 2 ? (
                 <p className="px-3 py-8 text-sm text-center text-ink-muted">Type a card, set or product name.</p>
               ) : items.length === 0 ? (
