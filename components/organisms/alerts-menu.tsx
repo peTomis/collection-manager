@@ -1,5 +1,5 @@
 // Libraries
-import { RefObject, useLayoutEffect, useState } from "react";
+import { RefObject, useState } from "react";
 import { useRouter } from "next/router";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 
@@ -13,6 +13,7 @@ import { itemPrice, languageLabel, variantLabel } from "@/lib/items";
 import { fontVariables } from "@/lib/fonts";
 import { eur } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useIsomorphicLayoutEffect } from "@/lib/use-isomorphic-layout-effect";
 
 interface AlertsMenuProps {
   open: boolean;
@@ -28,7 +29,7 @@ const AlertsMenu = ({ open, onClose, anchor, hits }: AlertsMenuProps) => {
   const { sets } = useSelector((state) => state.sets);
   const router = useRouter();
 
-  useLayoutEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     if (!open) return;
     const place = () => {
       const rect = anchor.current?.getBoundingClientRect();

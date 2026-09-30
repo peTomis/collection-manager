@@ -12,6 +12,19 @@ const apply = process.argv.includes("--apply");
 
 // Sealed product id → image path under public/
 const PATHS = {
+  // 151
+  "67aa1e4d6f8f6e42a7bbe509": "/sets/151/booster.webp", // 151 Booster
+  "67aa1e4d6f8f6e42a7bbe50c": "/sets/151/booster_bundle.webp", // 151 Booster Bundle
+  "67aa1e4d6f8f6e42a7bbe50f": "/sets/151/booster_bundle_display.webp", // 151 Booster Bundle Display
+  "67aa1e4d6f8f6e42a7bbe512": "/sets/151/mini_tin_display.webp", // 151 Mini Tin Display
+  "67aa1e4d6f8f6e42a7bbe515": "/sets/151/poster_collection.webp", // 151 Poster Collection
+  "67aa1e4d6f8f6e42a7bbe518": "/sets/151/ultra_premium_collection.webp", // 151 Ultra Premium Collection
+  "67aa1e4d6f8f6e42a7bbe51b": "/sets/151/binder_collection.webp", // 151 Binder Collection
+  "67aa1e4d6f8f6e42a7bbe51e": "/sets/151/alakazam_ex_collection.webp", // 151 Alakazam ex Collection
+  "67aa1e4d6f8f6e42a7bbe521": "/sets/151/zapdos_ex_collection.webp", // 151 Zapdos ex Collection
+  "67aa1e4e6f8f6e42a7bbe524": "/sets/151/blooming_water_collection.webp", // 151 Blooming Waters Premium Collection
+  "67aa1e4e6f8f6e42a7bbe526": "/sets/151/elite_trainer_box.webp", // 151 Elite Trainer Box
+  "67aa1e4e6f8f6e42a7bbe529": "/sets/151/pokemon_center_elite_trainer_box.webp", // 151 Pokemon Center Elite Trainer Box
   // Base Set
   "67aa1e4c6f8f6e42a7bbe4ef": "/sets/base_set/booster.webp", // Base Set Booster
   "67aa1e4c6f8f6e42a7bbe4f2": "/sets/base_set/booster.webp", // Base Set First Edition Booster

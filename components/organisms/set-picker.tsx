@@ -1,5 +1,5 @@
 // Libraries
-import { RefObject, useLayoutEffect, useState } from "react";
+import { RefObject, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 
 // Components
@@ -12,6 +12,7 @@ import { groupByEra } from "@/lib/sets";
 import { useSwipeToClose } from "@/lib/use-swipe-to-close";
 import { fontVariables } from "@/lib/fonts";
 import { cn } from "@/lib/utils";
+import { useIsomorphicLayoutEffect } from "@/lib/use-isomorphic-layout-effect";
 
 interface SetPickerProps {
   open: boolean;
@@ -36,7 +37,7 @@ const SetPicker = ({ open, onClose, anchor, sets, selected, owned, onSelect }: S
   const { sheet, handlers } = useSwipeToClose(onClose);
 
   // Follow the button on desktop (the modal can scroll or the window resize while open)
-  useLayoutEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     if (!open) return;
     const place = () => {
       const rect = anchor.current?.getBoundingClientRect();

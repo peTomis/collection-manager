@@ -4,6 +4,9 @@ import TCGdex from "@tcgdex/sdk";
 
 const tcgdex = new TCGdex("en");
 
+// The catalog's 151 identifier differs from TCGdex's set identifier.
+const tcgdexSetId = (setId: string) => (setId === "sv3pt5" ? "sv03.5" : setId);
+
 // Card image base URLs by card number, e.g. 4 → https://assets.tcgdex.net/en/base/base1/4
 export type SetImages = Map<number, string>;
 
@@ -14,7 +17,7 @@ const fetchSetImages = (setId: string): Promise<SetImages> => {
   const cached = cache.get(setId);
   if (cached) return cached;
   const request = tcgdex.set
-    .get(setId)
+    .get(tcgdexSetId(setId))
     .then((set) => new Map((set?.cards ?? []).filter((c) => c.image).map((c) => [Number(c.localId), c.image!] as [number, string])))
     .catch((error) => {
       console.error(error);
@@ -26,7 +29,7 @@ const fetchSetImages = (setId: string): Promise<SetImages> => {
 };
 
 // Append a quality and format to a TCGdex image base URL
-export const cardImage = (base: string, quality: "low" | "high") => `${base}/${quality}.webp`;
+export const cardImage = (base: string, quality: "low" | "high") => `${base}/${quality}.${base.startsWith("https://assets.tcgdex.net/en/sv/sv03.5/") ? "png" : "webp"}`;
 
 // Images of a set's cards, empty until loaded or when the set isn't on TCGdex (tcgdex id missing or unknown)
 export const useSetImages = (setId: string | undefined) => {
@@ -75,7 +78,7 @@ const fetchCardInfo = (setId: string, number: number): Promise<CardInfo> => {
   const cached = infoCache.get(key);
   if (cached) return cached;
   const request = tcgdex.set
-    .get(setId)
+    .get(tcgdexSetId(setId))
     .then((set) => set?.cards.find((c) => Number(c.localId) === number))
     .then((resume) => (resume ? tcgdex.card.get(resume.id) : null))
     .then((card): CardInfo => ({ rarity: card?.rarity || undefined, illustrator: card?.illustrator || undefined }))
