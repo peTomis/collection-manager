@@ -1,6 +1,6 @@
 import EditButton from "@/components/atoms/edit-button";
 // Libraries
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
 // Components
@@ -245,6 +245,20 @@ const BinderGrid = ({ rows, page, setPage, onView }: { rows: Row[]; page: number
   const pageRows = (p: number) => rows.slice(p * PAGE_SIZE, (p + 1) * PAGE_SIZE);
   const spread = page - (page % 2);
 
+  // Keep the pager where it was on screen when the page changes: iOS Safari doesn't anchor the scroll while the pockets are swapped
+  const pagers = useRef<HTMLDivElement>(null);
+  const anchor = useRef<number | null>(null);
+  const go = (p: number) => {
+    anchor.current = pagers.current?.getBoundingClientRect().top ?? null;
+    setPage(p);
+  };
+  useLayoutEffect(() => {
+    if (anchor.current === null || !pagers.current) return;
+    const moved = pagers.current.getBoundingClientRect().top - anchor.current;
+    anchor.current = null;
+    if (moved) window.scrollBy(0, moved);
+  }, [page]);
+
   return (
     <>
       <div className="lg:flex-1 lg:min-h-0 binder-fit">
@@ -255,18 +269,20 @@ const BinderGrid = ({ rows, page, setPage, onView }: { rows: Row[]; page: number
         </div>
       </div>
 
-      <Pager
-        className="lg:hidden"
-        label={`Page ${page + 1} of ${pages}`}
-        prev={page > 0 ? () => setPage(page - 1) : undefined}
-        next={page < pages - 1 ? () => setPage(page + 1) : undefined}
-      />
-      <Pager
-        className="hidden lg:flex"
-        label={spread + 1 < pages ? `Pages ${spread + 1}–${spread + 2} of ${pages}` : `Page ${spread + 1} of ${pages}`}
-        prev={spread > 0 ? () => setPage(spread - 2) : undefined}
-        next={spread + 2 < pages ? () => setPage(spread + 2) : undefined}
-      />
+      <div ref={pagers}>
+        <Pager
+          className="lg:hidden"
+          label={`Page ${page + 1} of ${pages}`}
+          prev={page > 0 ? () => go(page - 1) : undefined}
+          next={page < pages - 1 ? () => go(page + 1) : undefined}
+        />
+        <Pager
+          className="hidden lg:flex"
+          label={spread + 1 < pages ? `Pages ${spread + 1}–${spread + 2} of ${pages}` : `Page ${spread + 1} of ${pages}`}
+          prev={spread > 0 ? () => go(spread - 2) : undefined}
+          next={spread + 2 < pages ? () => go(spread + 2) : undefined}
+        />
+      </div>
     </>
   );
 };
@@ -324,14 +340,15 @@ const Page = ({ rows, onView, className }: { rows: Row[]; onView: (item: BinderI
 
 const Pager = ({ label, prev, next, className }: { label: string; prev?: () => void; next?: () => void; className?: string }) => {
   const button =
-    "w-11 h-11 lg:w-9 lg:h-9 rounded-[10px] lg:rounded-lg border border-line bg-paper disabled:text-ink-muted disabled:opacity-60 cursor-pointer disabled:cursor-default";
+    "w-11 h-11 lg:w-9 lg:h-9 rounded-[10px] lg:rounded-lg border border-line bg-paper cursor-pointer aria-disabled:text-ink-muted aria-disabled:opacity-60 aria-disabled:cursor-default";
   return (
     <div className={cn("flex flex-none items-center justify-center gap-3.5 lg:gap-4 mt-3 mb-4 lg:mt-4 lg:mb-6 font-geist-mono font-medium text-[13px]", className)}>
-      <button type="button" aria-label="Previous page" className={button} disabled={!prev} onClick={prev}>
+      {/* aria-disabled rather than disabled: Safari drops focus from a button that gets disabled under the finger, and scrolls */}
+      <button type="button" aria-label="Previous page" className={button} aria-disabled={!prev} onClick={prev}>
         ‹
       </button>
       <span>{label}</span>
-      <button type="button" aria-label="Next page" className={button} disabled={!next} onClick={next}>
+      <button type="button" aria-label="Next page" className={button} aria-disabled={!next} onClick={next}>
         ›
       </button>
     </div>
