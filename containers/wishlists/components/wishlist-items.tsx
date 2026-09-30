@@ -1,3 +1,4 @@
+import EditButton from "@/components/atoms/edit-button";
 // Libraries
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -168,12 +169,12 @@ const WishlistCard = ({ row: r, onView, onEdit, onAcquire }: { row: Row; onView:
         <div className="flex items-center justify-between gap-2 mt-2.5">
           <span className={gapClass}>{gap}</span>
           <div className="flex flex-none gap-1.5">
-            <button type="button" onClick={onEdit} className="h-9 px-2.5 border border-line rounded-lg text-xs font-medium cursor-pointer">
+            <EditButton type="button" onClick={onEdit} className="h-9 px-2.5 border border-line rounded-lg text-xs font-medium cursor-pointer">
               Edit
-            </button>
-            <button type="button" onClick={onAcquire} className={cn(acquireClass, "h-9 px-3 text-xs")}>
+            </EditButton>
+            <EditButton type="button" onClick={onAcquire} className={cn(acquireClass, "h-9 px-3 text-xs")}>
               Got it
-            </button>
+            </EditButton>
           </div>
         </div>
       </div>
@@ -200,12 +201,12 @@ const WishlistCard = ({ row: r, onView, onEdit, onAcquire }: { row: Row; onView:
         </div>
         <div className={cn(gapClass, "mt-2")}>{gap}</div>
         <div className="flex justify-end gap-1.5 mt-auto pt-3.5">
-          <button type="button" onClick={onEdit} className="h-[34px] px-2.5 border border-line rounded-lg bg-transparent text-[13px] font-medium cursor-pointer hover:bg-chip">
+          <EditButton type="button" onClick={onEdit} className="h-[34px] px-2.5 border border-line rounded-lg bg-transparent text-[13px] font-medium cursor-pointer hover:bg-chip">
             Edit
-          </button>
-          <button type="button" onClick={onAcquire} className={cn(acquireClass, "flex-1 max-w-[100px] h-[34px] text-[13px]")}>
+          </EditButton>
+          <EditButton type="button" onClick={onAcquire} className={cn(acquireClass, "flex-1 max-w-[100px] h-[34px] text-[13px]")}>
             Got it
-          </button>
+          </EditButton>
         </div>
       </div>
     </div>
@@ -255,15 +256,15 @@ const EditTargetModal = ({ item, onClose }: { item: WishlistItem | null; onClose
       description={item ? `Current price ${eur(itemPrice(item))}. You'll see an alert when it drops to your target.` : undefined}
       footer={
         <>
-          <button type="button" className={cn(modalButton.secondary, "mr-auto text-loss")} onClick={remove}>
+          <EditButton type="button" className={cn(modalButton.secondary, "mr-auto text-loss")} onClick={remove}>
             Remove
-          </button>
+          </EditButton>
           <button type="button" className={modalButton.secondary} onClick={close}>
             Cancel
           </button>
-          <button type="button" className={modalButton.primary} disabled={!valid} onClick={save}>
+          <EditButton type="button" className={modalButton.primary} disabled={!valid} onClick={save}>
             Save
-          </button>
+          </EditButton>
         </>
       }
     >
@@ -328,9 +329,9 @@ const GotItModal = ({ item, onClose }: { item: WishlistItem | null; onClose: () 
             <button type="button" className={modalButton.secondary} onClick={close}>
               Cancel
             </button>
-            <button type="button" className={modalButton.primary} onClick={confirm}>
+            <EditButton type="button" className={modalButton.primary} onClick={confirm}>
               Move to binder
-            </button>
+            </EditButton>
           </>
         ) : (
           <Link href="/binders" className={cn(modalButton.primary, "inline-flex items-center")}>

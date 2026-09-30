@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/api-fetch";
 import { CardVariantType, ItemType, Price } from "@/types/mongodb";
 import { createSlice, Dispatch } from "@reduxjs/toolkit";
 
@@ -29,7 +30,7 @@ export default slice.reducer;
 export function getPrices(user: string, id: string, type: ItemType, language: string, variant?: CardVariantType) {
   return async (dispatch: Dispatch) => {
     try {
-      const response = await fetch(`/api/prices?user=${user}&id=${id}&type=${type}&language=${language}${variant ? `&variant=${variant}` : ""}`, { method: "GET" });
+      const response = await apiFetch(`/api/prices?user=${user}&id=${id}&type=${type}&language=${language}${variant ? `&variant=${variant}` : ""}`, { method: "GET" });
       const data = await response.json();
       dispatch(getPricesSuccess(data?.prices ?? []));
     } catch (error) {

@@ -1,3 +1,4 @@
+import EditButton from "@/components/atoms/edit-button";
 // Libraries
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
@@ -443,14 +444,14 @@ const NewListModal = ({ open, onClose, type: initialType, switchable, set: initi
               <button type="button" onClick={close} className="hidden h-10 px-3.5 text-sm font-medium cursor-pointer lg:block">
                 Cancel
               </button>
-              <button
+              <EditButton
                 type="button"
                 disabled={!valid || saving}
                 onClick={save}
                 className="flex-1 lg:flex-none h-[50px] lg:h-10 px-[18px] rounded-[11px] lg:rounded-[9px] bg-ink text-paper text-[15px] lg:text-sm font-medium whitespace-nowrap cursor-pointer disabled:opacity-40 disabled:cursor-default"
               >
                 {cta}
-              </button>
+              </EditButton>
             </div>
           </div>
         </DialogPrimitive.Content>

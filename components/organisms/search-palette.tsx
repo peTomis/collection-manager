@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/api-fetch";
 // Libraries
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
@@ -41,7 +42,7 @@ interface Result {
 
 const EMPTY: Results = { sets: [], cards: [], sealed: [] };
 
-const fetchJson = async (url: string, init?: RequestInit) => (await fetch(url, init)).json();
+const fetchJson = async (url: string, init?: RequestInit) => (await apiFetch(url, init)).json();
 
 // A card or sealed product with the prices of all its versions, as the Database has them
 const fetchProduct = async (user: string, kind: ItemType, id: string): Promise<{ product: Product; prices: Map<string, HistoricPrice> } | null> => {
@@ -94,7 +95,7 @@ const SearchPalette = ({ open, onOpenChange }: { open: boolean; onOpenChange: (o
     setLoading(true);
     let current = true;
     const timer = setTimeout(() => {
-      fetch(`/api/search?q=${encodeURIComponent(q)}`)
+      apiFetch(`/api/search?q=${encodeURIComponent(q)}`)
         .then((r) => r.json())
         .then((data: Results) => current && setResults({ ...EMPTY, ...data }))
         .catch(() => current && setResults(EMPTY))

@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/api-fetch";
 import { Set } from "@/types/mongodb";
 import { createSlice, Dispatch } from "@reduxjs/toolkit";
 import { PokemonTCG } from "pokemon-tcg-sdk-typescript";
@@ -43,7 +44,7 @@ export default slice.reducer;
 export function getSets(user: string) {
   return async (dispatch: Dispatch) => {
     try {
-      const response = await fetch(`/api/sets?user=${user}`, { method: "GET" });
+      const response = await apiFetch(`/api/sets?user=${user}`, { method: "GET" });
       const data = await response.json();
       dispatch(getSetsSuccess(data?.sets ?? []));
     } catch (error) {
@@ -55,7 +56,7 @@ export function getSets(user: string) {
 export function getSet(user: string, id: string) {
   return async (dispatch: Dispatch) => {
     try {
-      const response = await fetch(`/api/sets?id=${id}&user=${user}`, { method: "GET" });
+      const response = await apiFetch(`/api/sets?id=${id}&user=${user}`, { method: "GET" });
       const data = await response.json();
       dispatch(getSetSuccess(data?.set));
     } catch (error) {

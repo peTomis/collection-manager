@@ -1,3 +1,5 @@
+import { useReadOnly } from "@/lib/offline";
+import EditButton from "@/components/atoms/edit-button";
 // Libraries
 import { useState } from "react";
 import Link from "next/link";
@@ -427,6 +429,7 @@ const Stepper = ({ value, onChange, disabled }: { value: number; onChange: (v: n
 
 // Mark it owned or missing, change the quantity, move the item to another binder or remove it
 const BinderActions = ({ item, onClose }: { item: BinderItem; onClose: () => void }) => {
+  const readOnly = useReadOnly();
   const [quantity, setQuantity] = useState(item.quantity);
   const [owned, setOwned] = useState(isOwned(item));
   const [removing, setRemoving] = useState(false);
@@ -467,6 +470,8 @@ const BinderActions = ({ item, onClose }: { item: BinderItem; onClose: () => voi
     dispatch(deleteBinderItem(user, item.binder, item._id));
     onClose();
   };
+
+  if (readOnly) return <p className="text-sm text-ink-muted">Offline mode · Collection is read-only</p>;
 
   return (
     <>
@@ -525,6 +530,7 @@ const BinderActions = ({ item, onClose }: { item: BinderItem; onClose: () => voi
 
 // Set the target price, remove the item, or move it into a binder once bought
 const WishlistActions = ({ item, price, onClose }: { item: WishlistItem; price: number; onClose: () => void }) => {
+  const readOnly = useReadOnly();
   const [value, setValue] = useState(item.target !== undefined ? String(item.target) : "");
   const [binderId, setBinderId] = useState("");
   const { binders } = useSelector((state) => state.binders);
@@ -560,6 +566,8 @@ const WishlistActions = ({ item, price, onClose }: { item: WishlistItem; price: 
     dispatch(deleteWishlistItem(user, item.wishlist, item._id));
     onClose();
   };
+
+  if (readOnly) return <p className="text-sm text-ink-muted">Offline mode · Collection is read-only</p>;
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -644,12 +652,12 @@ const DatabaseActions = ({ variants, label, prices, keyOf, index, onIndex, onAdd
       </label>
       {!priced && <span className="text-xs text-loss">No price data yet for this version</span>}
       <div className="grid grid-cols-[1fr_2fr] gap-2 lg:flex lg:ml-auto">
-        <button type="button" className={secondaryClass} disabled={!priced} onClick={() => onAdd("wishlist")}>
+        <EditButton type="button" className={secondaryClass} disabled={!priced} onClick={() => onAdd("wishlist")}>
           + Wishlist
-        </button>
-        <button type="button" className={primaryClass} disabled={!priced} onClick={() => onAdd("binder")}>
+        </EditButton>
+        <EditButton type="button" className={primaryClass} disabled={!priced} onClick={() => onAdd("binder")}>
           + Add to binder
-        </button>
+        </EditButton>
       </div>
     </div>
   );

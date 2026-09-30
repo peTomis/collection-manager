@@ -1,3 +1,4 @@
+import { useReadOnly } from "@/lib/offline";
 // Libraries
 import { useState } from "react";
 
@@ -18,6 +19,7 @@ const inputClass = "w-full h-12 lg:h-[42px] px-3 rounded-[10px] lg:rounded-[9px]
 
 // The title of a binder or wishlist: click it to rename the list (and its linked list too, if asked) in a modal, a bottom sheet on mobile
 const ListName = ({ kind, list }: ListNameProps) => {
+  const readOnly = useReadOnly();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(list.name);
   const [both, setBoth] = useState(false);
@@ -51,8 +53,8 @@ const ListName = ({ kind, list }: ListNameProps) => {
     <>
       <h1
         className="font-display font-semibold text-[30px] lg:text-[40px] leading-[1.05] tracking-[-0.03em] truncate cursor-pointer rounded-md hover:bg-chip/60"
-        title={`${list.name} · click to rename`}
-        onClick={start}
+        title={readOnly ? list.name : `${list.name} · click to rename`}
+        onClick={readOnly ? undefined : start}
       >
         {list.name}
       </h1>

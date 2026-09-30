@@ -12,7 +12,7 @@ const countBySet = async (db: Db, collection: string): Promise<Map<string, numbe
   return new Map(groups.map((g) => [String(g._id), g.count]));
 };
 
-const fetchSets = async () => {
+export const fetchSets = async () => {
   await client.connect();
   const db: Db = client.db("collection-manager");
   const [games, cards, sealed] = await Promise.all([db.collection("sets").find({}).sort({}).toArray(), countBySet(db, "cards"), countBySet(db, "sealed")]);

@@ -1,3 +1,5 @@
+import { assertEditable, isOffline } from "@/lib/offline";
+import { apiFetch } from "@/lib/api-fetch";
 import { BinderItemToCreate, BinderToSave, BinderWithItems } from "@/types/mongodb";
 import { createSlice, Dispatch } from "@reduxjs/toolkit";
 import { DEMO_USER } from "@/types/constants";
@@ -61,7 +63,7 @@ const refresh = (user: string, dispatch: Dispatch) => Promise.all([getBinders(us
 export function getBinders(user: string) {
   return async (dispatch: Dispatch): Promise<BinderWithItems[]> => {
     try {
-      const binders: BinderWithItems[] = user === DEMO_USER ? await getDemoBinders() : ((await (await fetch(`/api/binders?user=${user}&withcards=true`, { method: "GET" })).json())?.items ?? []);
+      const binders: BinderWithItems[] = user === DEMO_USER && !isOffline() ? await getDemoBinders() : ((await (await apiFetch(`/api/binders?user=${user}&withcards=true`, { method: "GET" })).json())?.items ?? []);
       dispatch(getBindersSuccess(binders));
       return binders;
     } catch (error) {
@@ -87,10 +89,11 @@ export function setBinder(binder: BinderWithItems | null) {
 export function createBinder(user: string, name: string, set?: string, items: NewListItem<BinderItemToCreate>[] = [], wishlist?: string) {
   return async (dispatch: Dispatch): Promise<string | null> => {
     try {
+      assertEditable();
       let id: string | undefined;
       if (user === DEMO_USER) id = await createDemoBinder(name, set, items, wishlist);
       else {
-        const response = await fetch(`/api/binders?user=${user}`, {
+        const response = await apiFetch(`/api/binders?user=${user}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -114,9 +117,10 @@ export function createBinder(user: string, name: string, set?: string, items: Ne
 export function renameBinder(user: string, id: string, name: string) {
   return async (dispatch: Dispatch) => {
     try {
+      assertEditable();
       if (user === DEMO_USER) await renameDemoList("binder", id, name);
       else
-        await fetch(`/api/binders?user=${user}`, {
+        await apiFetch(`/api/binders?user=${user}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -134,9 +138,10 @@ export function renameBinder(user: string, id: string, name: string) {
 export function unlinkBinder(user: string, id: string) {
   return async (dispatch: Dispatch) => {
     try {
+      assertEditable();
       if (user === DEMO_USER) await unlinkDemoBinder(id);
       else
-        await fetch(`/api/binders?user=${user}`, {
+        await apiFetch(`/api/binders?user=${user}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -153,9 +158,10 @@ export function unlinkBinder(user: string, id: string) {
 export function deleteBinder(user: string, id: string) {
   return async (dispatch: Dispatch) => {
     try {
+      assertEditable();
       if (user === DEMO_USER) await deleteDemoBinder(id);
       else
-        await fetch(`/api/binders?user=${user}&id=${id}`, {
+        await apiFetch(`/api/binders?user=${user}&id=${id}`, {
           method: "DELETE",
         });
       refresh(user, dispatch);
@@ -169,9 +175,10 @@ export function deleteBinder(user: string, id: string) {
 export function addBinderItem(user: string, item: BinderToSave, details?: DemoItemDetails) {
   return async (dispatch: Dispatch) => {
     try {
+      assertEditable();
       if (user === DEMO_USER) await saveDemoBinderItem(item, details);
       else
-        await fetch(`/api/binders?user=${user}`, {
+        await apiFetch(`/api/binders?user=${user}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -188,9 +195,10 @@ export function addBinderItem(user: string, item: BinderToSave, details?: DemoIt
 export function changeBinderItemQuantity(user: string, item: BinderToSave, details?: DemoItemDetails) {
   return async (dispatch: Dispatch) => {
     try {
+      assertEditable();
       if (user === DEMO_USER) await saveDemoBinderItem(item, details);
       else
-        await fetch(`/api/binders?user=${user}`, {
+        await apiFetch(`/api/binders?user=${user}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -207,9 +215,10 @@ export function changeBinderItemQuantity(user: string, item: BinderToSave, detai
 export function deleteBinderItems(user: string, binderId: string, itemIds: string[]) {
   return async (dispatch: Dispatch) => {
     try {
+      assertEditable();
       if (user === DEMO_USER) await deleteDemoBinderItems(binderId, itemIds);
       else
-        await fetch(`/api/binders?user=${user}&id=${binderId}`, {
+        await apiFetch(`/api/binders?user=${user}&id=${binderId}`, {
           method: "DELETE",
           headers: {
             "Content-Type": "application/json",
@@ -226,9 +235,10 @@ export function deleteBinderItems(user: string, binderId: string, itemIds: strin
 export function deleteBinderItem(user: string, binderId: string, itemId: string) {
   return async (dispatch: Dispatch) => {
     try {
+      assertEditable();
       if (user === DEMO_USER) await deleteDemoBinderItem(binderId, itemId);
       else
-        await fetch(`/api/binders?user=${user}&id=${binderId}&itemId=${itemId}`, {
+        await apiFetch(`/api/binders?user=${user}&id=${binderId}&itemId=${itemId}`, {
           method: "DELETE",
         });
       refresh(user, dispatch);

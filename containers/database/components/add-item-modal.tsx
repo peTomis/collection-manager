@@ -1,3 +1,4 @@
+import EditButton from "@/components/atoms/edit-button";
 // Libraries
 import { useState } from "react";
 import Link from "next/link";
@@ -113,9 +114,9 @@ const AddItemModal = ({ set, catalog, product, destination, initialVariant = 0, 
             <button type="button" className={modalButton.secondary} onClick={close}>
               Cancel
             </button>
-            <button type="button" className={modalButton.primary} disabled={!valid} onClick={confirm}>
+            <EditButton type="button" className={modalButton.primary} disabled={!valid} onClick={confirm}>
               {mode === "binder" ? (existingBinderItem && isOwned(existingBinderItem) ? "Add another" : "Add to binder") : "Add to wishlist"}
-            </button>
+            </EditButton>
           </>
         ) : (
           <Link href={mode === "binder" ? "/binders" : "/wishlists"} className={cn(modalButton.primary, "inline-flex items-center")}>

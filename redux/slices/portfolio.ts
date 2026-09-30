@@ -1,3 +1,5 @@
+import { isOffline } from "@/lib/offline";
+import { apiFetch } from "@/lib/api-fetch";
 import { ItemType, Portfolio } from "@/types/mongodb";
 import { createSlice, Dispatch } from "@reduxjs/toolkit";
 import { DEMO_USER } from "@/types/constants";
@@ -28,11 +30,11 @@ export default slice.reducer;
 export function getPortfolio(user: string) {
   return async (dispatch: Dispatch) => {
     try {
-      if (user === DEMO_USER) {
+      if (user === DEMO_USER && !isOffline()) {
         dispatch(getPortfolioSuccess(await getDemoPortfolio()));
         return;
       }
-      const response = await fetch(`/api/portfolios?user=${user}`, { method: "GET" });
+      const response = await apiFetch(`/api/portfolios?user=${user}`, { method: "GET" });
       const data = await response.json();
       if (data.portfolio) dispatch(getPortfolioSuccess(data?.portfolio));
     } catch (error) {

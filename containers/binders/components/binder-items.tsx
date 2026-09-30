@@ -1,3 +1,4 @@
+import EditButton from "@/components/atoms/edit-button";
 // Libraries
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -202,9 +203,9 @@ const BinderItems = ({ binder }: { binder: BinderWithItems }) => {
               <button type="button" onClick={() => setSelected(new globalThis.Set())} className="h-8 px-2.5 rounded-lg cursor-pointer hover:bg-paper/10">
                 Clear
               </button>
-              <button type="button" onClick={() => setRemoving(true)} className="h-8 px-3 text-white rounded-lg cursor-pointer bg-loss">
+              <EditButton type="button" onClick={() => setRemoving(true)} className="h-8 px-3 text-white rounded-lg cursor-pointer bg-loss">
                 Delete
-              </button>
+              </EditButton>
             </div>
           )}
           <BinderList
@@ -434,13 +435,13 @@ const Stepper = ({ quantity, onChange, className }: { quantity: number; onChange
   const button = "w-7 h-7 grid place-items-center rounded-md text-ink-muted hover:bg-chip hover:text-ink cursor-pointer";
   return (
     <div className={cn("flex items-center w-fit border border-line rounded-lg", className)}>
-      <button type="button" aria-label="Decrease quantity" className={button} onClick={() => onChange(quantity - 1)}>
+      <EditButton type="button" aria-label="Decrease quantity" className={button} onClick={() => onChange(quantity - 1)}>
         −
-      </button>
+      </EditButton>
       <span className="w-6 text-center font-geist-mono text-[13px]">{quantity}</span>
-      <button type="button" aria-label="Increase quantity" className={button} onClick={() => onChange(quantity + 1)}>
+      <EditButton type="button" aria-label="Increase quantity" className={button} onClick={() => onChange(quantity + 1)}>
         +
-      </button>
+      </EditButton>
     </div>
   );
 };
@@ -463,9 +464,9 @@ const Checkbox = ({ label, checked, mixed, onChange }: { label: string; checked:
 
 // Missing slots have no quantity yet: one tap marks them owned
 const MarkOwned = ({ onClick, className }: { onClick: () => void; className?: string }) => (
-  <button type="button" onClick={onClick} className={cn("items-center h-[30px] px-2.5 w-fit border border-dashed border-line rounded-lg text-xs font-medium text-ink-muted hover:text-ink hover:border-ink-muted cursor-pointer", className)}>
+  <EditButton type="button" onClick={onClick} className={cn("items-center h-[30px] px-2.5 w-fit border border-dashed border-line rounded-lg text-xs font-medium text-ink-muted hover:text-ink hover:border-ink-muted cursor-pointer", className)}>
     + Got it
-  </button>
+  </EditButton>
 );
 
 export default BinderItems;

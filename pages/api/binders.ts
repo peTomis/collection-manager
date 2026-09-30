@@ -25,7 +25,7 @@ const fetchBinders = async (user: ObjectId): Promise<Binder[]> => {
   return items as unknown as Binder[];
 };
 
-const fetchBindersWithCard = async (user: ObjectId): Promise<Binder[]> => {
+export const fetchBindersWithCard = async (user: ObjectId): Promise<Binder[]> => {
   await client.connect();
   const db: Db = client.db("collection-manager");
 

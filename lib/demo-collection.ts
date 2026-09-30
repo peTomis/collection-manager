@@ -1,3 +1,4 @@
+import { assertEditable } from "./offline";
 // Client-side demo collection for visitors who are not signed in.
 // It starts from the static public/demo-collection.json (see scripts/generate-demo.mjs) and every edit is saved
 // in this browser's localStorage: the demo never reads or writes the database.
@@ -58,11 +59,13 @@ const save = (collection: DemoCollection) => {
 
 const update = async (change: (collection: DemoCollection) => void) => {
   const collection = await load();
+  assertEditable();
   change(collection);
   save(collection);
 };
 
 export const resetDemoCollection = () => {
+  assertEditable();
   cache = null;
   try {
     window.localStorage.removeItem(STORAGE_KEY);

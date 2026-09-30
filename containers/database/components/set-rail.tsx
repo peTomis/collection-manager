@@ -18,7 +18,8 @@ interface SetRailProps {
 // Cards in the database (not the set's printed size in `cards`); sealed from the set's own `sealed` when it has one
 export const setCardCount = (set: Set) => set.counts?.cards ?? 0;
 export const setSealedCount = (set: Set) => set.sealed ?? set.counts?.sealed ?? 0;
-export const setSize = (set: Set) => setCardCount(set) + setSealedCount(set);
+// The set's own `cards` and `sealed`, as shown in the database rail and header
+export const setSize = (set: Set) => (set.cards ?? 0) + (set.sealed ?? 0);
 
 const year = (set: Set) => (set.releasedAt ? new Date(set.releasedAt).getFullYear() : null);
 
@@ -51,7 +52,7 @@ export const SetRow = ({ set, selected, onSelect }: { set: Set; selected: boolea
     <SetIcon set={set} className="w-[52px] h-[30px]" />
     <div className="min-w-0">
       <div className="text-sm font-medium truncate">{set.name}</div>
-      <div className="text-xs text-ink-muted mt-0.5">{[year(set), setCardCount(set) && `${setCardCount(set)} cards`].filter(Boolean).join(" · ")}</div>
+      <div className="text-xs text-ink-muted mt-0.5">{[year(set), set.cards && `${set.cards} cards`].filter(Boolean).join(" · ")}</div>
     </div>
     <span className="font-geist-mono text-xs text-ink-muted" title="Cards and sealed products in this set">
       {setSize(set) || ""}

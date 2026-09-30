@@ -1,3 +1,4 @@
+import EditButton from "@/components/atoms/edit-button";
 // Libraries
 import { useEffect, useMemo, useState } from "react";
 
@@ -167,9 +168,9 @@ const ProductCard = ({ row: r, onView, onAdd }: { row: Row; onView: () => void; 
       </div>
       <div className="flex items-center justify-between mt-1">
         <span className="font-geist-mono font-medium text-[13px]">{r.price !== undefined ? eur(r.price) : "—"}</span>
-        <button type="button" aria-label={`Add ${r.name}`} onClick={() => onAdd("binder")} className="w-9 h-9 rounded-lg bg-ink text-paper text-lg cursor-pointer">
+        <EditButton type="button" aria-label={`Add ${r.name}`} onClick={() => onAdd("binder")} className="w-9 h-9 rounded-lg bg-ink text-paper text-lg cursor-pointer">
           +
-        </button>
+        </EditButton>
       </div>
     </div>
 
@@ -186,12 +187,12 @@ const ProductCard = ({ row: r, onView, onAdd }: { row: Row; onView: () => void; 
         </div>
       </div>
       <div className="grid grid-cols-2 gap-1.5 mt-auto pt-2.5">
-        <button type="button" onClick={() => onAdd("binder")} className="h-8 rounded-[7px] bg-ink text-paper text-xs font-medium cursor-pointer whitespace-nowrap">
+        <EditButton type="button" onClick={() => onAdd("binder")} className="h-8 rounded-[7px] bg-ink text-paper text-xs font-medium cursor-pointer whitespace-nowrap">
           + Binder
-        </button>
-        <button type="button" onClick={() => onAdd("wishlist")} className="h-8 rounded-[7px] border border-line text-xs font-medium cursor-pointer whitespace-nowrap hover:bg-chip">
+        </EditButton>
+        <EditButton type="button" onClick={() => onAdd("wishlist")} className="h-8 rounded-[7px] border border-line text-xs font-medium cursor-pointer whitespace-nowrap hover:bg-chip">
           + Wishlist
-        </button>
+        </EditButton>
       </div>
     </div>
   </div>

@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/api-fetch";
 import { Card } from "@/types/mongodb";
 import { createSlice, Dispatch } from "@reduxjs/toolkit";
 
@@ -44,7 +45,7 @@ export default slice.reducer;
 export function getCards(user: string) {
   return async (dispatch: Dispatch) => {
     try {
-      const response = await fetch(`/api/cards?user=${user}`, { method: "GET" });
+      const response = await apiFetch(`/api/cards?user=${user}`, { method: "GET" });
       const data = await response.json();
       dispatch(getCardsSuccess(data?.cards ?? []));
     } catch (error) {
@@ -66,7 +67,7 @@ export function setCard(card: Card | null) {
 export function getCardsBySet(user: string, set: string) {
   return async (dispatch: Dispatch) => {
     try {
-      const response = await fetch(`/api/cards?user=${user}&set=${set}`, { method: "GET" });
+      const response = await apiFetch(`/api/cards?user=${user}&set=${set}`, { method: "GET" });
       const data = await response.json();
       dispatch(getCardsSuccess(data?.cards ?? []));
     } catch (error) {
@@ -78,7 +79,7 @@ export function getCardsBySet(user: string, set: string) {
 export function getCard(user: string, id: string) {
   return async (dispatch: Dispatch) => {
     try {
-      const response = await fetch(`/api/cards?id=${id}&user=${user}`, { method: "GET" });
+      const response = await apiFetch(`/api/cards?id=${id}&user=${user}`, { method: "GET" });
       const data = await response.json();
       dispatch(getCardSuccess(data?.card));
     } catch (error) {

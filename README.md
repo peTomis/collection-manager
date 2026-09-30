@@ -11,6 +11,15 @@ Live at [collectionmanager.petomis.com](https://www.collectionmanager.petomis.co
 - **Wishlists**: keep track of the items you want and what they cost today.
 - **Database**: browse sets, cards and sealed products (by set or by product type), with price history per language and variant (English, Italian, Japanese; regular, 1st edition, shadowless, …).
 - **Demo mode**: visitors can try the app without signing in, on a sample collection. Their changes are saved in their browser only. Signing in with Google starts an empty collection of your own.
+- **Offline mode**: Settings → Offline mode (before Theme) downloads the catalog, daily prices and price histories, binders, wishlists, portfolio, and available product images. It locks collection edits and supports browsing and reopening the app without a connection.
+
+### Preparing for a convention
+
+Enable Offline mode while connected, preferably on Wi-Fi, and keep Settings open until the download finishes. The app reloads into the saved snapshot and shows a read-only banner. Settings shows the download date and any unavailable images. To refresh the snapshot or edit the collection, reconnect, turn offline mode off, then download again as needed. Closing Settings or pressing Cancel cancels an unfinished download.
+
+The complete data snapshot is transferred in one authenticated `/api/offline` request, streamed set by set. Image files and app assets are cached separately. Data is stored locally in IndexedDB, pages and images in Cache Storage, and the snapshot selection in localStorage. These browser stores support the complete catalog beyond localStorage's small quota. A failed or cancelled download never replaces the previous snapshot. Downloads belong to the account that created them; signing out removes its saved download. Clearing browser site data also removes offline access. Card images use their low-resolution version offline; unavailable images keep the normal placeholder. Optional live TCGdex rarity and illustrator details are not included.
+
+Offline page loading requires HTTPS (or localhost) and service-worker support. Verify it with a production build (`npm run build` then `npm start`), since development chunks change during hot reload. Run the data-routing and read-only regression checks with `npm run test:offline`.
 
 ## How it works
 

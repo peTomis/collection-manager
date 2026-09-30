@@ -1,3 +1,6 @@
+import { getOfflineMeta } from "./offline";
+import { readOffline } from "./offline-store";
+import type { OfflineIndex, OfflineCatalog } from "./offline-data";
 // Libraries
 import { useEffect, useState } from "react";
 import TCGdex from "@tcgdex/sdk";
@@ -14,6 +17,12 @@ const cache = new Map<string, Promise<SetImages>>();
 
 // One request per set: the set lists every card with its image (the URL needs the series, which we don't store)
 const fetchSetImages = (setId: string): Promise<SetImages> => {
+  const meta = getOfflineMeta();
+  if (meta?.enabled) return readOffline<OfflineIndex>(`${meta.id}:index`).then(async (index) => {
+    const set = index?.sets.find(s => s.tcgdex === setId);
+    const catalog = set ? await readOffline<OfflineCatalog>(`${meta.id}:set:${set._id}`) : undefined;
+    return new Map(catalog?.images ?? []);
+  });
   const cached = cache.get(setId);
   if (cached) return cached;
   const request = tcgdex.set
@@ -74,6 +83,7 @@ const infoCache = new Map<string, Promise<CardInfo>>();
 
 // Rarity and illustrator of one card: the set lists the card's TCGdex id, the card itself has the details
 const fetchCardInfo = (setId: string, number: number): Promise<CardInfo> => {
+  if (getOfflineMeta()?.enabled) return Promise.resolve({});
   const key = `${setId}|${number}`;
   const cached = infoCache.get(key);
   if (cached) return cached;

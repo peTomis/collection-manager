@@ -1,3 +1,4 @@
+import EditButton from "@/components/atoms/edit-button";
 // Components
 import LinkedList from "@/components/organisms/linked-list";
 import ListName from "@/components/organisms/list-name";
@@ -26,18 +27,18 @@ const WishlistHeader = ({ wishlist, onDelete }: WishlistHeaderProps) => {
     <div className="flex-none">
       <div className="items-center justify-between hidden lg:flex text-[13px] text-ink-muted">
         <span className="min-w-0 truncate">Wishlist / {wishlist.name}</span>
-        <button type="button" onClick={onDelete} className="flex-none ml-4 font-medium cursor-pointer hover:text-loss">
+        <EditButton type="button" onClick={onDelete} className="flex-none ml-4 font-medium cursor-pointer hover:text-loss">
           Delete wishlist
-        </button>
+        </EditButton>
       </div>
 
       <div className="flex flex-col gap-3.5 lg:flex-row lg:items-end lg:justify-between lg:gap-6 lg:mt-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between min-w-0 gap-3">
             <ListName key={wishlist._id} kind="wishlist" list={wishlist} />
-            <button type="button" onClick={onDelete} className="flex-none mt-2 text-[13px] font-medium text-ink-muted lg:hidden">
+            <EditButton type="button" onClick={onDelete} className="flex-none mt-2 text-[13px] font-medium text-ink-muted lg:hidden">
               Delete
-            </button>
+            </EditButton>
           </div>
           <LinkedList kind="wishlist" list={wishlist} />
         </div>

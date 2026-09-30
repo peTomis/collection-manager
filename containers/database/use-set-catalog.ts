@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/api-fetch";
 // Libraries
 import { useEffect, useState } from "react";
 
@@ -22,7 +23,7 @@ export const priceKey = (item: string, language: Language, type?: CardVariantTyp
 export const historicPriceKey = (price: HistoricPrice) =>
   "card" in price ? priceKey(price.card, price.language, (price as CardHistoricPrice).type) : priceKey((price as SealedHistoricPrice).sealed, price.language);
 
-const fetchJson = async (url: string, init?: RequestInit) => (await fetch(url, init)).json();
+const fetchJson = async (url: string, init?: RequestInit) => (await apiFetch(url, init)).json();
 
 // Every card and sealed product of a set, with the prices of all their variants (fetched in batches)
 const fetchCatalog = async (user: string, set: string): Promise<Catalog> => {

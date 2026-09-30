@@ -3,7 +3,7 @@ import SetIcon from "./set-icon";
 
 // Types
 import { Set } from "@/types/mongodb";
-import { setCardCount, setSealedCount, setSize } from "./set-rail";
+import { setSize } from "./set-rail";
 
 interface SetHeaderProps {
   set: Set;
@@ -14,8 +14,7 @@ const releaseDate = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "s
 const SetHeader = ({ set }: SetHeaderProps) => {
   const size = setSize(set);
   const released = set.releasedAt ? new Date(set.releasedAt) : null;
-  const cards = setCardCount(set);
-  const sealed = setSealedCount(set);
+  const { cards, sealed } = set;
   const counts = [cards && `${cards} cards`, sealed && `${sealed} sealed`];
 
   return (

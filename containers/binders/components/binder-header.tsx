@@ -1,3 +1,4 @@
+import EditButton from "@/components/atoms/edit-button";
 // Components
 import LinkedList from "@/components/organisms/linked-list";
 import ListName from "@/components/organisms/list-name";
@@ -30,18 +31,18 @@ const BinderHeader = ({ binder, onDelete }: BinderHeaderProps) => {
     <div className="flex-none">
       <div className="items-center justify-between hidden lg:flex text-[13px] text-ink-muted">
         <span className="min-w-0 truncate">Binders / {binder.name}</span>
-        <button type="button" onClick={onDelete} className="flex-none ml-4 font-medium cursor-pointer hover:text-loss">
+        <EditButton type="button" onClick={onDelete} className="flex-none ml-4 font-medium cursor-pointer hover:text-loss">
           Delete binder
-        </button>
+        </EditButton>
       </div>
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between lg:gap-6 lg:mt-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between min-w-0 gap-3">
             <ListName key={binder._id} kind="binder" list={binder} />
-            <button type="button" onClick={onDelete} className="flex-none mt-2 text-[13px] font-medium text-ink-muted lg:hidden">
+            <EditButton type="button" onClick={onDelete} className="flex-none mt-2 text-[13px] font-medium text-ink-muted lg:hidden">
               Delete
-            </button>
+            </EditButton>
           </div>
           <div className="flex items-center gap-2.5 lg:gap-3 mt-2 lg:mt-2.5 text-[13px] lg:text-sm text-ink-muted">
             {completion ? (

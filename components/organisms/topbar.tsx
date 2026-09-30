@@ -1,3 +1,4 @@
+import { useOffline, useReadOnly } from "@/lib/offline";
 // Libraries
 import React from "react";
 import Link from "next/link";
@@ -50,6 +51,8 @@ const NAV = [
 const isActive = (pathname: string, href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
 const Topbar = () => {
+  const readOnly = useReadOnly();
+  const offline = useOffline();
   const [open, setOpen] = React.useState(false);
   const [searching, setSearching] = React.useState(false);
   const { pathname } = useRouter();
@@ -100,6 +103,7 @@ const Topbar = () => {
 
   return (
     <header className={cn(fontVariables, "sticky top-0 z-40 flex-none font-geist bg-paper border-b border-line text-ink")}>
+      {readOnly && <div role="status" className="px-4 py-1 text-xs text-center border-b bg-chip border-line">{offline ? "Offline snapshot · Collection is read-only" : "Downloading offline data · Collection edits are paused"}</div>}
       {/* Desktop */}
       <div className="items-center hidden h-16 px-8 md:flex gap-7">
         <Link href="/" className="flex items-center">

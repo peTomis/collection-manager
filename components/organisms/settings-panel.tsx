@@ -1,3 +1,6 @@
+import { clearOfflineDownload } from "@/lib/offline-download";
+import OfflineSettings from "./offline-settings";
+import { useReadOnly } from "@/lib/offline";
 // Libraries
 import { useEffect, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
@@ -68,6 +71,7 @@ interface SettingsPanelProps {
 // Opened from the avatar in the top bar: a side panel on desktop, full screen on mobile.
 const SettingsPanel = ({ open, onOpenChange, theme, onThemeChange }: SettingsPanelProps) => {
   const profile = useProfile();
+  const readOnly = useReadOnly();
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
@@ -101,6 +105,7 @@ const SettingsPanel = ({ open, onOpenChange, theme, onThemeChange }: SettingsPan
               {profile.isDemo && (
                 <button
                   type="button"
+                  disabled={readOnly}
                   onClick={() => signIn("google")}
                   className="flex-none h-[34px] px-3 border border-line rounded-lg bg-transparent text-[13px] font-medium cursor-pointer hover:bg-chip"
                 >
@@ -108,6 +113,8 @@ const SettingsPanel = ({ open, onOpenChange, theme, onThemeChange }: SettingsPan
                 </button>
               )}
             </div>
+
+            <OfflineSettings />
 
             <div className="py-5">
               <div className="font-geist-mono font-medium text-[11px] md:text-xs tracking-[.08em] uppercase text-ink-muted mb-2.5 md:mb-3">Theme</div>
@@ -133,6 +140,7 @@ const SettingsPanel = ({ open, onOpenChange, theme, onThemeChange }: SettingsPan
             {profile.isDemo ? (
               <button
                 type="button"
+                disabled={readOnly}
                 onClick={() => {
                   resetDemoCollection();
                   window.location.reload();
@@ -144,7 +152,8 @@ const SettingsPanel = ({ open, onOpenChange, theme, onThemeChange }: SettingsPan
             ) : (
               <button
                 type="button"
-                onClick={() => signOut({ callbackUrl: "/" })}
+                disabled={readOnly}
+                onClick={async () => { await clearOfflineDownload(); await signOut({ callbackUrl: "/" }); }}
                 className="w-full md:w-auto h-12 md:h-[38px] px-3.5 border border-line md:border-0 rounded-[10px] bg-transparent text-[oklch(0.5_0.16_27)] dark:text-[oklch(0.7_0.15_27)] font-medium text-[15px] md:text-sm cursor-pointer"
               >
                 Sign out

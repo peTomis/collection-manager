@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/api-fetch";
 import { Sealed } from "@/types/mongodb";
 import { createSlice, Dispatch } from "@reduxjs/toolkit";
 
@@ -39,7 +40,7 @@ export default slice.reducer;
 export function getSealed(user: string) {
   return async (dispatch: Dispatch) => {
     try {
-      const response = await fetch(`/api/sealed?user=${user}`, { method: "GET" });
+      const response = await apiFetch(`/api/sealed?user=${user}`, { method: "GET" });
       const data = await response.json();
       dispatch(getSealedSuccess(data?.sealed ?? []));
     } catch (error) {
@@ -51,7 +52,7 @@ export function getSealed(user: string) {
 export function getSealedBySet(user: string, set: string) {
   return async (dispatch: Dispatch) => {
     try {
-      const response = await fetch(`/api/sealed?user=${user}&set=${set}`, { method: "GET" });
+      const response = await apiFetch(`/api/sealed?user=${user}&set=${set}`, { method: "GET" });
       const data = await response.json();
       dispatch(getSealedSuccess(data?.sealed ?? []));
     } catch (error) {
@@ -63,7 +64,7 @@ export function getSealedBySet(user: string, set: string) {
 export function getSealedByType(user: string, type: string) {
   return async (dispatch: Dispatch) => {
     try {
-      const response = await fetch(`/api/sealed?user=${user}&type=${type}`, { method: "GET" });
+      const response = await apiFetch(`/api/sealed?user=${user}&type=${type}`, { method: "GET" });
       const data = await response.json();
       dispatch(getSealedSuccess(data?.sealed ?? []));
     } catch (error) {
@@ -81,7 +82,7 @@ export function setSingleSealed(sealed: Sealed | null) {
 export function getSingleSealed(user: string, id: string) {
   return async (dispatch: Dispatch) => {
     try {
-      const response = await fetch(`/api/sealed?id=${id}&user=${user}`, { method: "GET" });
+      const response = await apiFetch(`/api/sealed?id=${id}&user=${user}`, { method: "GET" });
       const data = await response.json();
       dispatch(getSingleSealedSuccess(data?.sealed));
     } catch (error) {

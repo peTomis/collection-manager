@@ -1,3 +1,4 @@
+import EditButton from "@/components/atoms/edit-button";
 // Libraries
 import { useState } from "react";
 
@@ -28,9 +29,9 @@ const BinderRail = () => {
       <aside className="hidden px-4 border-r lg:block border-line py-7 lg:overflow-y-auto">
         <div className="flex items-center justify-between px-2 pb-3">
           <span className="font-geist-mono font-medium text-xs tracking-[.08em] uppercase text-ink-muted">Your binders</span>
-          <button type="button" onClick={() => setCreating(true)} className="h-[30px] px-2.5 border border-line rounded-[7px] bg-paper text-[13px] font-medium cursor-pointer hover:bg-chip">
+          <EditButton type="button" onClick={() => setCreating(true)} className="h-[30px] px-2.5 border border-line rounded-[7px] bg-paper text-[13px] font-medium cursor-pointer hover:bg-chip">
             + New
-          </button>
+          </EditButton>
         </div>
         {rows.map(({ binder: b, summary }) => (
           <button
@@ -73,9 +74,9 @@ const BinderRail = () => {
             </button>
           );
         })}
-        <button type="button" onClick={() => setCreating(true)} className="flex-none h-10 px-3.5 border border-dashed rounded-full border-line text-[13px] font-medium text-ink-muted cursor-pointer">
+        <EditButton type="button" onClick={() => setCreating(true)} className="flex-none h-10 px-3.5 border border-dashed rounded-full border-line text-[13px] font-medium text-ink-muted cursor-pointer">
           + New
-        </button>
+        </EditButton>
       </div>
 
       <NewListModal type="binder" open={creating} onClose={() => setCreating(false)} />

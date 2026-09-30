@@ -1,3 +1,4 @@
+import EditButton from "@/components/atoms/edit-button";
 // Libraries
 import { useState } from "react";
 import { useRouter } from "next/router";
@@ -79,14 +80,14 @@ const Linked = ({ source, other, name, id }: { source: Source; other: "binder" |
           <span className="text-ink-muted">{other === "wishlist" ? "Wishlist" : "Binder"}</span>
           <span className="truncate">{name}</span>
         </button>
-        <button
+        <EditButton
           type="button"
           aria-label={`Manage the linked ${other}`}
           onClick={() => setManaging(true)}
           className="grid h-full pl-1.5 pr-2.5 border-l rounded-r-full cursor-pointer place-items-center border-line text-ink-muted hover:text-ink hover:bg-chip"
         >
           ⋯
-        </button>
+        </EditButton>
       </div>
 
       <Modal
@@ -201,14 +202,14 @@ const CreateLinked = ({ source, other }: { source: Source; other: "binder" | "wi
 
   return (
     <>
-      <button
+      <EditButton
         type="button"
         onClick={start}
         className={cn(chipClass, "gap-1.5 px-2.5 border-dashed text-ink-muted cursor-pointer hover:text-ink hover:border-ink-muted")}
       >
         <SyncIcon unlinked />
         Create linked {other}
-      </button>
+      </EditButton>
 
       <Modal
         open={open}
@@ -220,9 +221,9 @@ const CreateLinked = ({ source, other }: { source: Source; other: "binder" | "wi
             <button type="button" className={modalButton.secondary} onClick={() => setOpen(false)}>
               Cancel
             </button>
-            <button type="button" className={modalButton.primary} disabled={!valid || saving} onClick={create}>
+            <EditButton type="button" className={modalButton.primary} disabled={!valid || saving} onClick={create}>
               {saving ? "Creating…" : `Create ${other}`}
-            </button>
+            </EditButton>
           </>
         }
       >

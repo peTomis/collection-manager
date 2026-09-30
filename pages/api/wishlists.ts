@@ -25,7 +25,7 @@ const fetchWishlists = async (user: ObjectId): Promise<Wishlist[]> => {
   return items as unknown as Wishlist[];
 };
 
-const fetchWishlistsWithCard = async (user: ObjectId): Promise<Wishlist[]> => {
+export const fetchWishlistsWithCard = async (user: ObjectId): Promise<Wishlist[]> => {
   await client.connect();
   const db: Db = client.db("collection-manager");
 

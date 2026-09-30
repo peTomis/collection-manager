@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/api-fetch";
 // Libraries
 import { useEffect, useState } from "react";
 
@@ -6,7 +7,7 @@ import { Card, CardHistoricPrice, HistoricPrice, ItemType, Price, Sealed, Sealed
 import { historicPriceKey } from "@/containers/database/use-set-catalog";
 import { LIMITS } from "@/lib/limits";
 
-const fetchJson = async (url: string, init?: RequestInit) => (await fetch(url, init)).json();
+const fetchJson = async (url: string, init?: RequestInit) => (await apiFetch(url, init)).json();
 
 // Daily price records of one version, oldest first: each one counts the listings available that day
 export const useListings = (user: string | null, kind: ItemType, historicPrice: HistoricPrice | undefined) => {

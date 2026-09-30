@@ -1,3 +1,5 @@
+import { assertEditable, isOffline } from "@/lib/offline";
+import { apiFetch } from "@/lib/api-fetch";
 import { BinderWithItems, WishlistItem, WishlistItemToCreate, WishlistToSave, WishlistWithItems } from "@/types/mongodb";
 import { addBinderItem, changeBinderItemQuantity, getBinders } from "./binders";
 import { getPortfolio } from "./portfolio";
@@ -52,7 +54,7 @@ export function getWishlists(user: string) {
   return async (dispatch: Dispatch): Promise<WishlistWithItems[]> => {
     try {
       const wishlists: WishlistWithItems[] =
-        user === DEMO_USER ? await getDemoWishlists() : ((await (await fetch(`/api/wishlists?user=${user}&withcards=true`, { method: "GET" })).json())?.items ?? []);
+        user === DEMO_USER && !isOffline() ? await getDemoWishlists() : ((await (await apiFetch(`/api/wishlists?user=${user}&withcards=true`, { method: "GET" })).json())?.items ?? []);
       dispatch(getWishlistsSuccess(wishlists));
       return wishlists;
     } catch (error) {
@@ -77,10 +79,11 @@ export function setWishlist(wishlist: WishlistWithItems | null) {
 export function createWishlist(user: string, name: string, items: NewListItem<WishlistItemToCreate>[] = [], binder?: string) {
   return async (dispatch: Dispatch): Promise<string | null> => {
     try {
+      assertEditable();
       let id: string | undefined;
       if (user === DEMO_USER) id = await createDemoWishlist(name, items, binder);
       else {
-        const response = await fetch(`/api/wishlists?user=${user}`, {
+        const response = await apiFetch(`/api/wishlists?user=${user}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -104,9 +107,10 @@ export function createWishlist(user: string, name: string, items: NewListItem<Wi
 export function renameWishlist(user: string, id: string, name: string) {
   return async (dispatch: Dispatch) => {
     try {
+      assertEditable();
       if (user === DEMO_USER) await renameDemoList("wishlist", id, name);
       else
-        await fetch(`/api/wishlists?user=${user}`, {
+        await apiFetch(`/api/wishlists?user=${user}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -123,9 +127,10 @@ export function renameWishlist(user: string, id: string, name: string) {
 export function deleteWishlist(user: string, id: string) {
   return async (dispatch: Dispatch) => {
     try {
+      assertEditable();
       if (user === DEMO_USER) await deleteDemoWishlist(id);
       else
-        await fetch(`/api/wishlists?user=${user}&id=${id}`, {
+        await apiFetch(`/api/wishlists?user=${user}&id=${id}`, {
           method: "DELETE",
         });
       // The linked binder went too: the portfolio no longer counts it
@@ -140,9 +145,10 @@ export function deleteWishlist(user: string, id: string) {
 export function addWishlistItem(user: string, item: WishlistToSave, details?: DemoItemDetails) {
   return async (dispatch: Dispatch) => {
     try {
+      assertEditable();
       if (user === DEMO_USER) await addDemoWishlistItem(item, details);
       else
-        await fetch(`/api/wishlists?user=${user}`, {
+        await apiFetch(`/api/wishlists?user=${user}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -160,10 +166,11 @@ export function addWishlistItem(user: string, item: WishlistToSave, details?: De
 export function setWishlistItemTarget(user: string, item: WishlistItem, target?: number) {
   return async (dispatch: Dispatch) => {
     try {
+      assertEditable();
       if (user === DEMO_USER) await setDemoWishlistItemTarget(item.wishlist, item._id, target);
       else {
         const toSave: WishlistToSave = { _id: item._id, name: item.name, type: item.type, item: item.item._id, historicPrice: item.historicPrice._id, wishlist: item.wishlist, target };
-        await fetch(`/api/wishlists?user=${user}`, {
+        await apiFetch(`/api/wishlists?user=${user}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -181,9 +188,10 @@ export function setWishlistItemTarget(user: string, item: WishlistItem, target?:
 export function deleteWishlistItem(user: string, wishlistId: string, itemId: string) {
   return async (dispatch: Dispatch) => {
     try {
+      assertEditable();
       if (user === DEMO_USER) await deleteDemoWishlistItem(wishlistId, itemId);
       else
-        await fetch(`/api/wishlists?user=${user}&id=${wishlistId}&itemId=${itemId}`, {
+        await apiFetch(`/api/wishlists?user=${user}&id=${wishlistId}&itemId=${itemId}`, {
           method: "DELETE",
         });
       refresh(user, dispatch);
@@ -198,6 +206,7 @@ export function deleteWishlistItem(user: string, wishlistId: string, itemId: str
 export function acquireWishlistItem(user: string, item: WishlistItem, binder: BinderWithItems) {
   return async (dispatch: Dispatch) => {
     try {
+      assertEditable();
       const existing = binder.items.find((i) => i.historicPrice?._id === item.historicPrice?._id);
       if (existing) {
         const quantity = isOwned(existing) ? Math.min(existing.quantity + 1, LIMITS.QUANTITY) : 1;
