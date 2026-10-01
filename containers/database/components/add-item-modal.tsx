@@ -6,6 +6,7 @@ import Link from "next/link";
 // Components
 import Modal, { modalButton } from "@/components/atoms/modal";
 import Segmented from "@/components/atoms/segmented";
+import { useSetUnlink } from "@/components/organisms/set-unlink";
 
 // State
 import { useDispatch, useSelector } from "@/redux/store";
@@ -50,6 +51,7 @@ const AddItemModal = ({ set, catalog, product, destination, initialVariant = 0, 
   const { wishlists } = useSelector((state) => state.wishlists);
   const user = useSelector((state) => state.user.user) ?? "";
   const dispatch = useDispatch();
+  const setUnlink = useSetUnlink();
 
   // Start from the button the user pressed each time the modal opens for a product
   if (product && product.item._id !== shownFor) {
@@ -70,11 +72,12 @@ const AddItemModal = ({ set, catalog, product, destination, initialVariant = 0, 
   const priceOf = (v: CardVariant | SealedVariant) => (product ? catalog?.prices.get(priceKey(product.item._id, v.language, "type" in v ? v.type : undefined)) : undefined);
   const historicPrice = variant && priceOf(variant);
 
-  // Set binders only take cards of their set
-  const accepting = product ? binders.filter((b) => binderAccepts(b, product.kind, product.item)) : binders;
-  const lists = mode === "binder" ? accepting : wishlists;
+  const lists = mode === "binder" ? binders : wishlists;
   const list = lists.find((l) => l._id === listId) ?? lists[0];
-  const existingBinderItem = mode === "binder" ? binders.find((b) => b._id === list?._id)?.items.find((i) => i.historicPrice?._id === historicPrice?._id) : undefined;
+  const binder = mode === "binder" ? binders.find((b) => b._id === list?._id) : undefined;
+  const existingBinderItem = binder?.items.find((i) => i.historicPrice?._id === historicPrice?._id);
+  // Set binders only take cards of their set: adding anything else asks to remove the set first
+  const outsideSet = !!binder && !!product && !existingBinderItem && !binderAccepts(binder, product.kind, product.item);
   const onWishlist = mode === "wishlist" && !!wishlists.find((w) => w._id === list?._id)?.items.some((i) => i.historicPrice?._id === historicPrice?._id);
 
   const qty = Math.floor(Number(quantity));
@@ -92,7 +95,13 @@ const AddItemModal = ({ set, catalog, product, destination, initialVariant = 0, 
         const newQuantity = isOwned(existingBinderItem) ? Math.min(existingBinderItem.quantity + qty, LIMITS.QUANTITY) : qty;
         dispatch(changeBinderItemQuantity(user, { ...existingBinderItem, quantity: newQuantity, owned: true, item: existingBinderItem.item._id, historicPrice: existingBinderItem.historicPrice._id }));
       } else {
-        dispatch(addBinderItem(user, { ...item, quantity: qty, binder: list._id }, details));
+        if (!binder) return;
+        // Closes once added, so a set binder's prompt stays in this modal until then
+        setUnlink.guard(binder, product.kind, product.item, () => {
+          dispatch(addBinderItem(user, { ...item, quantity: qty, binder: binder._id }, details));
+          close();
+        });
+        return;
       }
     } else {
       dispatch(addWishlistItem(user, { ...item, wishlist: list._id, target: parsedTarget === undefined ? undefined : Math.round(parsedTarget * 100) / 100 }, details));
@@ -187,9 +196,7 @@ const AddItemModal = ({ set, catalog, product, destination, initialVariant = 0, 
             )}
           </div>
         ) : (
-          <p className="text-sm text-ink-muted">
-            {mode === "binder" && binders.length ? "None of your binders can take this: set binders only take cards of their own set." : `You don't have a ${mode} yet.`}
-          </p>
+          <p className="text-sm text-ink-muted">You don't have a {mode} yet.</p>
         )}
 
         {existingBinderItem && (
@@ -199,8 +206,10 @@ const AddItemModal = ({ set, catalog, product, destination, initialVariant = 0, 
               : `It's missing in ${list?.name}. This marks it owned.`}
           </p>
         )}
+        {outsideSet && <p className="-mt-1 text-xs text-ink-muted">{list?.name} is a set binder. Adding this removes its set link.</p>}
         {onWishlist && <p className="-mt-1 text-xs text-ink-muted">This version is already on {list?.name}.</p>}
       </div>
+      {setUnlink.modal}
     </Modal>
   );
 };

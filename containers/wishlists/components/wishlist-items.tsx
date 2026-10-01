@@ -9,6 +9,7 @@ import CardArt from "@/components/atoms/card-art";
 import SealedArt from "@/components/atoms/sealed-art";
 import ItemDetail from "@/components/organisms/item-detail";
 import TargetSuggestions from "@/components/atoms/target-suggestions";
+import { useSetUnlink } from "@/components/organisms/set-unlink";
 
 // State
 import { useDispatch, useSelector } from "@/redux/store";
@@ -292,13 +293,12 @@ const GotItModal = ({ item, onClose }: { item: WishlistItem | null; onClose: () 
   const { binders } = useSelector((state) => state.binders);
   const user = useSelector((state) => state.user.user) ?? "";
   const dispatch = useDispatch();
+  const setUnlink = useSetUnlink();
 
-  // Set binders only take cards of their set. The linked binder comes first.
-  // A copy: the store's array is frozen, and sort works in place
-  const accepting = (item ? binders.filter((b) => binderAccepts(b, item.type, item.item)) : [...binders]).sort(
-    (a, b) => Number(b.wishlist === item?.wishlist) - Number(a.wishlist === item?.wishlist)
-  );
-  const selected = accepting.find((b) => b._id === binderId) ?? accepting[0];
+  // The linked binder comes first. A copy: the store's array is frozen, and sort works in place
+  const choices = [...binders].sort((a, b) => Number(b.wishlist === item?.wishlist) - Number(a.wishlist === item?.wishlist));
+  const selected = choices.find((b) => b._id === binderId) ?? choices[0];
+  const outsideSet = !!item && !!selected && !binderAccepts(selected, item.type, item.item);
 
   const close = () => {
     setBinderId("");
@@ -307,8 +307,11 @@ const GotItModal = ({ item, onClose }: { item: WishlistItem | null; onClose: () 
 
   const confirm = () => {
     if (!item || !user || !selected) return;
-    dispatch(acquireWishlistItem(user, item, selected));
-    close();
+    // Set binders only take cards of their set: anything else asks to remove the set first
+    setUnlink.guard(selected, item.type, item.item, () => {
+      dispatch(acquireWishlistItem(user, item, selected));
+      close();
+    });
   };
 
   return (
@@ -317,11 +320,7 @@ const GotItModal = ({ item, onClose }: { item: WishlistItem | null; onClose: () 
       onClose={close}
       title="Got it"
       description={
-        selected
-          ? `Move ${item?.item?.name ?? "this item"} into a binder. It will be removed from this wishlist.`
-          : binders.length
-            ? "None of your binders can take this: set binders only take cards of their own set. Create a binder for it first."
-            : "Create a binder first to move this item into your collection."
+        selected ? `Move ${item?.item?.name ?? "this item"} into a binder. It will be removed from this wishlist.` : "Create a binder first to move this item into your collection."
       }
       footer={
         selected ? (
@@ -346,14 +345,16 @@ const GotItModal = ({ item, onClose }: { item: WishlistItem | null; onClose: () 
             Binder
           </label>
           <select id="wishlist-binder" value={selected._id} onChange={(e) => setBinderId(e.target.value)} className={cn(inputClass, "cursor-pointer")}>
-            {accepting.map((b) => (
+            {choices.map((b) => (
               <option key={b._id} value={b._id}>
                 {b.name}
               </option>
             ))}
           </select>
+          {outsideSet && <p className="mt-1.5 text-xs text-ink-muted">{selected.name} is a set binder. Moving this removes its set link.</p>}
         </>
       )}
+      {setUnlink.modal}
     </Modal>
   );
 };

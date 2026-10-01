@@ -5,7 +5,7 @@ import { createSlice, Dispatch } from "@reduxjs/toolkit";
 import { DEMO_USER } from "@/types/constants";
 import { getPortfolio } from "./portfolio";
 import { getWishlists } from "./wishlists";
-import { createDemoBinder, deleteDemoBinder, deleteDemoBinderItem, deleteDemoBinderItems, DemoItemDetails, renameDemoList, unlinkDemoBinder, getDemoBinders, NewListItem, saveDemoBinderItem } from "@/lib/demo-collection";
+import { createDemoBinder, deleteDemoBinder, deleteDemoBinderItem, deleteDemoBinderItems, DemoItemDetails, removeDemoBinderSet, renameDemoList, unlinkDemoBinder, getDemoBinders, NewListItem, saveDemoBinderItem } from "@/lib/demo-collection";
 
 const initialState: {
   binder: null | BinderWithItems;
@@ -151,6 +151,31 @@ export function unlinkBinder(user: string, id: string) {
       refresh(user, dispatch);
     } catch (error) {
       console.error(error);
+    }
+  };
+}
+
+// The binder keeps its items and takes any card or sealed product from now on. Whether the set was removed.
+export function removeBinderSet(user: string, id: string) {
+  return async (dispatch: Dispatch): Promise<boolean> => {
+    try {
+      assertEditable();
+      if (user === DEMO_USER) await removeDemoBinderSet(id);
+      else {
+        const response = await apiFetch(`/api/binders?user=${user}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ removeSet: id }),
+        });
+        if (!response.ok) return false;
+      }
+      await getBinders(user)(dispatch);
+      return true;
+    } catch (error) {
+      console.error(error);
+      return false;
     }
   };
 }

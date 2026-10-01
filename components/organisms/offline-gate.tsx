@@ -63,11 +63,5 @@ export default function OfflineGate({ children }: { children: ReactNode }) {
         </button>
       </main>
     );
-  if (!ready)
-    return (
-      <div role="status" className="p-6 text-sm text-ink-muted">
-        Loading collection…
-      </div>
-    );
   return <>{children}</>;
 }

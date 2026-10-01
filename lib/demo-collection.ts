@@ -140,6 +140,12 @@ export const unlinkDemoBinder = (id: string) =>
     setLink(c, "binder", id, undefined);
   });
 
+export const removeDemoBinderSet = (id: string) =>
+  update((c) => {
+    const binder = c.binders.find((b) => b._id === id);
+    if (binder) delete binder.set;
+  });
+
 export const deleteDemoBinder = (id: string) =>
   update((c) => {
     // The linked wishlist goes too

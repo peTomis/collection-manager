@@ -284,6 +284,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({});
     }
 
+    // Drop a set binder's set: it then takes any card or sealed product
+    if (req.body?.removeSet) {
+      const id = parseObjectId(req.body.removeSet);
+      if (!id) return res.status(400).json({ message: "Invalid binder ID" });
+      await client.connect();
+      const result = await client.db("collection-manager").collection("binders").updateOne({ _id: id, user }, { $unset: { set: "" } });
+      if (!result.matchedCount) return res.status(404).json({ message: "Binder not found" });
+      return res.status(200).json({});
+    }
+
     // Rename: { rename: { id, name } }
     if (req.body?.rename) {
       const id = parseObjectId(req.body.rename.id);

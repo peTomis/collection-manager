@@ -11,6 +11,7 @@ import CardArt from "@/components/atoms/card-art";
 import SealedArt from "@/components/atoms/sealed-art";
 import { ConfirmModal } from "@/components/atoms/modal";
 import TargetSuggestions from "@/components/atoms/target-suggestions";
+import { useSetUnlink } from "@/components/organisms/set-unlink";
 
 // State
 import { useDispatch, useSelector } from "@/redux/store";
@@ -436,10 +437,10 @@ const BinderActions = ({ item, onClose }: { item: BinderItem; onClose: () => voi
   const { binders } = useSelector((state) => state.binders);
   const user = useSelector((state) => state.user.user) ?? "";
   const dispatch = useDispatch();
+  const setUnlink = useSetUnlink();
 
   const binder = binders.find((b) => b._id === item.binder);
-  // Set binders only take cards of their set
-  const destinations = binders.filter((b) => b._id !== item.binder && binderAccepts(b, item.type, item.item));
+  const destinations = binders.filter((b) => b._id !== item.binder);
 
   const changed = quantity !== item.quantity || owned !== isOwned(item);
 
@@ -458,7 +459,12 @@ const BinderActions = ({ item, onClose }: { item: BinderItem; onClose: () => voi
       // Owned wins: an owned item fills a missing slot there
       const total = isOwned(existing) && owned ? Math.min(existing.quantity + quantity, LIMITS.QUANTITY) : isOwned(existing) ? existing.quantity : quantity;
       dispatch(changeBinderItemQuantity(user, { ...existing, quantity: total, owned: owned || isOwned(existing), item: existing.item._id, historicPrice: existing.historicPrice._id }));
-    } else {
+      dispatch(deleteBinderItem(user, item.binder, item._id));
+      onClose();
+      return;
+    }
+    // Set binders only take cards of their set: anything else asks to remove the set first
+    setUnlink.guard(destination, item.type, item.item, () => {
       dispatch(
         addBinderItem(
           user,
@@ -466,9 +472,9 @@ const BinderActions = ({ item, onClose }: { item: BinderItem; onClose: () => voi
           { item: item.item, historicPrice: item.historicPrice }
         )
       );
-    }
-    dispatch(deleteBinderItem(user, item.binder, item._id));
-    onClose();
+      dispatch(deleteBinderItem(user, item.binder, item._id));
+      onClose();
+    });
   };
 
   if (readOnly) return <p className="text-sm text-ink-muted">Offline mode · Collection is read-only</p>;
@@ -524,6 +530,7 @@ const BinderActions = ({ item, onClose }: { item: BinderItem; onClose: () => voi
         description={`Remove ${item.item?.name ?? "this item"} from ${binder?.name ?? "this binder"}?`}
         confirmLabel="Remove"
       />
+      {setUnlink.modal}
     </>
   );
 };
@@ -536,6 +543,7 @@ const WishlistActions = ({ item, price, onClose }: { item: WishlistItem; price: 
   const { binders } = useSelector((state) => state.binders);
   const user = useSelector((state) => state.user.user) ?? "";
   const dispatch = useDispatch();
+  const setUnlink = useSetUnlink();
 
   const parsed = value.trim() === "" ? undefined : Number(value.replace(",", "."));
   const valid = parsed === undefined || (Number.isFinite(parsed) && parsed >= 0);
@@ -543,11 +551,11 @@ const WishlistActions = ({ item, price, onClose }: { item: WishlistItem; price: 
   const changed = valid && rounded !== item.target;
   const gap = rounded !== undefined && valid && price > 0 ? (price <= rounded ? `${eur(rounded - price)} below target` : `${eur(price - rounded)} above target`) : undefined;
 
-  // Set binders only take cards of their set. The linked binder comes first.
-  const accepting = binders.filter((b) => binderAccepts(b, item.type, item.item)).sort((a, b) => Number(b.wishlist === item.wishlist) - Number(a.wishlist === item.wishlist));
-  // A linked wishlist's items go to its binder, without asking
-  const linked = accepting.find((b) => b.wishlist === item.wishlist);
-  const binder = linked ?? accepting.find((b) => b._id === binderId) ?? accepting[0];
+  // The linked binder comes first. A copy: the store's array is frozen, and sort works in place
+  const choices = [...binders].sort((a, b) => Number(b.wishlist === item.wishlist) - Number(a.wishlist === item.wishlist));
+  // A linked wishlist's items go to its binder without asking, unless it is a set binder that can't take them
+  const linked = choices.find((b) => b.wishlist === item.wishlist && binderAccepts(b, item.type, item.item));
+  const binder = linked ?? choices.find((b) => b._id === binderId) ?? choices[0];
 
   const save = () => {
     if (!user || !changed) return;
@@ -557,8 +565,11 @@ const WishlistActions = ({ item, price, onClose }: { item: WishlistItem; price: 
 
   const acquire = () => {
     if (!user || !binder) return;
-    dispatch(acquireWishlistItem(user, item, binder));
-    onClose();
+    // Set binders only take cards of their set: anything else asks to remove the set first
+    setUnlink.guard(binder, item.type, item.item, () => {
+      dispatch(acquireWishlistItem(user, item, binder));
+      onClose();
+    });
   };
 
   const remove = () => {
@@ -598,9 +609,9 @@ const WishlistActions = ({ item, price, onClose }: { item: WishlistItem; price: 
         </button>
         {binder ? (
           <>
-            {!linked && accepting.length > 1 && (
+            {!linked && choices.length > 1 && (
               <select aria-label="Binder" value={binder._id} onChange={(e) => setBinderId(e.target.value)} className={cn(fieldClass, "min-w-0 flex-1 lg:flex-none lg:max-w-[180px] cursor-pointer outline-none")}>
-                {accepting.map((b) => (
+                {choices.map((b) => (
                   <option key={b._id} value={b._id}>
                     {b.name}
                   </option>
@@ -618,6 +629,7 @@ const WishlistActions = ({ item, price, onClose }: { item: WishlistItem; price: 
         )}
       </div>
     </div>
+    {setUnlink.modal}
     </div>
   );
 };
