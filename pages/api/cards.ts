@@ -1,6 +1,7 @@
 import { Db, ObjectId } from "mongodb";
 import { NextApiRequest, NextApiResponse } from "next";
 import client from "@/lib/mongodb";
+import { allowMethods } from "@/lib/guards";
 import { parseObjectId, queryString } from "@/lib/validation";
 
 const fetchCardsBySet = async (set: string) => {
@@ -18,6 +19,7 @@ export const fetchCard = async (_id: ObjectId) => {
 };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (!allowMethods(req, res, ["GET"])) return;
   if (req.method === "GET") {
     if (!req?.query?.user) return res.status(400).json({ message: "User not provided" });
     if (req?.query?.id) {

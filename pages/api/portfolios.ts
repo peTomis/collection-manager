@@ -1,6 +1,7 @@
 import { Db, ObjectId } from "mongodb";
 import { NextApiRequest, NextApiResponse } from "next";
 import client from "@/lib/mongodb";
+import { allowMethods } from "@/lib/guards";
 import { getUserId } from "@/lib/auth";
 
 export const fetchPortfolio = async (user: ObjectId) => {
@@ -11,6 +12,7 @@ export const fetchPortfolio = async (user: ObjectId) => {
 };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (!allowMethods(req, res, ["GET"])) return;
   if (req.method === "GET") {
     const user = await getUserId(req, res);
     if (!user) return res.status(401).json({ message: "Sign in to use your collection" });

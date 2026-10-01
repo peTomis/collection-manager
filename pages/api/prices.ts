@@ -1,6 +1,7 @@
 import { Db } from "mongodb";
 import { NextApiRequest, NextApiResponse } from "next";
 import client from "@/lib/mongodb";
+import { allowMethods } from "@/lib/guards";
 import { queryString } from "@/lib/validation";
 import { CardPrice, CardVariantType, ItemType, Price, SealedPrice } from "@/types/mongodb";
 
@@ -24,6 +25,7 @@ export const fetchPrices = async (type: ItemType, id: string, language: string, 
 };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (!allowMethods(req, res, ["GET"])) return;
   if (req.method === "GET") {
     if (!req?.query?.user) return res.status(400).json({ message: "User not provided" });
     const id = queryString(req.query.id);

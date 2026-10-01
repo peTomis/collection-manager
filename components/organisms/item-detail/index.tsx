@@ -215,7 +215,7 @@ const Detail = ({ target, onClose, onAdd, swipe }: { target: ItemDetailTarget; o
         <div className="flex justify-center pt-2.5 pb-1 lg:hidden">
           <span className="w-10 h-[5px] rounded-full bg-line" />
         </div>
-        <div className="flex flex-none items-center gap-2 lg:gap-3 pl-4 pr-2 lg:py-4 lg:pl-7 lg:pr-5 lg:border-b border-line">
+        <div className="flex flex-none items-center gap-2 lg:gap-3 h-11 lg:h-auto px-4 lg:py-4 lg:pl-7 lg:pr-5 lg:border-b border-line">
           <span className="flex-1 min-w-0 truncate text-xs lg:flex-none lg:text-[13px] text-ink-muted">{crumb}</span>
           {target.context === "binder" &&
             (isOwned(target.item) ? (
@@ -226,10 +226,8 @@ const Detail = ({ target, onClose, onAdd, swipe }: { target: ItemDetailTarget; o
             ) : (
               <span className="hidden lg:flex items-center h-[26px] px-2.5 rounded-full border border-dashed border-line text-ink-muted text-xs font-medium">Missing</span>
             ))}
-          <DialogPrimitive.Close
-            aria-label="Close"
-            className="w-11 h-11 lg:w-9 lg:h-9 lg:ml-auto grid place-items-center lg:border border-line rounded-lg text-[22px] lg:text-lg cursor-pointer hover:bg-chip"
-          >
+          {/* Desktop only: the mobile sheet is dragged down to close */}
+          <DialogPrimitive.Close aria-label="Close" className="hidden lg:grid w-9 h-9 ml-auto place-items-center border border-line rounded-lg text-lg cursor-pointer hover:bg-chip">
             ×
           </DialogPrimitive.Close>
         </div>

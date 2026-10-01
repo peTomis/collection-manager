@@ -1,12 +1,9 @@
 import { useEffect, useState } from "react";
+import { DARK_QUERY, KEY, THEME_SCRIPT } from "./theme-script";
 
 export type Theme = "light" | "dark" | "system";
 
-const KEY = "theme";
-const DARK_QUERY = "(prefers-color-scheme: dark)";
-
-// Inlined in _document so the right theme is set before the first paint.
-export const THEME_SCRIPT = `try{var t=localStorage.getItem("${KEY}");if(t==="dark"||((!t||t==="system")&&matchMedia("${DARK_QUERY}").matches))document.documentElement.classList.add("dark")}catch(e){}`;
+export { THEME_SCRIPT };
 
 const readTheme = (): Theme => {
   try {

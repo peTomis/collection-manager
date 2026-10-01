@@ -81,11 +81,8 @@ const SetPicker = ({ open, onClose, anchor, sets, selected, owned, onSelect }: S
             <div className="flex justify-center pt-2.5 pb-0.5">
               <span className="w-10 h-[5px] rounded-full bg-line" />
             </div>
-            <div className="flex items-center justify-between pl-4 pr-2">
+            <div className="flex items-center h-11 px-4">
               <DialogPrimitive.Title className="font-display font-semibold text-xl tracking-[-0.02em]">Choose a set</DialogPrimitive.Title>
-              <DialogPrimitive.Close aria-label="Close" className="grid w-11 h-11 place-items-center text-[22px] cursor-pointer">
-                ×
-              </DialogPrimitive.Close>
             </div>
           </div>
 

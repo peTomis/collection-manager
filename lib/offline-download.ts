@@ -1,5 +1,4 @@
 import { DEMO_USER } from "@/types/constants";
-import { getDemoBinders, getDemoWishlists, getDemoPortfolio } from "./demo-collection";
 import { getOfflineMeta, setOfflineMeta, setOfflineBusy } from "./offline";
 import { deleteSnapshot, offlineStore } from "./offline-store";
 import { readOfflineExport } from "./offline-export";
@@ -70,6 +69,8 @@ async function saveShell(cache: Cache, signal: AbortSignal) {
 }
 
 export async function downloadOffline(user: string, progress: (text: string) => void, signal: AbortSignal) {
+  // The server only serves the download to a signed-in account
+  if (user === DEMO_USER) throw new Error("Sign in to use offline mode.");
   const id = crypto.randomUUID();
   const previous = getOfflineMeta();
   setOfflineBusy(true);
@@ -116,8 +117,6 @@ export async function downloadOffline(user: string, progress: (text: string) => 
       for (let n = 0; n < imageUrls.length; n += 4) await Promise.all(imageUrls.slice(n, n + 4).map(saveImage));
     }
     progress("Saving binders, wishlists and portfolio…");
-    // Demo edits already live on this device; preserve them rather than downloading a fresh demo.
-    if (user === DEMO_USER) [index.binders, index.wishlists, index.portfolio] = await Promise.all([getDemoBinders(), getDemoWishlists(), getDemoPortfolio()]);
     signal.throwIfAborted();
     await offlineStore(`${id}:index`, index);
     signal.throwIfAborted();

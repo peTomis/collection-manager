@@ -6,17 +6,9 @@ import { getUserId } from "@/lib/auth";
 import { refreshPortfolio } from "@/lib/portfolio";
 import { deleteLinked, linkable, mirrorToWishlist, setLink, unmirrorFromWishlist } from "@/lib/mirror";
 import { LIMITS, parseObjectId } from "@/lib/validation";
+import { insertCapped } from "@/lib/caps";
+import { allowMethods, requireJson } from "@/lib/guards";
 import * as Joi from "joi";
-
-const countBinders = async (user: ObjectId): Promise<number> => {
-  await client.connect();
-  return client.db("collection-manager").collection("binders").countDocuments({ user });
-};
-
-const countBinderItems = async (binder: string, user: ObjectId): Promise<number> => {
-  await client.connect();
-  return client.db("collection-manager").collection("binder-items").countDocuments({ binder, user });
-};
 
 const fetchBinders = async (user: ObjectId): Promise<Binder[]> => {
   await client.connect();
@@ -158,12 +150,13 @@ const itemsFitSet = async (set: ObjectId, items: BinderItemToCreate[]): Promise<
   return (await client.db("collection-manager").collection("cards").countDocuments({ _id: { $in: ids }, set: String(set) })) === ids.length;
 };
 
-// items: the binder's first items, e.g. a whole set added at once
-const saveBinder = async (binder: WithoutId<Binder>, items: BinderItemToCreate[] = []): Promise<Binder> => {
+// items: the binder's first items, e.g. a whole set added at once. null when the user has too many binders.
+const saveBinder = async (binder: WithoutId<Binder>, items: BinderItemToCreate[] = []): Promise<Binder | null> => {
   await client.connect();
   const db: Db = client.db("collection-manager");
-  const result = await db.collection("binders").insertOne(binder);
-  const id = String(result.insertedId);
+  const insertedId = await insertCapped(db, "binders", binder, { user: binder.user }, LIMITS.LISTS_PER_USER);
+  if (!insertedId) return null;
+  const id = String(insertedId);
   if (items.length) {
     // Only the known fields are stored, stamped with the owner
     await db
@@ -172,7 +165,7 @@ const saveBinder = async (binder: WithoutId<Binder>, items: BinderItemToCreate[]
         items.map((i) => ({ name: i.name, type: i.type, item: i.item, historicPrice: i.historicPrice, quantity: i.quantity, ...(i.owned === false && { owned: false }), binder: id, user: binder.user }))
       );
   }
-  return JSON.parse(JSON.stringify({ ...binder, _id: result.insertedId }));
+  return JSON.parse(JSON.stringify({ ...binder, _id: insertedId }));
 };
 
 const deleteBinder = async (id: string, user: ObjectId): Promise<boolean> => {
@@ -187,7 +180,7 @@ const deleteBinder = async (id: string, user: ObjectId): Promise<boolean> => {
   return true;
 };
 
-const addItemToBinder = async (user: ObjectId, item: BinderToSave): Promise<BinderItem | "not-found" | "wrong-set"> => {
+const addItemToBinder = async (user: ObjectId, item: BinderToSave): Promise<BinderItem | "not-found" | "wrong-set" | "full"> => {
   await client.connect();
   const db: Db = client.db("collection-manager");
   const binderData = await db.collection("binders").findOne({ _id: new ObjectId(item.binder), user });
@@ -199,9 +192,10 @@ const addItemToBinder = async (user: ObjectId, item: BinderToSave): Promise<Bind
   }
   // Only the known fields are stored, stamped with the owner
   const itemData = { name: item.name, type: item.type, item: item.item, historicPrice: item.historicPrice, quantity: item.quantity, ...(item.owned === false && { owned: false }), binder: item.binder, user };
-  const result = await db.collection("binder-items").insertOne(itemData);
+  const insertedId = await insertCapped(db, "binder-items", itemData, { binder: item.binder, user }, LIMITS.ITEMS_PER_LIST);
+  if (!insertedId) return "full";
   await mirrorToWishlist(db, user, binderData.wishlist, item, item.owned === false);
-  return JSON.parse(JSON.stringify({ ...itemData, _id: result.insertedId }));
+  return JSON.parse(JSON.stringify({ ...itemData, _id: insertedId }));
 };
 
 // owned: false keeps it a missing slot, anything else makes it owned
@@ -253,6 +247,7 @@ const updatePortfolio = async (user: ObjectId) => {
 };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (!allowMethods(req, res, ["GET", "POST", "DELETE"])) return;
   const user = await getUserId(req, res);
   if (!user) return res.status(401).json({ message: "Sign in to use your collection" });
 
@@ -271,6 +266,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const item = await fetchBinder(id, user);
     return res.status(200).json({ item });
   } else if (req.method === "POST") {
+    if (!requireJson(req, res)) return;
+
     // Unlink a binder and its wishlist: both stay, and stop mirroring each other
     if (req.body?.unlink) {
       const id = parseObjectId(req.body.unlink);
@@ -306,7 +303,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (req.body?.binder) {
       if (validateBinder(req.body.binder).error) return res.status(400).json({ message: "Invalid binder data" });
-      if ((await countBinders(user)) >= LIMITS.LISTS_PER_USER) return res.status(409).json({ message: "Binders limit reached" });
       const items = (req.body.items ?? []) as BinderItemToCreate[];
       if (validateNewBinderItems(items).error) return res.status(400).json({ message: "Invalid binder item data" });
       const set = req.body.binder.set ? new ObjectId(req.body.binder.set as string) : undefined;
@@ -318,6 +314,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const db = client.db("collection-manager");
       if (!(await linkable(db, user, "wishlists", wishlist))) return res.status(409).json({ message: "Wishlist not found or already linked" });
       const newBinder = await saveBinder({ name: req.body.binder.name, user, ...(set && { set }), ...(wishlist && { wishlist }) }, items);
+      if (!newBinder) return res.status(409).json({ message: "Binders limit reached" });
       await setLink(db, user, "wishlists", wishlist, newBinder._id);
       if (items.length) await updatePortfolio(user);
       return res.status(201).json({ item: newBinder });
@@ -339,13 +336,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
 
-      if ((await countBinderItems(item.binder, user)) >= LIMITS.ITEMS_PER_LIST) return res.status(409).json({ message: "Binder items limit reached" });
       const added = await addItemToBinder(user, item);
       if (added === "not-found") return res.status(404).json({ message: "Binder not found" });
       if (added === "wrong-set") return res.status(422).json({ message: "Only cards of the binder's set can be added" });
+      if (added === "full") return res.status(409).json({ message: "Binder items limit reached" });
       await updatePortfolio(user);
       return res.status(201).json({});
     }
+
+    return res.status(400).json({ message: "Invalid request" });
   } else if (req.method === "DELETE") {
     if (!parseObjectId(req.query.id)) return res.status(400).json({ message: "Invalid binder ID" });
     // Several items at once: their ids in the body

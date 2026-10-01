@@ -3,9 +3,12 @@ import { useSelector } from "@/redux/store";
 import { getOfflineMeta, useOffline, useReadOnly } from "@/lib/offline";
 import { disableOffline, downloadOffline } from "@/lib/offline-download";
 import { cn } from "@/lib/utils";
+import { DEMO_USER } from "@/types/constants";
 
 export default function OfflineSettings() {
   const user = useSelector((s) => s.user.user);
+  // Only a signed-in account can download; a demo snapshot saved earlier can still be turned off
+  const signedIn = !!user && user !== DEMO_USER;
   const offline = useOffline();
   const locked = useReadOnly();
   const [progress, setProgress] = useState("");
@@ -13,7 +16,7 @@ export default function OfflineSettings() {
   const controller = useRef<AbortController | null>(null);
   useEffect(() => () => controller.current?.abort(), []);
   const toggle = async () => {
-    if (!user || controller.current) return;
+    if (!user || controller.current || (!offline && !signedIn)) return;
     setError("");
     try {
       if (offline) {
@@ -41,7 +44,7 @@ export default function OfflineSettings() {
         aria-checked={offline}
         aria-labelledby="offline-heading"
         aria-describedby="offline-description"
-        disabled={!user || !!progress || (locked && !offline)}
+        disabled={!user || !!progress || (!offline && (locked || !signedIn))}
         onClick={toggle}
         className="flex items-center justify-between w-full gap-4 text-left cursor-pointer disabled:opacity-50 disabled:cursor-wait"
       >
@@ -55,7 +58,7 @@ export default function OfflineSettings() {
       <p id="offline-description" className="mt-1.5 text-xs text-ink-muted">
         Download the database, prices, binders, wishlists and portfolio. Offline mode locks collection edits until you turn it off.
       </p>
-      {!offline && <p className="mt-1 text-xs text-ink-muted">Keep Settings open until it finishes.</p>}
+      {!offline && <p className="mt-1 text-xs text-ink-muted">{signedIn ? "Keep Settings open until it finishes." : "Sign in to use offline mode."}</p>}
       {meta && (
         <p className="mt-1 text-xs text-ink-muted">
           Saved {new Date(meta.savedAt).toLocaleString()}. Prices reflect this download.

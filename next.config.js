@@ -1,13 +1,22 @@
+const { createHash } = require("node:crypto");
+const { THEME_SCRIPT } = require("./lib/theme-script");
+
 const isDev = process.env.NODE_ENV !== "production";
 
-// Card images and TCG APIs (tcgdex, pokemontcg) are loaded over https from the browser.
+// The only inline script is the theme one (pages/_document.tsx): production allows exactly it, by hash.
+// Dev keeps 'unsafe-inline' and 'unsafe-eval' for Next's dev tooling (a hash would turn 'unsafe-inline' off).
+const themeScriptHash = `'sha256-${createHash("sha256").update(THEME_SCRIPT).digest("base64")}'`;
+
+// Card images come from TCGdex (the SDK reads its API) and account pictures from Google.
+// The offline service worker re-fetches images, so their hosts are in connect-src too.
+const imageHosts = "https://assets.tcgdex.net https://*.googleusercontent.com";
 const contentSecurityPolicy = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+  `script-src 'self' ${isDev ? "'unsafe-inline' 'unsafe-eval'" : themeScriptHash}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https:",
+  `img-src 'self' data: blob: ${imageHosts}`,
   "font-src 'self' data:",
-  `connect-src 'self' https:${isDev ? " ws:" : ""}`,
+  `connect-src 'self' https://api.tcgdex.net ${imageHosts}${isDev ? " ws:" : ""}`,
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self' https://accounts.google.com",

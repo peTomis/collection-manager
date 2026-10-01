@@ -2,7 +2,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import client from "@/lib/mongodb";
 import { getUserId } from "@/lib/auth";
-import { DEMO_USER } from "@/types/constants";
+import { rateLimit } from "@/lib/rate-limit";
 import { queryString } from "@/lib/validation";
 import { fetchSets } from "./sets";
 import { fetchBindersWithCard } from "./binders";
@@ -12,12 +12,21 @@ import { fetchPortfolio } from "./portfolios";
 export const config = { api: { responseLimit: false } };
 export const maxDuration = 300;
 
+// Each download streams the whole database: enough for retries, too few to use it to load the server
+const DOWNLOADS_PER_HOUR = 5;
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") return res.status(405).json({ message: "Method not allowed" });
   const owner = await getUserId(req, res);
-  const user = owner ? String(owner) : DEMO_USER;
+  if (!owner) return res.status(401).json({ message: "Sign in to use offline mode." });
+  const user = String(owner);
   // The query only detects an expired/changed session; it never selects someone else's collection.
   if (queryString(req.query.user) !== user) return res.status(409).json({ message: "Your account changed. Reload and try again." });
+  const limit = await rateLimit(`offline:${user}`, DOWNLOADS_PER_HOUR, 60 * 60 * 1000);
+  if (!limit.ok) {
+    res.setHeader("Retry-After", String(limit.retryAfter));
+    return res.status(429).json({ message: `Too many offline downloads. Try again in ${Math.ceil(limit.retryAfter / 60)} minutes.` });
+  }
   const controller = new AbortController();
   const close = () => controller.abort();
   res.on("close", close);
@@ -44,12 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     await client.connect();
     const db = client.db("collection-manager");
-    const [sets, binders, wishlists, portfolio] = await Promise.all([
-      fetchSets(),
-      owner ? fetchBindersWithCard(owner) : [],
-      owner ? fetchWishlistsWithCard(owner) : [],
-      owner ? fetchPortfolio(owner) : null,
-    ]);
+    const [sets, binders, wishlists, portfolio] = await Promise.all([fetchSets(), fetchBindersWithCard(owner), fetchWishlistsWithCard(owner), fetchPortfolio(owner)]);
     res.setHeader("Content-Type", "application/x-ndjson; charset=utf-8");
     res.setHeader("Cache-Control", "private, no-store");
     res.setHeader("Vary", "Cookie");

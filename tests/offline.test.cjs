@@ -190,9 +190,10 @@ test("interrupted, incomplete, duplicate and wrong-account streams never complet
   await assert.rejects(readOfflineExport(exportResponse([data[0], { type: "error", message: "Export interrupted" }]), "owner", store), /Export interrupted/);
 });
 
-async function runExportAPI(requestedUser, owner = "owner") {
+async function runExportAPI(requestedUser, owner = "owner", limited = false) {
   const { EventEmitter } = require("node:events");
   const queriedOwners = [];
+  const limitedKeys = [];
   const dbReads = [];
   const client = {
     connect: async () => {},
@@ -212,7 +213,12 @@ async function runExportAPI(requestedUser, owner = "owner") {
   const mocks = {
     "@/lib/mongodb": { default: client, __esModule: true },
     "@/lib/auth": { getUserId: async () => owner },
-    "@/types/constants": { DEMO_USER: "demo" },
+    "@/lib/rate-limit": {
+      rateLimit: async (key) => {
+        limitedKeys.push(key);
+        return { ok: !limited, retryAfter: 600 };
+      },
+    },
     "@/lib/validation": { queryString: (value) => (typeof value === "string" ? value : undefined) },
     "./sets": { fetchSets: async () => [{ _id: "set", name: "151" }] },
     "./binders": {
@@ -265,7 +271,7 @@ async function runExportAPI(requestedUser, owner = "owner") {
     if (chunk) chunks.push(chunk);
   };
   await exports.default({ method: "GET", query: { user: requestedUser } }, res);
-  return { res, headers, queriedOwners, dbReads, records: chunks.join("").trim().split("\n").filter(Boolean).map(JSON.parse) };
+  return { res, headers, queriedOwners, dbReads, limitedKeys, records: chunks.join("").trim().split("\n").filter(Boolean).map(JSON.parse) };
 }
 test("snapshot endpoint resolves private data from the session and streams a complete export", async () => {
   const result = await runExportAPI("owner");
@@ -279,13 +285,27 @@ test("snapshot endpoint resolves private data from the session and streams a com
   assert.equal(result.records[1].catalog.cards[0]._id, "card");
   assert.equal(result.records[1].catalog.sealed[0]._id, "sealed");
 });
-test("snapshot endpoint rejects another account and exports no private data for visitors", async () => {
+test("snapshot endpoint rejects another account and visitors without reading anything", async () => {
   const denied = await runExportAPI("someone-else");
   assert.equal(denied.res.statusCode, 409);
   assert.deepEqual(denied.queriedOwners, []);
   assert.deepEqual(denied.dbReads, []);
-  const demo = await runExportAPI("demo", null);
-  assert.deepEqual(demo.queriedOwners, []);
-  assert.equal(demo.records[0].user, "demo");
-  assert.deepEqual(demo.records[0].index.binders, []);
+  const visitor = await runExportAPI("demo", null);
+  assert.equal(visitor.res.statusCode, 401);
+  assert.deepEqual(visitor.limitedKeys, []);
+  assert.deepEqual(visitor.queriedOwners, []);
+  assert.deepEqual(visitor.dbReads, []);
+  assert.deepEqual(visitor.records, []);
+});
+test("snapshot endpoint is rate limited per account", async () => {
+  const limited = await runExportAPI("owner", "owner", true);
+  assert.equal(limited.res.statusCode, 429);
+  assert.equal(limited.headers["Retry-After"], "600");
+  assert.deepEqual(limited.limitedKeys, ["offline:owner"]);
+  assert.deepEqual(limited.queriedOwners, []);
+  assert.deepEqual(limited.dbReads, []);
+});
+test("a refused download shows the server's reason", async () => {
+  const refused = new Response(JSON.stringify({ message: "Too many offline downloads. Try again in 10 minutes." }), { status: 429 });
+  await assert.rejects(readOfflineExport(refused, "owner", async () => {}), /Too many offline downloads/);
 });

@@ -3,7 +3,11 @@ import type { OfflineCatalog, OfflineIndex } from "./offline-data";
 // A streaming response keeps the single download bounded to one set in memory.
 // The completion marker is required: a disconnected transfer can never become active.
 export async function readOfflineExport(response: Response, user: string, onCatalog: (set: string, catalog: OfflineCatalog) => Promise<void>): Promise<OfflineIndex> {
-  if (!response.ok || !response.body) throw new Error(`Download failed (${response.status}). Reload and try again.`);
+  if (!response.ok || !response.body) {
+    // The server explains refusals, e.g. a signed-out session or too many downloads
+    const message = await response.json().then((data) => data?.message, () => undefined);
+    throw new Error(typeof message === "string" ? message : `Download failed (${response.status}). Reload and try again.`);
+  }
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
@@ -26,7 +30,7 @@ export async function readOfflineExport(response: Response, user: string, onCata
       )
         throw new Error("The download does not match your account or is incomplete.");
       index = { ...record.index, cards: [], sealed: [] };
-      if (user !== "demo" && [...index!.binders, ...index!.wishlists, index!.portfolio].some((r) => String(r.user) !== user))
+      if ([...index!.binders, ...index!.wishlists, index!.portfolio].some((r) => String(r.user) !== user))
         throw new Error("The download does not match your account.");
     } else if (record.type === "catalog") {
       if (!index || received.has(record.set) || !index.sets.some((s) => s._id === record.set)) throw new Error("Unexpected set in offline download.");

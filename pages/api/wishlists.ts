@@ -6,17 +6,9 @@ import { getUserId } from "@/lib/auth";
 import { deleteLinked, linkable, mirrorToBinder, setLink, unmirrorFromBinder } from "@/lib/mirror";
 import { refreshPortfolio } from "@/lib/portfolio";
 import { LIMITS, parseObjectId } from "@/lib/validation";
+import { insertCapped } from "@/lib/caps";
+import { allowMethods, requireJson } from "@/lib/guards";
 import * as Joi from "joi";
-
-const countWishlists = async (user: ObjectId): Promise<number> => {
-  await client.connect();
-  return client.db("collection-manager").collection("wishlists").countDocuments({ user });
-};
-
-const countWishlistItems = async (wishlist: string, user: ObjectId): Promise<number> => {
-  await client.connect();
-  return client.db("collection-manager").collection("wishlist-items").countDocuments({ wishlist, user });
-};
 
 const fetchWishlists = async (user: ObjectId): Promise<Wishlist[]> => {
   await client.connect();
@@ -145,12 +137,13 @@ const fetchWishlist = async (_id: ObjectId, user: ObjectId): Promise<Wishlist> =
   return JSON.parse(JSON.stringify(item));
 };
 
-// items: the wishlist's first items, e.g. a whole set added at once
-const saveWishlist = async (wishlist: WithoutId<Wishlist>, items: WishlistItemToCreate[] = []): Promise<Wishlist> => {
+// items: the wishlist's first items, e.g. a whole set added at once. null when the user has too many wishlists.
+const saveWishlist = async (wishlist: WithoutId<Wishlist>, items: WishlistItemToCreate[] = []): Promise<Wishlist | null> => {
   await client.connect();
   const db: Db = client.db("collection-manager");
-  const result = await db.collection("wishlists").insertOne(wishlist);
-  const id = String(result.insertedId);
+  const insertedId = await insertCapped(db, "wishlists", wishlist, { user: wishlist.user }, LIMITS.LISTS_PER_USER);
+  if (!insertedId) return null;
+  const id = String(insertedId);
   if (items.length) {
     // Only the known fields are stored, stamped with the owner
     await db.collection("wishlist-items").insertMany(
@@ -165,7 +158,7 @@ const saveWishlist = async (wishlist: WithoutId<Wishlist>, items: WishlistItemTo
       }))
     );
   }
-  return JSON.parse(JSON.stringify({ ...wishlist, _id: result.insertedId }));
+  return JSON.parse(JSON.stringify({ ...wishlist, _id: insertedId }));
 };
 
 const deleteWishlist = async (id: string, user: ObjectId): Promise<boolean> => {
@@ -186,11 +179,11 @@ const deleteWishlist = async (id: string, user: ObjectId): Promise<boolean> => {
   return true;
 };
 
-const addItemToWishlist = async (user: ObjectId, item: WishlistToSave): Promise<WishlistItem | null> => {
+const addItemToWishlist = async (user: ObjectId, item: WishlistToSave): Promise<WishlistItem | "not-found" | "full"> => {
   await client.connect();
   const db: Db = client.db("collection-manager");
   const wishlistData = await db.collection("wishlists").findOne({ _id: new ObjectId(item.wishlist), user });
-  if (!wishlistData) return null;
+  if (!wishlistData) return "not-found";
   // Only the known fields are stored, stamped with the owner
   const itemData = {
     name: item.name,
@@ -201,9 +194,10 @@ const addItemToWishlist = async (user: ObjectId, item: WishlistToSave): Promise<
     user,
     ...(item.target !== undefined && { target: item.target }),
   };
-  const result = await db.collection("wishlist-items").insertOne(itemData);
+  const insertedId = await insertCapped(db, "wishlist-items", itemData, { wishlist: item.wishlist, user }, LIMITS.ITEMS_PER_LIST);
+  if (!insertedId) return "full";
   await mirrorToBinder(db, user, wishlistData.binder, item);
-  return JSON.parse(JSON.stringify({ ...itemData, _id: result.insertedId }));
+  return JSON.parse(JSON.stringify({ ...itemData, _id: insertedId }));
 };
 
 const setItemTarget = async (user: ObjectId, wishlist: string, id: string, target?: number): Promise<boolean> => {
@@ -230,6 +224,7 @@ const deleteItemFromWishlist = async (user: ObjectId, wishlist: string, id: stri
 };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (!allowMethods(req, res, ["GET", "POST", "DELETE"])) return;
   const user = await getUserId(req, res);
   if (!user) return res.status(401).json({ message: "Sign in to use your collection" });
 
@@ -248,6 +243,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const item = await fetchWishlist(id, user);
     return res.status(200).json({ item });
   } else if (req.method === "POST") {
+    if (!requireJson(req, res)) return;
+
     // Rename: { rename: { id, name } }
     if (req.body?.rename) {
       const id = parseObjectId(req.body.rename.id);
@@ -260,7 +257,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (req.body?.wishlist) {
       if (validateWishlist(req.body.wishlist).error) return res.status(400).json({ message: "Invalid wishlist data" });
-      if ((await countWishlists(user)) >= LIMITS.LISTS_PER_USER) return res.status(409).json({ message: "Wishlists limit reached" });
       const items = (req.body.items ?? []) as WishlistItemToCreate[];
       if (validateNewWishlistItems(items).error) return res.status(400).json({ message: "Invalid wishlist item data" });
       // Linked to a binder: the two keep their missing items in step (the caller sends matching items)
@@ -269,6 +265,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const db = client.db("collection-manager");
       if (!(await linkable(db, user, "binders", binder))) return res.status(409).json({ message: "Binder not found or already linked" });
       const newWishlist = await saveWishlist({ name: req.body.wishlist.name, user, ...(binder && { binder }) }, items);
+      if (!newWishlist) return res.status(409).json({ message: "Wishlists limit reached" });
       await setLink(db, user, "binders", binder, newWishlist._id);
       return res.status(201).json({ item: newWishlist });
     }
@@ -288,11 +285,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
 
-      if ((await countWishlistItems(item.wishlist, user)) >= LIMITS.ITEMS_PER_LIST) return res.status(409).json({ message: "Wishlist items limit reached" });
       const added = await addItemToWishlist(user, item);
-      if (!added) return res.status(404).json({ message: "Wishlist not found" });
+      if (added === "not-found") return res.status(404).json({ message: "Wishlist not found" });
+      if (added === "full") return res.status(409).json({ message: "Wishlist items limit reached" });
       return res.status(201).json({});
     }
+
+    return res.status(400).json({ message: "Invalid request" });
   } else if (req.method === "DELETE") {
     if (!parseObjectId(req.query.id)) return res.status(400).json({ message: "Invalid wishlist ID" });
     if (req?.query?.itemId) {
