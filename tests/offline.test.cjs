@@ -41,7 +41,7 @@ global.window = { location: { origin: "https://collection.test" } };
 global.localStorage = { getItem: (key) => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value), removeItem: (key) => storage.delete(key) };
 const { apiFetch } = load("lib/api-fetch.ts");
 const { assertEditable, setOfflineBusy, setOfflineMeta } = load("lib/offline.ts");
-const meta = { id: "snapshot", user: "owner", enabled: true, savedAt: 123, missingImages: 0 };
+const meta = { id: "snapshot", user: "owner", enabled: true, savedAt: 123 };
 const card = { _id: "card", name: "Charizard (151)", number: 199, set: "set", variants: [] };
 const sealed = { _id: "sealed", name: "151 Elite Trainer Box", set: "set", variants: [], type: "Elite Trainer Box" };
 const historicPrices = [
@@ -72,7 +72,6 @@ beforeEach(() => {
       { card: "card", language: "en", type: "regular", timestamp: 2, price: 12 },
       { card: "card", language: "en", type: "regular", timestamp: 1, price: 10 },
     ],
-    images: [],
   });
   global.fetch = async () => {
     networkCalls++;

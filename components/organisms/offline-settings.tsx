@@ -56,13 +56,12 @@ export default function OfflineSettings() {
         </span>
       </button>
       <p id="offline-description" className="mt-1.5 text-xs text-ink-muted">
-        Download the database, prices, binders, wishlists and portfolio. Offline mode locks collection edits until you turn it off.
+        Download the database, prices, binders, wishlists and portfolio, without images. Offline mode locks collection edits until you turn it off.
       </p>
       {!offline && <p className="mt-1 text-xs text-ink-muted">{signedIn ? "Keep Settings open until it finishes." : "Sign in to use offline mode."}</p>}
       {meta && (
         <p className="mt-1 text-xs text-ink-muted">
           Saved {new Date(meta.savedAt).toLocaleString()}. Prices reflect this download.
-          {meta.missingImages > 0 ? ` ${meta.missingImages} images were unavailable; their product data is still saved.` : ""}
         </p>
       )}
       {progress && (

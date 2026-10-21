@@ -15,7 +15,7 @@ import { useDispatch, useSelector } from "@/redux/store";
 import { changeBinderItemQuantity, deleteBinderItems } from "@/redux/slices/binders";
 import { BinderItem, BinderWithItems } from "@/types/mongodb";
 import { getPastPrice } from "@/utils/utils";
-import { binderSetId, cardNumber, isOwned, isSealed, itemPrice, languageLabel, sealedPath, variantLabel } from "@/lib/items";
+import { binderSetId, cardNumber, cardNumberLabel, formatCardNumber, isOwned, isSealed, itemPrice, languageLabel, sealedPath, variantLabel } from "@/lib/items";
 import { useSetsImages } from "@/lib/tcgdex";
 import { LIMITS } from "@/lib/limits";
 import { change, deltaColor, eur, pct } from "@/lib/format";
@@ -310,7 +310,7 @@ const Page = ({ rows, onView, className }: { rows: Row[]; onView: (item: BinderI
             {sealedPath(r.item) && <SealedArt path={sealedPath(r.item)!} alt={r.item.item?.name ?? ""} className={artClass(r.item)} />}
             {(r.number !== undefined || isSealed(r.item)) && (
               <span className="absolute top-1 left-1 lg:top-1.5 lg:left-1.5 font-geist-mono font-medium text-[9px] lg:text-[10px] bg-paper text-ink px-1 lg:px-[5px] py-px lg:py-0.5 rounded-[3px]">
-                {r.number !== undefined ? `#${r.number}` : "Sealed"}
+                {r.number !== undefined ? cardNumberLabel(r.number) : "Sealed"}
               </span>
             )}
             {!isOwned(r.item) ? (
@@ -401,7 +401,7 @@ const BinderList = ({ rows, numbered, setQuantity, markOwned, onView, selected, 
           )}
         >
           <Checkbox label={`Select ${r.item.item?.name ?? "item"}`} checked={selected.has(r.item._id)} onChange={() => onSelect(r.item._id)} />
-          {numbered && <span className="hidden font-geist-mono text-[13px] text-ink-muted lg:block">{r.number !== undefined ? String(r.number).padStart(3, "0") : "—"}</span>}
+          {numbered && <span className="hidden font-geist-mono text-[13px] text-ink-muted lg:block">{r.number !== undefined ? formatCardNumber(r.number).padStart(3, "0") : "—"}</span>}
           <button
             type="button"
             aria-label={`View ${r.item.item?.name ?? "item"}`}
@@ -413,7 +413,7 @@ const BinderList = ({ rows, numbered, setQuantity, markOwned, onView, selected, 
           </button>
           <div className="min-w-0">
             <div className="font-medium truncate cursor-pointer hover:underline" onClick={() => onView(r.item)}>
-              <span className="text-xs font-normal lg:hidden font-geist-mono text-ink-muted">{r.number !== undefined ? String(r.number).padStart(3, "0") + " " : ""}</span>
+              <span className="text-xs font-normal lg:hidden font-geist-mono text-ink-muted">{r.number !== undefined ? formatCardNumber(r.number).padStart(3, "0") + " " : ""}</span>
               {r.item.item?.name}
             </div>
             <div className="text-xs truncate text-ink-muted mt-0.5">

@@ -14,7 +14,7 @@ import { addBinderItem, changeBinderItemQuantity } from "@/redux/slices/binders"
 import { addWishlistItem } from "@/redux/slices/wishlists";
 import { CardVariant, ItemType, SealedVariant, Set } from "@/types/mongodb";
 import { getPrice } from "@/utils/utils";
-import { VARIANT_LABELS, binderAccepts, isOwned } from "@/lib/items";
+import { VARIANT_LABELS, binderAccepts, cardNumberLabel, isOwned } from "@/lib/items";
 import { LIMITS } from "@/lib/limits";
 import { Catalog, Product, displayName, priceKey } from "../use-set-catalog";
 import { eur } from "@/lib/format";
@@ -109,7 +109,7 @@ const AddItemModal = ({ set, catalog, product, destination, initialVariant = 0, 
     close();
   };
 
-  const sub = product ? (product.kind === ItemType.CARD ? `${set.name} · #${product.item.number}` : `${set.name} · ${product.item.type}`) : undefined;
+  const sub = product ? (product.kind === ItemType.CARD ? `${set.name} · ${cardNumberLabel(product.item.number)}` : `${set.name} · ${product.item.type}`) : undefined;
 
   return (
     <Modal

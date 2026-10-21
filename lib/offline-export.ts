@@ -35,7 +35,7 @@ export async function readOfflineExport(response: Response, user: string, onCata
     } else if (record.type === "catalog") {
       if (!index || received.has(record.set) || !index.sets.some((s) => s._id === record.set)) throw new Error("Unexpected set in offline download.");
       const catalog: OfflineCatalog = record.catalog;
-      if (![catalog?.cards, catalog?.sealed, catalog?.historicPrices, catalog?.prices, catalog?.images].every(Array.isArray)) throw new Error("Incomplete offline catalog.");
+      if (![catalog?.cards, catalog?.sealed, catalog?.historicPrices, catalog?.prices].every(Array.isArray)) throw new Error("Incomplete offline catalog.");
       await onCatalog(record.set, catalog);
       for (const { _id, name, number, set } of catalog.cards) index.cards.push({ _id, name, number, set });
       index.sealed.push(...catalog.sealed);

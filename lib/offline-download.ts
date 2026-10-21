@@ -2,10 +2,11 @@ import { DEMO_USER } from "@/types/constants";
 import { getOfflineMeta, setOfflineMeta, setOfflineBusy } from "./offline";
 import { deleteSnapshot, offlineStore } from "./offline-store";
 import { readOfflineExport } from "./offline-export";
-import type { OfflineCatalog } from "./offline-data";
 
 const ROUTES = ["/", "/database", "/binders", "/wishlists"];
 export async function prepareWorker() {
+  // next dev rebuilds on every edit: a cached shell would keep failing Fast Refresh and reload forever.
+  if (process.env.NODE_ENV === "development") throw new Error("Offline mode needs a production build (next build && next start).");
   if (!("serviceWorker" in navigator) || !window.isSecureContext) throw new Error("Offline mode needs HTTPS and a browser that supports offline storage.");
   await navigator.serviceWorker.register("/offline-sw.js", { scope: "/" });
   await Promise.race([navigator.serviceWorker.ready, new Promise((_, reject) => setTimeout(() => reject(new Error("Offline page setup timed out. Please try again.")), 30000))]);
@@ -81,7 +82,7 @@ export async function downloadOffline(user: string, progress: (text: string) => 
     const cache = await caches.open(`cm-offline-${id}`);
     await saveShell(cache, signal);
     progress("Downloading the complete database and collection…");
-    // Exactly one API operation, including image URL metadata and private collection data.
+    // Exactly one API operation, including private collection data. Images are left out: they would make the download far larger.
     const response = await fetch(`/api/offline?user=${encodeURIComponent(user)}`, { signal, cache: "no-store" });
     let downloadedSets = 0;
     const index = await readOfflineExport(response, user, async (set, catalog) => {
@@ -89,38 +90,11 @@ export async function downloadOffline(user: string, progress: (text: string) => 
       await offlineStore(`${id}:set:${set}`, catalog);
       progress(`Downloading database… ${++downloadedSets} sets saved`);
     });
-    const { sets } = index;
-    let missingImages = 0;
-    const saveImage = async (url: string) => {
-      if (await cache.match(url)) return;
-      try {
-        await cache.put(url, await checkedFetch(url, signal));
-      } catch (error) {
-        if (signal.aborted || (error instanceof DOMException && error.name === "QuotaExceededError")) throw error;
-        missingImages++;
-      }
-    };
-    for (let i = 0; i < sets.length; i++) {
-      signal.throwIfAborted();
-      const set = sets[i];
-      const catalog = await offlineStore<OfflineCatalog>(`${id}:set:${set._id}`);
-      if (!catalog) throw new Error(`Incomplete catalog for ${set.name}.`);
-      missingImages += catalog.cards.filter((card) => !catalog.images.some(([number]) => number === card.number)).length;
-      const imageUrls = catalog.images
-        .filter(([number]) => catalog.cards.some((c) => c.number === number))
-        .map(([, base]) => `${base}/low.${base.includes("/sv03.5/") ? "png" : "webp"}`);
-      imageUrls.push(...catalog.sealed.flatMap((s) => (s.path ? [s.path] : [])));
-      const folder = set.name.toLowerCase().replace(/ /g, "_");
-      if (folder !== "base_set") imageUrls.push(`/sets/${folder}/logo.png`);
-      progress(`Saving images for ${set.name} (${i + 1}/${sets.length})…`);
-      // Small batches avoid saturating a mobile connection or the image host.
-      for (let n = 0; n < imageUrls.length; n += 4) await Promise.all(imageUrls.slice(n, n + 4).map(saveImage));
-    }
     progress("Saving binders, wishlists and portfolio…");
     signal.throwIfAborted();
     await offlineStore(`${id}:index`, index);
     signal.throwIfAborted();
-    await setOfflineMeta({ id, user, enabled: true, savedAt: Date.now(), missingImages });
+    await setOfflineMeta({ id, user, enabled: true, savedAt: Date.now() });
     if (previous) await deleteSnapshot(previous.id).catch(console.error);
     return getOfflineMeta()!;
   } catch (error) {

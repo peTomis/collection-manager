@@ -18,7 +18,8 @@ import SetItems from "./components/set-items";
 
 const DatabaseContainer = () => {
   const { user } = useSelector((state) => state.user);
-  const { set, sets: setsByRelease, loaded } = useSelector((state) => state.sets);
+  // Oldest first, as the store keeps them
+  const { set, sets, loaded } = useSelector((state) => state.sets);
   const { binders } = useSelector((state) => state.binders);
 
   const dispatch = useDispatch();
@@ -35,13 +36,11 @@ const DatabaseContainer = () => {
     dispatch(getWishlists(user));
   }, [user]);
 
-  const sets = useMemo(() => [...setsByRelease].reverse(), [setsByRelease]);
-
   // Open the searched set, otherwise the newest one until the user picks one
   useEffect(() => {
     const searched = querySet && sets.find((s) => s._id === querySet);
     if (searched) dispatch(setSet(searched));
-    else if (!set && sets.length) dispatch(setSet(sets[0]));
+    else if (!set && sets.length) dispatch(setSet(sets[sets.length - 1]));
     // Only a set: nothing else to open, so the URL can go back to /database
     if (searched && !queryItem) router.replace("/database", undefined, { shallow: true });
   }, [sets, querySet]);

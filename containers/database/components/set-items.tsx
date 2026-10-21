@@ -14,6 +14,7 @@ import { ItemSpecificType } from "@/types/constants";
 import { getPrice } from "@/utils/utils";
 import { Catalog, Product, displayName, priceKey } from "../use-set-catalog";
 import { useSetImages } from "@/lib/tcgdex";
+import { cardNumberLabel } from "@/lib/items";
 import { eur } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -71,7 +72,7 @@ const SetItems = ({ set, catalog, owned, openItem, onOpened }: SetItemsProps) =>
       return {
         product,
         name: displayName(product),
-        sub: product.kind === ItemType.CARD ? (set.cards ? `${product.item.number}/${set.cards}` : `#${product.item.number}`) : product.item.type,
+        sub: product.kind === ItemType.CARD ? cardNumberLabel(product.item.number, set.cards) : product.item.type,
         languages: Array.from(new globalThis.Set(product.item.variants.map((v) => v.language.toUpperCase()))).join(" "),
         price: price ? getPrice(price) : undefined,
         owned: owned.get(product.item._id) ?? 0,

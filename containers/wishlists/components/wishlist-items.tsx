@@ -15,7 +15,7 @@ import { useSetUnlink } from "@/components/organisms/set-unlink";
 import { useDispatch, useSelector } from "@/redux/store";
 import { acquireWishlistItem, deleteWishlistItem, setWishlistItemTarget } from "@/redux/slices/wishlists";
 import { WishlistItem, WishlistWithItems } from "@/types/mongodb";
-import { cardNumber, isSealed, itemPrice, languageLabel, sealedPath, summarizeWishlist, targetHit, variantLabel, binderAccepts } from "@/lib/items";
+import { cardNumber, cardNumberLabel, isSealed, itemPrice, languageLabel, sealedPath, summarizeWishlist, targetHit, variantLabel, binderAccepts } from "@/lib/items";
 import { useSetsImages } from "@/lib/tcgdex";
 import { eur } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -77,7 +77,7 @@ const WishlistItems = ({ wishlist, openItem, onOpened }: WishlistItemsProps) => 
       const number = cardNumber(item);
       return {
         item,
-        set: [set?.name, isSealed(item) ? "Sealed" : number !== undefined && (set?.cards ? `${number}/${set.cards}` : `#${number}`)].filter(Boolean).join(" · "),
+        set: [set?.name, isSealed(item) ? "Sealed" : number !== undefined && cardNumberLabel(number, set?.cards)].filter(Boolean).join(" · "),
         details: [variantLabel(item), languageLabel(item)].filter(Boolean).join(" · "),
         price: itemPrice(item),
         hit: targetHit(item),

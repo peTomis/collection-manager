@@ -6,7 +6,6 @@ export interface OfflineMeta {
   user: string;
   savedAt: number;
   enabled: boolean;
-  missingImages: number;
 }
 export const openOfflineDB = (): Promise<IDBDatabase> =>
   new Promise((resolve, reject) => {

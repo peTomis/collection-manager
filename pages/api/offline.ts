@@ -98,20 +98,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         readPrices("card-prices", "card", cardIds),
         readPrices("sealed-prices", "sealed", sealedIds),
       ]);
-      let images: [number, string][] = [];
-      if (set.tcgdex && cards.length) {
-        const id = set.tcgdex === "sv3pt5" ? "sv03.5" : set.tcgdex;
-        try {
-          const response = await fetch(`https://api.tcgdex.net/v2/en/sets/${encodeURIComponent(id)}`, { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(10000)]) });
-          if (response.ok) {
-            const data = await response.json();
-            images = (data.cards ?? []).filter((c: { image?: string }) => c.image).map((c: { localId: string; image: string }) => [Number(c.localId), c.image]);
-          }
-        } catch (error) {
-          if (controller.signal.aborted) throw error;
-        }
-      }
-      await send({ type: "catalog", set: setId, catalog: { cards, sealed, historicPrices: [...cardHistory, ...sealedHistory], prices: [...cardPrices, ...sealedPrices], images } });
+      await send({ type: "catalog", set: setId, catalog: { cards, sealed, historicPrices: [...cardHistory, ...sealedHistory], prices: [...cardPrices, ...sealedPrices] } });
     }
     await send({ type: "complete" });
     res.end();

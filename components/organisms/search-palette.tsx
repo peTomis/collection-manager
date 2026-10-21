@@ -15,7 +15,7 @@ import { getSets } from "@/redux/slices/sets";
 import { getBinders, setBinder } from "@/redux/slices/binders";
 import { getWishlists, setWishlist } from "@/redux/slices/wishlists";
 import { BinderWithItems, Card, HistoricPrice, ItemType, Sealed, Set, WishlistWithItems } from "@/types/mongodb";
-import { summarizeBinder, summarizeWishlist } from "@/lib/items";
+import { cardNumberLabel, summarizeBinder, summarizeWishlist } from "@/lib/items";
 import { Product, historicPriceKey } from "@/containers/database/use-set-catalog";
 import { LIMITS } from "@/lib/limits";
 import { setEra } from "@/lib/sets";
@@ -152,7 +152,7 @@ const SearchPalette = ({ open, onOpenChange }: { open: boolean; onOpenChange: (o
           key: `card-${c._id}`,
           group: "Cards" as const,
           name: cleanName(c.name),
-          sub: [setName(c.set), `#${c.number}`].filter(Boolean).join(" · "),
+          sub: [setName(c.set), cardNumberLabel(c.number)].filter(Boolean).join(" · "),
           set: byId.get(c.set),
           target: { set: c.set, item: c._id, kind: ItemType.CARD },
         })),

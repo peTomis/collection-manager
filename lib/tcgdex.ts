@@ -1,33 +1,33 @@
 import { getOfflineMeta } from "./offline";
-import { readOffline } from "./offline-store";
-import type { OfflineIndex, OfflineCatalog } from "./offline-data";
 // Libraries
 import { useEffect, useState } from "react";
 import TCGdex from "@tcgdex/sdk";
+import { localCardImage, tcgdexNumber, tcgdexSetId } from "./tcgdex-ids";
 
 const tcgdex = new TCGdex("en");
-
-// The catalog's 151 identifier differs from TCGdex's set identifier.
-const tcgdexSetId = (setId: string) => (setId === "sv3pt5" ? "sv03.5" : setId);
 
 // Card image base URLs by card number, e.g. 4 → https://assets.tcgdex.net/en/base/base1/4
 export type SetImages = Map<number, string>;
 
 const cache = new Map<string, Promise<SetImages>>();
 
-// One request per set: the set lists every card with its image (the URL needs the series, which we don't store)
+// One request per set: the set lists every card with its image (the URL needs the series, which we don't store).
+// Cards it lists without an image get our own copy, if there is one (CardArt removes itself otherwise).
 const fetchSetImages = (setId: string): Promise<SetImages> => {
-  const meta = getOfflineMeta();
-  if (meta?.enabled) return readOffline<OfflineIndex>(`${meta.id}:index`).then(async (index) => {
-    const set = index?.sets.find(s => s.tcgdex === setId);
-    const catalog = set ? await readOffline<OfflineCatalog>(`${meta.id}:set:${set._id}`) : undefined;
-    return new Map(catalog?.images ?? []);
-  });
+  // Offline downloads don't include images
+  if (getOfflineMeta()?.enabled) return Promise.resolve(new Map());
   const cached = cache.get(setId);
   if (cached) return cached;
   const request = tcgdex.set
     .get(tcgdexSetId(setId))
-    .then((set) => new Map((set?.cards ?? []).filter((c) => c.image).map((c) => [Number(c.localId), c.image!] as [number, string])))
+    .then((set) => {
+      const images: SetImages = new Map();
+      for (const c of set?.cards ?? []) {
+        const number = tcgdexNumber(c.localId);
+        if (!Number.isNaN(number)) images.set(number, c.image ?? localCardImage(setId, number));
+      }
+      return images;
+    })
     .catch((error) => {
       console.error(error);
       cache.delete(setId);
@@ -37,8 +37,9 @@ const fetchSetImages = (setId: string): Promise<SetImages> => {
   return request;
 };
 
-// Append a quality and format to a TCGdex image base URL
-export const cardImage = (base: string, quality: "low" | "high") => `${base}/${quality}.${base.startsWith("https://assets.tcgdex.net/en/sv/sv03.5/") ? "png" : "webp"}`;
+// Append a quality and format to a card image base URL: TCGdex's, or our own copy, which only has the low one
+export const cardImage = (base: string, quality: "low" | "high") =>
+  base.startsWith("/cards/") ? `${base}/low.webp` : `${base}/${quality}.${base.startsWith("https://assets.tcgdex.net/en/sv/sv03.5/") ? "png" : "webp"}`;
 
 // Images of a set's cards, empty until loaded or when the set isn't on TCGdex (tcgdex id missing or unknown)
 export const useSetImages = (setId: string | undefined) => {
@@ -89,7 +90,7 @@ const fetchCardInfo = (setId: string, number: number): Promise<CardInfo> => {
   if (cached) return cached;
   const request = tcgdex.set
     .get(tcgdexSetId(setId))
-    .then((set) => set?.cards.find((c) => Number(c.localId) === number))
+    .then((set) => set?.cards.find((c) => tcgdexNumber(c.localId) === number))
     .then((resume) => (resume ? tcgdex.card.get(resume.id) : null))
     .then((card): CardInfo => ({ rarity: card?.rarity || undefined, illustrator: card?.illustrator || undefined }))
     .catch((error) => {

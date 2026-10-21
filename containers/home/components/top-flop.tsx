@@ -10,7 +10,7 @@ import ItemDetail from "@/components/organisms/item-detail";
 // State
 import { useSelector } from "@/redux/store";
 import { BinderItem, Card, ItemType, Sealed } from "@/types/mongodb";
-import { variantLabel } from "@/lib/items";
+import { cardNumberLabel, variantLabel } from "@/lib/items";
 import { getPastPrice, getPrice, PricePeriod } from "@/utils/utils";
 import { useSetsImages } from "@/lib/tcgdex";
 import { change, deltaColor, eur, pct, signedEur } from "@/lib/format";
@@ -62,7 +62,7 @@ const TopFlop = () => {
     const card = item.item as Card;
     const variant = variantLabel(item);
     return {
-      sub: [setName(card.set), card.number && `#${card.number}`].filter(Boolean).join(" · "),
+      sub: [setName(card.set), card.number && cardNumberLabel(card.number)].filter(Boolean).join(" · "),
       meta: [variant, language].filter(Boolean).join(" · "),
       tcgdex: sets.find((s) => s._id === card.set)?.tcgdex || undefined,
       number: card.number,

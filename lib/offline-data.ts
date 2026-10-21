@@ -4,7 +4,6 @@ export interface OfflineCatalog {
   sealed: Sealed[];
   historicPrices: HistoricPrice[];
   prices: Price[];
-  images: [number, string][];
 }
 export interface OfflineIndex {
   sets: PokemonSet[];

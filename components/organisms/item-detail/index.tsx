@@ -21,7 +21,7 @@ import { BinderItem, Card, CardVariant, HistoricPrice, ItemType, Language, Seale
 import { Product, displayName, historicPriceKey, priceKey } from "@/containers/database/use-set-catalog";
 import type { Destination } from "@/containers/database/components/add-item-modal";
 import { getPastPrice, getPrice, PricePeriod } from "@/utils/utils";
-import { VARIANT_LABELS, binderAccepts, isOwned } from "@/lib/items";
+import { VARIANT_LABELS, binderAccepts, cardNumberLabel, isOwned } from "@/lib/items";
 import { useCardInfo, useSetImages } from "@/lib/tcgdex";
 import { LIMITS } from "@/lib/limits";
 import { fontVariables } from "@/lib/fonts";
@@ -117,7 +117,7 @@ const Detail = ({ target, onClose, onAdd, swipe }: { target: ItemDetailTarget; o
 
   const name = displayName({ kind, item } as Product);
   const year = set?.releasedAt ? new Date(set.releasedAt).getFullYear() : undefined;
-  const numberLabel = number !== undefined ? (set?.cards ? `${number}/${set.cards}` : `#${number}`) : undefined;
+  const numberLabel = number !== undefined ? cardNumberLabel(number, set?.cards) : undefined;
   const setLine = [set?.name, numberLabel, year].filter(Boolean).join(" · ");
 
   const variantName = (v: Variant) => ("type" in v ? VARIANT_LABELS[v.type] : (item as Sealed).type ?? "Sealed");
@@ -153,7 +153,7 @@ const Detail = ({ target, onClose, onAdd, swipe }: { target: ItemDetailTarget; o
   const { wishlists } = useSelector((state) => state.wishlists);
   const crumb =
     target.context === "binder"
-      ? ["Binders", binders.find((b) => b._id === target.item.binder)?.name, number !== undefined && `#${number}`].filter(Boolean).join(" / ")
+      ? ["Binders", binders.find((b) => b._id === target.item.binder)?.name, number !== undefined && cardNumberLabel(number)].filter(Boolean).join(" / ")
       : target.context === "wishlist"
         ? ["Wishlists", wishlists.find((w) => w._id === target.item.wishlist)?.name].filter(Boolean).join(" / ")
         : ["Database", set?.name].filter(Boolean).join(" / ");

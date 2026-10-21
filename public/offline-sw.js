@@ -1,4 +1,4 @@
-/* App-shell and image cache only. Personal API responses are never cached here. */
+/* App-shell cache only (no images). Personal API responses are never cached here. */
 const DB = "collection-manager-offline";
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
@@ -28,11 +28,9 @@ self.addEventListener("fetch", (event) => {
       const cache = await caches.open(`cm-offline-${meta.id}`);
       let key = request;
       if (request.mode === "navigate" && url.origin === self.location.origin) key = url.pathname;
-      let saved = await cache.match(key);
-      // Retina displays use the saved low-resolution card art while offline.
-      if (!saved && url.hostname === "assets.tcgdex.net") saved = await cache.match(request.url.replace(/\/high\.(webp|png)$/, "/low.$1"));
+      const saved = await cache.match(key);
       if (saved) return saved;
-      // Never let an unavailable optional image or external resource hang offline browsing.
+      // Images aren't downloaded: fail them at once so the placeholders show, and never let an external resource hang offline browsing.
       if (request.destination === "image") return new Response("", { status: 404 });
       if (url.pathname.startsWith("/_next/webpack-hmr")) return fetch(request);
       return new Response("This resource was not included in the offline download.", { status: 503 });

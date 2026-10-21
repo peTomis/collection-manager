@@ -18,6 +18,11 @@ export const isOwned = (item: { owned?: boolean }) => item.owned !== false;
 
 export const cardNumber = (item: ItemWithJoin) => (isSealed(item) ? undefined : (item.item as Card).number);
 
+// Holo subset cards (Aquapolis and Skyridge H1–H32) are stored as 1000 + n, so they sort after the main set: 1030 → "H30".
+export const formatCardNumber = (number: number) => (number > 1000 ? `H${number - 1000}` : String(number));
+// "4/102" with the set total, "#4" without; holo subset cards have their own numbering, so never a total: "H30".
+export const cardNumberLabel = (number: number, total?: number) => (number > 1000 ? formatCardNumber(number) : total ? `${number}/${total}` : `#${number}`);
+
 // "1st Edition" for cards, the product type ("Booster Box") for sealed
 export const variantLabel = (item: ItemWithJoin) =>
   isSealed(item) ? (item.item as Sealed).type ?? "Sealed" : VARIANT_LABELS[(item.historicPrice as CardHistoricPrice)?.type] ?? "";
