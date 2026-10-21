@@ -66,7 +66,7 @@ const DatabaseContainer = () => {
         <section className="flex flex-col flex-1 min-w-0 px-4 pt-4 lg:min-h-0 lg:px-9 lg:pt-7">
           {set ? (
             <>
-              <SetHeader set={set} />
+              <SetHeader set={set} catalog={catalog} />
               <SetItems
                 key={set._id}
                 set={set}
