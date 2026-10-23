@@ -10,7 +10,7 @@ module.exports = {
         "geist-mono": ["var(--font-geist-mono)", "monospace"],
       },
       colors: {
-        // Collection Manager design palette, light/dark values in styles/tailwind.css
+        // Binderly design palette, light/dark values in styles/tailwind.css
         paper: "rgb(var(--cm-paper) / <alpha-value>)",
         canvas: "rgb(var(--cm-canvas) / <alpha-value>)",
         ink: { DEFAULT: "rgb(var(--cm-ink) / <alpha-value>)", muted: "rgb(var(--cm-ink-muted) / <alpha-value>)" },

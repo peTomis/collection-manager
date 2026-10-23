@@ -6,8 +6,8 @@ export default function Document() {
     <Html lang="en">
       <Head>
         {/* Shared by every page; titles and descriptions are per page (components/metadata.tsx) */}
-        <meta name="application-name" content="Collection Manager" />
-        <meta name="apple-mobile-web-app-title" content="Collection" />
+        <meta name="application-name" content="Binderly" />
+        <meta name="apple-mobile-web-app-title" content="Binderly" />
         <link rel="icon" href="/favicon.ico" sizes="32x32" />
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         {/* Light set; switched to the dark one on dark devices by useHomeScreenIcons (lib/home-screen.ts) */}

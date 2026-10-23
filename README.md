@@ -1,8 +1,8 @@
-# Collection Manager
+# Binderly
 
 Track the value of your Pokémon TCG collection. Organise cards and sealed products into binders, keep wishlists, and follow price history over time, with market prices collected daily from Cardmarket.
 
-Live at [collectionmanager.petomis.com](https://www.collectionmanager.petomis.com).
+Live at [binderly.petomis.com](https://binderly.petomis.com).
 
 ## Features
 
@@ -24,10 +24,10 @@ Offline page loading requires HTTPS (or localhost) and service-worker support. V
 ## How it works
 
 ```
- ┌──────────────────┐   daily    ┌─────────┐   reads / user data   ┌────────────────────┐
- │ Scraper (Lambda) │ ─────────▶ │ MongoDB │ ◀───────────────────▶ │ Collection Manager │
- │  not in this repo│   prices   └─────────┘                       │   (this Next.js)   │
- └──────────────────┘                                              └────────────────────┘
+ ┌──────────────────┐   daily    ┌─────────┐   reads / user data   ┌──────────────────┐
+ │ Scraper (Lambda) │ ─────────▶ │ MongoDB │ ◀───────────────────▶ │     Binderly     │
+ │  not in this repo│   prices   └─────────┘                       │  (this Next.js)  │
+ └──────────────────┘                                              └──────────────────┘
 ```
 
 - An external scraper runs daily and writes the catalog (sets, cards, sealed products) and their prices to MongoDB. It is not part of this repository.

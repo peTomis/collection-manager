@@ -1,6 +1,6 @@
 {
-  "name": "Collection Manager",
-  "short_name": "Collection Manager",
+  "name": "Binderly",
+  "short_name": "Binderly",
   "description": "Track the value of your Pokémon TCG collection: binders, wishlists and daily Cardmarket prices.",
   "start_url": "/",
   "display": "standalone",

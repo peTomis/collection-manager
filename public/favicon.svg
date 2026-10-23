@@ -1,17 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="1 -0.2 30 30">
-  <!-- The logo mark (components/atoms/logo.tsx): amber for Pokémon, violet for Magic, ink for the collection -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0.5 -2.5 49 49">
+  <!-- The logo mark (components/atoms/logo.tsx) tuned for tab sizes: wider gaps and stronger empty pockets -->
   <style>
     .ink { fill: #1d1b18 }
-    .paper { fill: #fbfaf7 }
-    rect { stroke: #fbfaf7 }
+    .hit { stroke: #fbfaf7 }
     @media (prefers-color-scheme: dark) {
       .ink { fill: #f2efe8 }
-      .paper { fill: #1d1b18 }
-      rect { stroke: #1d1b18 }
+      .hit { stroke: #1d1b18 }
     }
   </style>
-  <rect x="9.5" y="5" width="13" height="18" rx="2.4" fill="#ad7300" stroke-width="1.4" transform="rotate(-20 16 27)"/>
-  <rect x="9.5" y="5" width="13" height="18" rx="2.4" fill="#7860b5" stroke-width="1.4"/>
-  <rect class="ink" x="9.5" y="5" width="13" height="18" rx="2.4" stroke-width="1.4" transform="rotate(20 16 27)"/>
-  <rect class="paper" x="13.6" y="10.6" width="4.8" height="4.8" stroke-width="0" transform="rotate(20 16 27) rotate(45 16 13)"/>
+  <rect class="ink" x="6.3" y="5.3" width="9.4" height="11.4" rx="2"/>
+  <rect class="ink" x="19.3" y="5.3" width="9.4" height="11.4" rx="2"/>
+  <rect class="ink" x="32.3" y="5.3" width="9.4" height="11.4" rx="2" opacity="0.3"/>
+  <rect class="ink" x="6.3" y="19.8" width="9.4" height="11.4" rx="2"/>
+  <rect class="ink" x="19.3" y="19.8" width="9.4" height="11.4" rx="2"/>
+  <rect class="ink" x="32.3" y="19.8" width="9.4" height="11.4" rx="2" opacity="0.3"/>
+  <rect class="ink" x="6.3" y="34.3" width="9.4" height="11.4" rx="2"/>
+  <rect class="ink" x="19.3" y="34.3" width="9.4" height="11.4" rx="2" opacity="0.3"/>
+  <rect class="ink" x="32.3" y="34.3" width="9.4" height="11.4" rx="2" opacity="0.3"/>
+  <rect class="hit" x="32.5" y="-1" width="11" height="13.2" rx="2.2" fill="#ad7300" stroke-width="1.8" transform="rotate(12 38 5.6)"/>
 </svg>

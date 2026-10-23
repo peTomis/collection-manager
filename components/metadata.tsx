@@ -1,12 +1,12 @@
 import Head from "next/head";
 
-export const SITE_NAME = "Collection Manager";
-export const SITE_URL = "https://www.collectionmanager.petomis.com";
+export const SITE_NAME = "Binderly";
+export const SITE_URL = "https://binderly.petomis.com";
 const DEFAULT_DESCRIPTION =
   "Track the value of your Pokémon TCG collection. Organise cards and sealed products into binders, keep wishlists with target prices, and follow daily Cardmarket prices.";
 
 interface MetadataProps {
-  // Page name, shown before the site name ("Binders · Collection Manager"). The home page has none.
+  // Page name, shown before the site name ("Binders · Binderly"). The home page has none.
   title?: string;
   description?: string;
   // Path of the page, for the canonical URL
@@ -17,7 +17,7 @@ interface MetadataProps {
 
 // Title, description and social previews of a page. Icons, manifest and theme colour are shared, in pages/_document.tsx.
 const Metadata = ({ title, description = DEFAULT_DESCRIPTION, path = "/", noindex }: MetadataProps) => {
-  const fullTitle = title ? `${title} · ${SITE_NAME}` : `${SITE_NAME} · Pokémon TCG collection tracker`;
+  const fullTitle = title ? `${title} · ${SITE_NAME}` : `${SITE_NAME} · TCG collection tracker`;
   const url = SITE_URL + path;
   const image = `${SITE_URL}/og.png`;
 
@@ -36,7 +36,7 @@ const Metadata = ({ title, description = DEFAULT_DESCRIPTION, path = "/", noinde
       <meta property="og:image" content={image} />
       <meta property="og:image:width" content="1200" />
       <meta property="og:image:height" content="630" />
-      <meta property="og:image:alt" content="Collection Manager: know what your Pokémon cards are worth" />
+      <meta property="og:image:alt" content="Binderly: know what your Pokémon cards are worth" />
       <meta property="og:locale" content="en_US" />
 
       {/* X / Twitter */}

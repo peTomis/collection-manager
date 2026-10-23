@@ -10,6 +10,7 @@ import { getSets } from "@/redux/slices/sets";
 
 // Components
 import Topbar from "@/components/organisms/topbar";
+import Footer from "@/components/organisms/footer";
 import NetWorth from "./components/net-worth";
 import BindersWidget from "./components/binders-widget";
 import TopFlop from "./components/top-flop";
@@ -40,6 +41,7 @@ const HomeContainer = () => {
           <TopFlop />
         </div>
       </div>
+      <Footer />
     </main>
   );
 };
