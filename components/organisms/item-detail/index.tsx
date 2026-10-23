@@ -16,13 +16,13 @@ import { useSetUnlink } from "@/components/organisms/set-unlink";
 
 // State
 import { useDispatch, useSelector } from "@/redux/store";
-import { addBinderItem, changeBinderItemQuantity, deleteBinderItem } from "@/redux/slices/binders";
+import { changeBinderItemQuantity, deleteBinderItem, moveBinderItem } from "@/redux/slices/binders";
 import { acquireWishlistItem, deleteWishlistItem, setWishlistItemTarget } from "@/redux/slices/wishlists";
 import { BinderItem, Card, CardVariant, HistoricPrice, ItemType, Language, Sealed, SealedVariant, WishlistItem } from "@/types/mongodb";
 import { Product, displayName, historicPriceKey, priceKey } from "@/containers/database/use-set-catalog";
 import type { Destination } from "@/containers/database/components/add-item-modal";
 import { getPastPrice, getPrice, PricePeriod } from "@/lib/prices";
-import { VARIANT_LABELS, binderAccepts, cardNumberLabel, isOwned } from "@/lib/items";
+import { VARIANT_LABELS, binderAccepts, cardNumberLabel, intoBinderError, isOwned } from "@/lib/items";
 import { useCardInfo, useSetImages } from "@/lib/tcgdex";
 import { LIMITS } from "@/lib/limits";
 import { fontVariables } from "@/lib/fonts";
@@ -433,6 +433,8 @@ const BinderActions = ({ item, onClose }: { item: BinderItem; onClose: () => voi
   const [quantity, setQuantity] = useState(item.quantity);
   const [owned, setOwned] = useState(isOwned(item));
   const [removing, setRemoving] = useState(false);
+  const [moving, setMoving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { binders } = useSelector((state) => state.binders);
   const user = useSelector((state) => state.user.user) ?? "";
   const dispatch = useDispatch();
@@ -449,31 +451,22 @@ const BinderActions = ({ item, onClose }: { item: BinderItem; onClose: () => voi
     onClose();
   };
 
-  // Add to the other binder (or bump its quantity there) and remove from this one
+  // To the other binder as it's set here (merging with the same version there), in one step: the panel only closes once it moved
   const move = (binderId: string) => {
     const destination = destinations.find((b) => b._id === binderId);
-    if (!user || !destination) return;
-    const existing = destination.items.find((i) => i.historicPrice?._id === item.historicPrice?._id);
-    if (existing) {
-      // Owned wins: an owned item fills a missing slot there
-      const total = isOwned(existing) && owned ? Math.min(existing.quantity + quantity, LIMITS.QUANTITY) : isOwned(existing) ? existing.quantity : quantity;
-      dispatch(changeBinderItemQuantity(user, { ...existing, quantity: total, owned: owned || isOwned(existing), item: existing.item._id, historicPrice: existing.historicPrice._id }));
-      dispatch(deleteBinderItem(user, item.binder, item._id));
-      onClose();
-      return;
-    }
+    if (!user || !destination || moving) return;
+    const send = async () => {
+      setMoving(true);
+      setError(null);
+      const result = await dispatch(moveBinderItem(user, item, destination._id, quantity, owned));
+      setMoving(false);
+      if (result === "moved") return onClose();
+      setError(intoBinderError(result, destination.name));
+    };
+    // The same version is already there: it merges, whatever the binder takes
+    if (destination.items.some((i) => i.historicPrice?._id === item.historicPrice?._id)) return send();
     // Set binders only take cards of their set: anything else asks to remove the set first
-    setUnlink.guard(destination, item.type, item.item, () => {
-      dispatch(
-        addBinderItem(
-          user,
-          { name: item.name, type: item.type, item: item.item._id, historicPrice: item.historicPrice._id, quantity, owned, binder: destination._id },
-          { item: item.item, historicPrice: item.historicPrice }
-        )
-      );
-      dispatch(deleteBinderItem(user, item.binder, item._id));
-      onClose();
-    });
+    setUnlink.guard(destination, item.type, item.item, send);
   };
 
   if (readOnly) return <p className="text-sm text-ink-muted">Offline mode · Collection is read-only</p>;
@@ -500,7 +493,7 @@ const BinderActions = ({ item, onClose }: { item: BinderItem; onClose: () => voi
           {destinations.length > 0 && (
             <label className={cn(secondaryClass, "relative flex items-center justify-center")}>
               Move to…
-              <select aria-label="Move to binder" value="" onChange={(e) => move(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer">
+              <select aria-label="Move to binder" value="" disabled={moving} onChange={(e) => move(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer">
                 <option value="" disabled>
                   Move to…
                 </option>
@@ -512,11 +505,12 @@ const BinderActions = ({ item, onClose }: { item: BinderItem; onClose: () => voi
               </select>
             </label>
           )}
-          <button type="button" className={cn(primaryClass, destinations.length === 0 && "col-span-2")} disabled={!changed} onClick={save}>
+          <button type="button" className={cn(primaryClass, destinations.length === 0 && "col-span-2")} disabled={!changed || moving} onClick={save}>
             Save
           </button>
         </div>
       </div>
+      {(moving || error) && <p className={cn("mt-2.5 text-[13px]", error ? "text-loss" : "text-ink-muted")}>{error ?? "Moving…"}</p>}
       <ConfirmModal
         open={removing}
         onClose={() => setRemoving(false)}
@@ -539,6 +533,8 @@ const WishlistActions = ({ item, price, onClose }: { item: WishlistItem; price: 
   const readOnly = useReadOnly();
   const [value, setValue] = useState(item.target !== undefined ? String(item.target) : "");
   const [binderId, setBinderId] = useState("");
+  const [acquiring, setAcquiring] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { binders } = useSelector((state) => state.binders);
   const user = useSelector((state) => state.user.user) ?? "";
   const dispatch = useDispatch();
@@ -562,12 +558,17 @@ const WishlistActions = ({ item, price, onClose }: { item: WishlistItem; price: 
     onClose();
   };
 
+  // The panel only closes once the item is in the binder
   const acquire = () => {
-    if (!user || !binder) return;
+    if (!user || !binder || acquiring) return;
     // Set binders only take cards of their set: anything else asks to remove the set first
-    setUnlink.guard(binder, item.type, item.item, () => {
-      dispatch(acquireWishlistItem(user, item, binder));
-      onClose();
+    setUnlink.guard(binder, item.type, item.item, async () => {
+      setAcquiring(true);
+      setError(null);
+      const result = await dispatch(acquireWishlistItem(user, item, binder));
+      setAcquiring(false);
+      if (result === "acquired") return onClose();
+      setError(intoBinderError(result, binder.name));
     });
   };
 
@@ -617,8 +618,8 @@ const WishlistActions = ({ item, price, onClose }: { item: WishlistItem; price: 
                 className="flex-1 min-w-0 lg:flex-none lg:max-w-[180px]"
               />
             )}
-            <button type="button" className={cn(primaryClass, "flex-1 max-w-[200px] ml-auto lg:ml-0 lg:w-[200px] whitespace-nowrap")} onClick={acquire}>
-              Got it
+            <button type="button" className={cn(primaryClass, "flex-1 max-w-[200px] ml-auto lg:ml-0 lg:w-[200px] whitespace-nowrap")} disabled={acquiring} onClick={acquire}>
+              {acquiring ? "Moving…" : "Got it"}
             </button>
           </>
         ) : (
@@ -628,6 +629,7 @@ const WishlistActions = ({ item, price, onClose }: { item: WishlistItem; price: 
         )}
       </div>
     </div>
+    {error && <p className="text-[13px] text-loss">{error}</p>}
     {setUnlink.modal}
     </div>
   );

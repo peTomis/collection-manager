@@ -5,7 +5,7 @@ import { assertEditable } from "./offline";
 import { BinderItemToCreate, BinderToSave, BinderWithItems, Card, HistoricPrice, Portfolio, Sealed, WishlistItemToCreate, WishlistToSave, WishlistWithItems } from "@/types/mongodb";
 import { DEMO_USER } from "@/types/constants";
 import { getPrice } from "@/lib/prices";
-import { binderAccepts, isOwned } from "@/lib/items";
+import { binderAccepts, isOwned, mergeMovedItem } from "@/lib/items";
 
 const STORAGE_KEY = "demo-collection";
 
@@ -182,6 +182,30 @@ export const deleteDemoBinderItems = (binderId: string, itemIds: string[]) =>
 
 export const deleteDemoBinderItem = (binderId: string, itemId: string) => deleteDemoBinderItems(binderId, [itemId]);
 
+// Same rules as moveBinderItem in lib/db/binders.ts. Whether it moved (the destination might not take it).
+export const moveDemoBinderItem = async (move: { id: string; from: string; to: string; quantity: number; owned: boolean }) => {
+  let moved = false;
+  await update((c) => {
+    const source = c.binders.find((b) => b._id === move.from);
+    const destination = c.binders.find((b) => b._id === move.to);
+    const item = source?.items.find((i) => i._id === move.id);
+    if (!source || !destination || !item || source === destination) return;
+    const existing = destination.items.find((i) => priceId(i) === priceId(item));
+    const target = existing ?? (binderAccepts(destination, item.type, item.item) ? { ...item, _id: newId(), binder: destination._id } : undefined);
+    if (!target) return;
+    const { quantity, owned } = existing ? mergeMovedItem(move, existing) : move;
+    target.quantity = quantity;
+    if (owned) delete target.owned;
+    else target.owned = false;
+    if (!existing) destination.items.push(target);
+    mirrorToWishlist(c, destination, target);
+    unmirrorFromWishlist(c, source, [item]);
+    source.items = source.items.filter((i) => i !== item);
+    moved = true;
+  });
+  return moved;
+};
+
 // Wishlists
 
 export const getDemoWishlists = async () => structuredClone((await load()).wishlists);
@@ -238,6 +262,31 @@ export const deleteDemoWishlistItem = (wishlistId: string, itemId: string) =>
     const binder = c.binders.find((b) => b._id === wishlist.binder);
     if (binder && removed) binder.items = binder.items.filter((i) => isOwned(i) || priceId(i) !== priceId(removed));
   });
+
+// Same rules as acquireWishlistItem in lib/db/wishlists.ts. Whether it went into the binder (it might not take it).
+export const acquireDemoWishlistItem = async (acquire: { id: string; wishlist: string; binder: string }) => {
+  let acquired = false;
+  await update((c) => {
+    const wishlist = c.wishlists.find((w) => w._id === acquire.wishlist);
+    const binder = c.binders.find((b) => b._id === acquire.binder);
+    const item = wishlist?.items.find((i) => i._id === acquire.id);
+    if (!wishlist || !binder || !item) return;
+    const existing = binder.items.find((i) => priceId(i) === priceId(item));
+    const target = existing ?? (binderAccepts(binder, item.type, item.item) ? { _id: newId(), name: item.name, type: item.type, binder: binder._id, quantity: 1, item: item.item, historicPrice: item.historicPrice } : undefined);
+    if (!target) return;
+    target.quantity = existing ? mergeMovedItem({ quantity: 1, owned: true }, existing).quantity : 1;
+    delete target.owned;
+    if (!existing) binder.items.push(target);
+    mirrorToWishlist(c, binder, target);
+    if (binder.wishlist !== wishlist._id) {
+      wishlist.items = wishlist.items.filter((i) => i !== item);
+      const linked = c.binders.find((b) => b._id === wishlist.binder);
+      if (linked) linked.items = linked.items.filter((i) => isOwned(i) || priceId(i) !== priceId(item));
+    }
+    acquired = true;
+  });
+  return acquired;
+};
 
 // Portfolio: current value from the demo binders, history rescaled so it ends at that value
 

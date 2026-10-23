@@ -15,7 +15,7 @@ import { useSetUnlink } from "@/components/organisms/set-unlink";
 import { useDispatch, useSelector } from "@/redux/store";
 import { acquireWishlistItem, deleteWishlistItem, setWishlistItemTarget } from "@/redux/slices/wishlists";
 import { WishlistItem, WishlistWithItems } from "@/types/mongodb";
-import { cardNumber, cardNumberLabel, isSealed, itemPrice, languageLabel, sealedPath, summarizeWishlist, targetHit, variantLabel, binderAccepts } from "@/lib/items";
+import { cardNumber, cardNumberLabel, isSealed, itemPrice, languageLabel, sealedPath, summarizeWishlist, targetHit, variantLabel, binderAccepts, intoBinderError } from "@/lib/items";
 import { useSetsImages } from "@/lib/tcgdex";
 import { eur } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -42,7 +42,8 @@ interface WishlistItemsProps {
 
 const WishlistItems = ({ wishlist, openItem, onOpened }: WishlistItemsProps) => {
   const [editing, setEditing] = useState<WishlistItem | null>(null);
-  const [acquiring, setAcquiring] = useState<WishlistItem | null>(null);
+  // notice: why the quick "got it" couldn't use the linked binder
+  const [acquiring, setAcquiring] = useState<{ item: WishlistItem; notice?: string } | null>(null);
   const [viewing, setViewing] = useState<WishlistItem | null>(null);
 
   useEffect(() => {
@@ -61,9 +62,10 @@ const WishlistItems = ({ wishlist, openItem, onOpened }: WishlistItemsProps) => 
 
   // Got it: straight into the linked binder when it can take the item, otherwise ask which binder
   const linkedBinder = binders.find((b) => b._id === wishlist.binder);
-  const acquire = (item: WishlistItem) => {
-    if (user && linkedBinder && binderAccepts(linkedBinder, item.type, item.item)) dispatch(acquireWishlistItem(user, item, linkedBinder));
-    else setAcquiring(item);
+  const acquire = async (item: WishlistItem) => {
+    if (!user || !linkedBinder || !binderAccepts(linkedBinder, item.type, item.item)) return setAcquiring({ item });
+    const result = await dispatch(acquireWishlistItem(user, item, linkedBinder));
+    if (result !== "acquired") setAcquiring({ item, notice: intoBinderError(result, linkedBinder.name) });
   };
   const images = useSetsImages(wishlist.items.filter((i) => !isSealed(i)).map((i) => sets.find((s) => s._id === i.item?.set)?.tcgdex ?? ""));
 
@@ -125,7 +127,7 @@ const WishlistItems = ({ wishlist, openItem, onOpened }: WishlistItemsProps) => 
 
       <ItemDetail target={viewing ? { context: "wishlist", item: viewing } : null} onClose={() => setViewing(null)} />
       <EditTargetModal item={editing} onClose={() => setEditing(null)} />
-      <GotItModal item={acquiring} onClose={() => setAcquiring(null)} />
+      <GotItModal item={acquiring?.item ?? null} notice={acquiring?.notice} onClose={() => setAcquiring(null)} />
     </div>
   );
 };
@@ -288,8 +290,10 @@ const EditTargetModal = ({ item, onClose }: { item: WishlistItem | null; onClose
 };
 
 // Move the item into a binder: add it there (or bump its quantity) and remove it from the wishlist
-const GotItModal = ({ item, onClose }: { item: WishlistItem | null; onClose: () => void }) => {
+const GotItModal = ({ item, notice, onClose }: { item: WishlistItem | null; notice?: string; onClose: () => void }) => {
   const [binderId, setBinderId] = useState("");
+  const [moving, setMoving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { binders } = useSelector((state) => state.binders);
   const user = useSelector((state) => state.user.user) ?? "";
   const dispatch = useDispatch();
@@ -302,15 +306,21 @@ const GotItModal = ({ item, onClose }: { item: WishlistItem | null; onClose: () 
 
   const close = () => {
     setBinderId("");
+    setError(null);
     onClose();
   };
 
+  // The modal only closes once the item is in the binder
   const confirm = () => {
-    if (!item || !user || !selected) return;
+    if (!item || !user || !selected || moving) return;
     // Set binders only take cards of their set: anything else asks to remove the set first
-    setUnlink.guard(selected, item.type, item.item, () => {
-      dispatch(acquireWishlistItem(user, item, selected));
-      close();
+    setUnlink.guard(selected, item.type, item.item, async () => {
+      setMoving(true);
+      setError(null);
+      const result = await dispatch(acquireWishlistItem(user, item, selected));
+      setMoving(false);
+      if (result === "acquired") return close();
+      setError(intoBinderError(result, selected.name));
     });
   };
 
@@ -328,8 +338,8 @@ const GotItModal = ({ item, onClose }: { item: WishlistItem | null; onClose: () 
             <button type="button" className={modalButton.secondary} onClick={close}>
               Cancel
             </button>
-            <EditButton type="button" className={modalButton.primary} onClick={confirm}>
-              Move to binder
+            <EditButton type="button" className={modalButton.primary} disabled={moving} onClick={confirm}>
+              {moving ? "Moving…" : "Move to binder"}
             </EditButton>
           </>
         ) : (
@@ -352,6 +362,7 @@ const GotItModal = ({ item, onClose }: { item: WishlistItem | null; onClose: () 
             ))}
           </select>
           {outsideSet && <p className="mt-1.5 text-xs text-ink-muted">{selected.name} is a set binder. Moving this removes its set link.</p>}
+          {(error ?? notice) && <p className="mt-1.5 text-xs text-loss">{error ?? notice}</p>}
         </>
       )}
       {setUnlink.modal}

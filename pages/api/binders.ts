@@ -13,6 +13,7 @@ import {
   fetchBinders,
   fetchBindersWithCard,
   itemsFitSet,
+  moveBinderItem,
   removeBinderSet,
   renameBinder,
   unlinkBinder,
@@ -50,6 +51,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const id = parseObjectId(req.body.unlink);
       if (!id) return res.status(400).json({ message: "Invalid binder ID" });
       if (!(await unlinkBinder(user, id))) return res.status(404).json({ message: "Binder not found" });
+      return res.status(200).json({});
+    }
+
+    // Move an item to another binder: { move: { id, from, to, quantity, owned } }
+    if (req.body?.move) {
+      if (validateMove(req.body.move).error) return res.status(400).json({ message: "Invalid move" });
+      const { id, from, to, quantity, owned } = req.body.move;
+      const moved = await moveBinderItem(user, { id, from, to, quantity, owned });
+      if (moved === "not-found") return res.status(404).json({ message: "Binder item not found" });
+      if (moved === "wrong-set") return res.status(422).json({ message: "Only cards of the binder's set can be added" });
+      if (moved === "full") return res.status(409).json({ message: "Binder items limit reached" });
+      await updatePortfolio(user);
       return res.status(200).json({});
     }
 
@@ -166,6 +179,15 @@ const validateBinderItem = (item: any) => {
   });
   return schema.validate(item);
 };
+
+const validateMove = (move: any) =>
+  Joi.object({
+    id: Joi.string().hex().length(24).required(),
+    from: Joi.string().hex().length(24).required(),
+    to: Joi.string().hex().length(24).required(),
+    quantity: itemFields.quantity,
+    owned: Joi.boolean().required(),
+  }).validate(move);
 
 const validateItemIds = (ids: any) => Joi.array().items(Joi.string().hex().length(24)).min(1).max(LIMITS.ITEMS_PER_LIST).validate(ids);
 

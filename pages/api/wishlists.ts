@@ -2,6 +2,7 @@ import { WishlistItemToCreate, WishlistToSave, ItemType } from "@/types/mongodb"
 import { NextApiRequest, NextApiResponse } from "next";
 import { getUserId } from "@/lib/auth";
 import {
+  acquireWishlistItem,
   addItemToWishlist,
   createWishlist,
   deleteItemFromWishlist,
@@ -12,6 +13,7 @@ import {
   renameWishlist,
   setItemTarget,
 } from "@/lib/db/wishlists";
+import { updatePortfolio } from "@/lib/db/portfolios";
 import { LIMITS, parseObjectId } from "@/lib/validation";
 import { allowMethods, requireJson } from "@/lib/guards";
 import * as Joi from "joi";
@@ -37,6 +39,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json({ item });
   } else if (req.method === "POST") {
     if (!requireJson(req, res)) return;
+
+    // Bought: into a binder and off the wishlist, { acquire: { id, wishlist, binder } }
+    if (req.body?.acquire) {
+      if (validateAcquire(req.body.acquire).error) return res.status(400).json({ message: "Invalid item" });
+      const { id, wishlist, binder } = req.body.acquire;
+      const acquired = await acquireWishlistItem(user, { id, wishlist, binder });
+      if (acquired === "not-found") return res.status(404).json({ message: "Wishlist item or binder not found" });
+      if (acquired === "wrong-set") return res.status(422).json({ message: "Only cards of the binder's set can be added" });
+      if (acquired === "full") return res.status(409).json({ message: "Binder items limit reached" });
+      await updatePortfolio(user);
+      return res.status(200).json({});
+    }
 
     // Rename: { rename: { id, name } }
     if (req.body?.rename) {
@@ -125,6 +139,13 @@ const validateWishlistItem = (item: any) => {
   });
   return schema.validate(item);
 };
+
+const validateAcquire = (acquire: any) =>
+  Joi.object({
+    id: Joi.string().hex().length(24).required(),
+    wishlist: Joi.string().hex().length(24).required(),
+    binder: Joi.string().hex().length(24).required(),
+  }).validate(acquire);
 
 // Items created together with their wishlist, which has no id yet
 const validateNewWishlistItems = (items: any) => Joi.array().items(Joi.object(itemFields)).max(LIMITS.ITEMS_PER_LIST).validate(items);

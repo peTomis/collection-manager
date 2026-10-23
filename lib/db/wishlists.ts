@@ -1,8 +1,9 @@
 // Server only: a user's wishlists and their items in the database
 import { ObjectId } from "mongodb";
-import { Wishlist, WishlistItem, WishlistItemToCreate, WishlistToSave } from "@/types/mongodb";
-import { getDb } from "@/lib/mongodb";
-import { deleteLinked, linkable, mirrorToBinder, setLink, unmirrorFromBinder } from "@/lib/mirror";
+import { ItemType, Wishlist, WishlistItem, WishlistItemToCreate, WishlistToSave } from "@/types/mongodb";
+import { getDb, inTransaction } from "@/lib/mongodb";
+import { deleteLinked, linkable, mirrorToBinder, mirrorToWishlist, setLink, unmirrorFromBinder } from "@/lib/mirror";
+import { mergeMovedItem } from "@/lib/items";
 import { LIMITS } from "@/lib/limits";
 import { insertCapped } from "@/lib/caps";
 import { fetchListsWithItems, pricesMatchItems } from "./lists";
@@ -107,3 +108,40 @@ export const deleteItemFromWishlist = async (user: ObjectId, wishlist: string, i
   await unmirrorFromBinder(db, user, wishlistData.binder, deleted.historicPrice);
   return true;
 };
+
+// Bought: one owned copy into the binder (filling its missing slot, or one more copy), and off the wishlist, as one transaction:
+// the item never leaves the wishlist without reaching the binder. Same merge as moving between binders (mergeMovedItem).
+export const acquireWishlistItem = async (user: ObjectId, acquire: { id: string; wishlist: string; binder: string }): Promise<"acquired" | "not-found" | "wrong-set" | "full"> =>
+  inTransaction(async (db, session) => {
+    const [wishlist, binder, item] = await Promise.all([
+      db.collection("wishlists").findOne({ _id: new ObjectId(acquire.wishlist), user }, { session }),
+      db.collection("binders").findOne({ _id: new ObjectId(acquire.binder), user }, { session }),
+      db.collection("wishlist-items").findOne({ _id: new ObjectId(acquire.id), wishlist: acquire.wishlist, user }, { session }),
+    ]);
+    if (!wishlist || !binder || !item) return "not-found";
+    const existing = await db.collection("binder-items").findOne({ binder: acquire.binder, user, historicPrice: item.historicPrice }, { session });
+
+    if (existing) {
+      const { quantity } = mergeMovedItem({ quantity: 1, owned: true }, { quantity: existing.quantity, owned: existing.owned });
+      await db.collection("binder-items").updateOne({ _id: existing._id }, { $set: { quantity }, $unset: { owned: "" } }, { session });
+    } else {
+      // A set binder only takes cards of its set
+      if (binder.set) {
+        const card = item.type === ItemType.CARD ? await db.collection("cards").findOne({ _id: new ObjectId(item.item) }, { session }) : null;
+        if (card?.set !== String(binder.set)) return "wrong-set";
+      }
+      const itemData = { name: item.name, type: item.type, item: item.item, historicPrice: item.historicPrice, quantity: 1, binder: acquire.binder, user };
+      if (!(await insertCapped(db, "binder-items", itemData, { binder: acquire.binder, user }, LIMITS.ITEMS_PER_LIST, session))) {
+        await session.abortTransaction();
+        return "full";
+      }
+    }
+    // Owned now: the binder's linked wishlist no longer wants it (when that's this wishlist, this takes the item off it)
+    await mirrorToWishlist(db, user, binder.wishlist, item as unknown as WishlistToSave, false, session);
+    if (binder.wishlist !== acquire.wishlist) {
+      await db.collection("wishlist-items").deleteOne({ _id: item._id }, { session });
+      // This wishlist's own linked binder stops tracking it as missing (owned copies stay)
+      await unmirrorFromBinder(db, user, wishlist.binder, item.historicPrice, session);
+    }
+    return "acquired";
+  });

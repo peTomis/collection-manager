@@ -1,9 +1,10 @@
 // Server only: a user's binders and their items in the database
 import { ObjectId } from "mongodb";
 import { Binder, BinderItem, BinderItemToCreate, BinderToSave, ItemType } from "@/types/mongodb";
-import { getDb } from "@/lib/mongodb";
+import { getDb, inTransaction } from "@/lib/mongodb";
 import { deleteLinked, linkable, mirrorToWishlist, setLink, unmirrorFromWishlist } from "@/lib/mirror";
 import { LIMITS } from "@/lib/limits";
+import { mergeMovedItem } from "@/lib/items";
 import { insertCapped } from "@/lib/caps";
 import { fetchListsWithItems, pricesMatchItems } from "./lists";
 
@@ -136,3 +137,43 @@ export const deleteItemsFromBinder = async (user: ObjectId, binder: string, ids:
   await unmirrorFromWishlist(db, user, binderData.wishlist, missing.map((i) => i.historicPrice));
   return result.deletedCount;
 };
+
+// Move an item to another of the user's binders, as one transaction: it's never lost or left in both.
+// quantity and owned: what the item moves as (the detail panel can change them before moving).
+// Onto the same version already there, the two merge (mergeMovedItem); otherwise the destination must take it and have room.
+export const moveBinderItem = async (
+  user: ObjectId,
+  move: { id: string; from: string; to: string; quantity: number; owned: boolean }
+): Promise<"moved" | "not-found" | "wrong-set" | "full"> =>
+  inTransaction(async (db, session) => {
+    const [source, destination, item] = await Promise.all([
+      db.collection("binders").findOne({ _id: new ObjectId(move.from), user }, { session }),
+      db.collection("binders").findOne({ _id: new ObjectId(move.to), user }, { session }),
+      db.collection("binder-items").findOne({ _id: new ObjectId(move.id), binder: move.from, user }, { session }),
+    ]);
+    if (!source || !destination || !item || move.from === move.to) return "not-found";
+    const existing = await db.collection("binder-items").findOne({ binder: move.to, user, historicPrice: item.historicPrice }, { session });
+
+    let moved = { quantity: move.quantity, owned: move.owned };
+    if (existing) {
+      moved = mergeMovedItem(moved, { quantity: existing.quantity, owned: existing.owned });
+      const update = moved.owned ? { $set: { quantity: moved.quantity }, $unset: { owned: "" } } : { $set: { quantity: moved.quantity, owned: false } };
+      await db.collection("binder-items").updateOne({ _id: existing._id }, update, { session });
+    } else {
+      // A set binder only takes cards of its set
+      if (destination.set) {
+        const card = item.type === ItemType.CARD ? await db.collection("cards").findOne({ _id: new ObjectId(item.item) }, { session }) : null;
+        if (card?.set !== String(destination.set)) return "wrong-set";
+      }
+      const itemData = { name: item.name, type: item.type, item: item.item, historicPrice: item.historicPrice, quantity: moved.quantity, ...(!moved.owned && { owned: false }), binder: move.to, user };
+      if (!(await insertCapped(db, "binder-items", itemData, { binder: move.to, user }, LIMITS.ITEMS_PER_LIST, session))) {
+        await session.abortTransaction();
+        return "full";
+      }
+    }
+    // Each binder's linked wishlist follows: the destination wants the item if it's missing there, the source no longer does
+    await mirrorToWishlist(db, user, destination.wishlist, item as unknown as BinderToSave, !moved.owned, session);
+    await db.collection("binder-items").deleteOne({ _id: item._id }, { session });
+    if (item.owned === false) await unmirrorFromWishlist(db, user, source.wishlist, [item.historicPrice], session);
+    return "moved";
+  });

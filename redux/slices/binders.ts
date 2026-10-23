@@ -1,11 +1,11 @@
 import { assertEditable, isOffline } from "@/lib/offline";
 import { apiFetch } from "@/lib/api-fetch";
-import { BinderItemToCreate, BinderToSave, BinderWithItems } from "@/types/mongodb";
+import { BinderItem, BinderItemToCreate, BinderToSave, BinderWithItems } from "@/types/mongodb";
 import { createSlice, Dispatch } from "@reduxjs/toolkit";
 import { DEMO_USER } from "@/types/constants";
 import { getPortfolio } from "./portfolio";
 import { getWishlists } from "./wishlists";
-import { createDemoBinder, deleteDemoBinder, deleteDemoBinderItem, deleteDemoBinderItems, DemoItemDetails, removeDemoBinderSet, renameDemoList, unlinkDemoBinder, getDemoBinders, NewListItem, saveDemoBinderItem } from "@/lib/demo-collection";
+import { createDemoBinder, deleteDemoBinder, deleteDemoBinderItem, deleteDemoBinderItems, DemoItemDetails, moveDemoBinderItem, removeDemoBinderSet, renameDemoList, unlinkDemoBinder, getDemoBinders, NewListItem, saveDemoBinderItem } from "@/lib/demo-collection";
 
 const initialState: {
   binder: null | BinderWithItems;
@@ -233,6 +233,34 @@ export function changeBinderItemQuantity(user: string, item: BinderToSave, detai
       refresh(user, dispatch);
     } catch (error) {
       console.error(error);
+    }
+  };
+}
+
+// Move an item to another binder, as quantity and owned, in one step: it ends up in exactly one of the two.
+// Why it didn't move, if it didn't: the destination doesn't take it (a set binder), is full, or the request failed.
+export function moveBinderItem(user: string, item: BinderItem, to: string, quantity: number, owned: boolean) {
+  return async (dispatch: Dispatch): Promise<"moved" | "wrong-set" | "full" | "error"> => {
+    try {
+      assertEditable();
+      const move = { id: item._id, from: item.binder, to, quantity, owned };
+      if (user === DEMO_USER) {
+        if (!(await moveDemoBinderItem(move))) return "wrong-set";
+      } else {
+        const response = await apiFetch(`/api/binders?user=${user}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ move }),
+        });
+        if (!response.ok) return response.status === 422 ? "wrong-set" : response.status === 409 ? "full" : "error";
+      }
+      refresh(user, dispatch);
+      return "moved";
+    } catch (error) {
+      console.error(error);
+      return "error";
     }
   };
 }

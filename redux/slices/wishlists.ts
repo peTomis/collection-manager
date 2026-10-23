@@ -1,13 +1,11 @@
 import { assertEditable, isOffline } from "@/lib/offline";
 import { apiFetch } from "@/lib/api-fetch";
 import { BinderWithItems, WishlistItem, WishlistItemToCreate, WishlistToSave, WishlistWithItems } from "@/types/mongodb";
-import { addBinderItem, changeBinderItemQuantity, getBinders } from "./binders";
+import { getBinders } from "./binders";
 import { getPortfolio } from "./portfolio";
-import { isOwned } from "@/lib/items";
-import { LIMITS } from "@/lib/limits";
 import { createSlice, Dispatch } from "@reduxjs/toolkit";
 import { DEMO_USER } from "@/types/constants";
-import { addDemoWishlistItem, createDemoWishlist, deleteDemoWishlist, deleteDemoWishlistItem, DemoItemDetails, getDemoWishlists, NewListItem, renameDemoList, setDemoWishlistItemTarget } from "@/lib/demo-collection";
+import { acquireDemoWishlistItem, addDemoWishlistItem, createDemoWishlist, deleteDemoWishlist, deleteDemoWishlistItem, DemoItemDetails, getDemoWishlists, NewListItem, renameDemoList, setDemoWishlistItemTarget } from "@/lib/demo-collection";
 
 const initialState: {
   wishlist: null | WishlistWithItems;
@@ -201,26 +199,31 @@ export function deleteWishlistItem(user: string, wishlistId: string, itemId: str
   };
 }
 
-// Bought: into the binder (filling its missing slot, or one more copy), then off the wishlist.
-// In order, so a linked wishlist doesn't drop the binder's slot before it is marked owned (which already takes it off the wishlist).
+// Bought: into the binder (filling its missing slot, or one more copy) and off the wishlist, in one step.
+// Why it didn't go into the binder, if it didn't: the binder doesn't take it (a set binder), is full, or the request failed.
 export function acquireWishlistItem(user: string, item: WishlistItem, binder: BinderWithItems) {
-  return async (dispatch: Dispatch) => {
+  return async (dispatch: Dispatch): Promise<"acquired" | "wrong-set" | "full" | "error"> => {
     try {
       assertEditable();
-      const existing = binder.items.find((i) => i.historicPrice?._id === item.historicPrice?._id);
-      if (existing) {
-        const quantity = isOwned(existing) ? Math.min(existing.quantity + 1, LIMITS.QUANTITY) : 1;
-        await changeBinderItemQuantity(user, { ...existing, quantity, owned: true, item: existing.item._id, historicPrice: existing.historicPrice._id })(dispatch);
+      const acquire = { id: item._id, wishlist: item.wishlist, binder: binder._id };
+      if (user === DEMO_USER) {
+        if (!(await acquireDemoWishlistItem(acquire))) return "wrong-set";
       } else {
-        await addBinderItem(
-          user,
-          { name: item.name, type: item.type, item: item.item._id, historicPrice: item.historicPrice._id, quantity: 1, binder: binder._id },
-          { item: item.item, historicPrice: item.historicPrice }
-        )(dispatch);
+        const response = await apiFetch(`/api/wishlists?user=${user}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ acquire }),
+        });
+        if (!response.ok) return response.status === 422 ? "wrong-set" : response.status === 409 ? "full" : "error";
       }
-      if (binder.wishlist !== item.wishlist) await deleteWishlistItem(user, item.wishlist, item._id)(dispatch);
+      // What the binder holds changed, and the portfolio with it
+      Promise.all([refresh(user, dispatch), getPortfolio(user)(dispatch)]);
+      return "acquired";
     } catch (error) {
       console.error(error);
+      return "error";
     }
   };
 }

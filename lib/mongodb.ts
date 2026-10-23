@@ -1,4 +1,4 @@
-import { Db, MongoClient } from "mongodb";
+import { ClientSession, Db, MongoClient } from "mongodb";
 
 if (!process.env.MONGODB_URI) {
   throw new Error('Invalid/Missing environment variable: "MONGODB_URI"');
@@ -33,4 +33,17 @@ export default client;
 export const getDb = async (): Promise<Db> => {
   await client.connect();
   return client.db("collection-manager");
+};
+
+// Runs fn as one transaction: all its writes happen or none do. fn passes the session to each operation,
+// and can call session.abortTransaction() to leave everything as it was. The driver may run fn again on transient errors.
+export const inTransaction = async <T>(fn: (db: Db, session: ClientSession) => Promise<T>): Promise<T> => {
+  const db = await getDb();
+  let result!: T;
+  await client.withSession((session) =>
+    session.withTransaction(async () => {
+      result = await fn(db, session);
+    })
+  );
+  return result;
 };

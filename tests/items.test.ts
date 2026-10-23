@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { ObjectId } from "mongodb";
-import { binderAccepts, binderChange, cardNumberLabel, formatCardNumber, setCompletion, summarizeBinder, summarizeWishlist, targetHit } from "@/lib/items";
+import { binderAccepts, binderChange, cardNumberLabel, formatCardNumber, mergeMovedItem, setCompletion, summarizeBinder, summarizeWishlist, targetHit } from "@/lib/items";
+import { LIMITS } from "@/lib/limits";
 import { ItemType } from "@/types/mongodb";
 import { binder, binderItem, card, sealed, set, wishlist, wishlistItem } from "./factories";
 
@@ -55,6 +56,25 @@ describe("binderChange", () => {
   test("is 0 for items without history in the period", () => {
     expect(binderChange(binder(items), "1w")).toBe(0);
     expect(binderChange(binder([]), "1m")).toBe(0);
+  });
+});
+
+describe("mergeMovedItem", () => {
+  test("two owned copies add up, within the quantity limit", () => {
+    expect(mergeMovedItem({ quantity: 2, owned: true }, { quantity: 3 })).toEqual({ quantity: 5, owned: true });
+    expect(mergeMovedItem({ quantity: LIMITS.QUANTITY, owned: true }, { quantity: 1 })).toEqual({ quantity: LIMITS.QUANTITY, owned: true });
+  });
+
+  test("an owned item fills a missing slot", () => {
+    expect(mergeMovedItem({ quantity: 2, owned: true }, { quantity: 1, owned: false })).toEqual({ quantity: 2, owned: true });
+  });
+
+  test("a missing item moved onto an owned one leaves it as it is", () => {
+    expect(mergeMovedItem({ quantity: 1, owned: false }, { quantity: 3 })).toEqual({ quantity: 3, owned: true });
+  });
+
+  test("missing onto missing stays missing", () => {
+    expect(mergeMovedItem({ quantity: 1, owned: false }, { quantity: 1, owned: false })).toEqual({ quantity: 1, owned: false });
   });
 });
 

@@ -1,6 +1,6 @@
 // Server only: keeps a binder and its linked wishlist in step.
 // The wishlist holds the binder's missing items, one per version (matched by price id): what is missing in one is wanted in the other.
-import { Db, ObjectId } from "mongodb";
+import { ClientSession, Db, ObjectId } from "mongodb";
 import { ItemType } from "@/types/mongodb";
 
 interface MirroredItem {
@@ -11,20 +11,21 @@ interface MirroredItem {
 }
 
 // A binder item became (or was created as) missing: the wishlist wants it. Owned: the wishlist no longer does.
-export const mirrorToWishlist = async (db: Db, user: ObjectId, wishlist: string | undefined, item: MirroredItem, missing: boolean) => {
+// session: the transaction it belongs to, if any (same for the others)
+export const mirrorToWishlist = async (db: Db, user: ObjectId, wishlist: string | undefined, item: MirroredItem, missing: boolean, session?: ClientSession) => {
   if (!wishlist) return;
   const match = { wishlist, user, historicPrice: item.historicPrice };
   if (!missing) {
-    await db.collection("wishlist-items").deleteMany(match);
+    await db.collection("wishlist-items").deleteMany(match, { session });
     return;
   }
-  await db.collection("wishlist-items").updateOne(match, { $setOnInsert: { name: item.name, type: item.type, item: item.item } }, { upsert: true });
+  await db.collection("wishlist-items").updateOne(match, { $setOnInsert: { name: item.name, type: item.type, item: item.item } }, { upsert: true, session });
 };
 
 // Missing binder items gone from the binder leave the wishlist too
-export const unmirrorFromWishlist = async (db: Db, user: ObjectId, wishlist: string | undefined, historicPrices: string[]) => {
+export const unmirrorFromWishlist = async (db: Db, user: ObjectId, wishlist: string | undefined, historicPrices: string[], session?: ClientSession) => {
   if (!wishlist || !historicPrices.length) return;
-  await db.collection("wishlist-items").deleteMany({ wishlist, user, historicPrice: { $in: historicPrices } });
+  await db.collection("wishlist-items").deleteMany({ wishlist, user, historicPrice: { $in: historicPrices } }, { session });
 };
 
 // An item added to the wishlist becomes a missing slot in the binder, unless the binder has it already or can't take it
@@ -43,9 +44,9 @@ export const mirrorToBinder = async (db: Db, user: ObjectId, binder: string | un
 };
 
 // An item removed from the wishlist is no longer tracked as missing in the binder (owned copies stay)
-export const unmirrorFromBinder = async (db: Db, user: ObjectId, binder: string | undefined, historicPrice: string) => {
+export const unmirrorFromBinder = async (db: Db, user: ObjectId, binder: string | undefined, historicPrice: string, session?: ClientSession) => {
   if (!binder) return;
-  await db.collection("binder-items").deleteMany({ binder, user, historicPrice, owned: false });
+  await db.collection("binder-items").deleteMany({ binder, user, historicPrice, owned: false }, { session });
 };
 
 // The list linked to one being created, if it belongs to the user and isn't linked yet

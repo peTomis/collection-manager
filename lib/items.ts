@@ -1,6 +1,7 @@
 import { Binder, BinderWithItems, Card, CardHistoricPrice, CardVariantType, ItemType, ItemWithJoin, Sealed, Set, WishlistItem, WishlistWithItems } from "@/types/mongodb";
 import { getPastPrice, getPrice, PricePeriod } from "@/lib/prices";
 import { change } from "@/lib/format";
+import { LIMITS } from "@/lib/limits";
 
 export const VARIANT_LABELS: Record<CardVariantType, string> = {
   [CardVariantType.FIRST_EDITION]: "1st Edition",
@@ -66,6 +67,17 @@ export const summarizeBinder = (binder: BinderWithItems) => {
   const count = [cards && `${cards} cards`, sealed && `${sealed} sealed`, missing && `${missing} missing`].filter(Boolean).join(" · ") || "Empty";
   return { value, cards, sealed, missing, count, change1w: change(value, value1w), change1m: change(value, value1m) };
 };
+
+// An item moved into a binder that already has the same version: owned wins (an owned item fills a missing slot there),
+// and two owned copies add up, within the quantity limit
+export const mergeMovedItem = (moved: { quantity: number; owned: boolean }, existing: { quantity: number; owned?: boolean }) => {
+  if (!isOwned(existing)) return { quantity: moved.quantity, owned: moved.owned };
+  return { quantity: moved.owned ? Math.min(existing.quantity + moved.quantity, LIMITS.QUANTITY) : existing.quantity, owned: true };
+};
+
+// Why an item couldn't go into a binder, as the move and "got it" actions report it
+export const intoBinderError = (result: "wrong-set" | "full" | "error", binder: string) =>
+  result === "full" ? `${binder} is full.` : result === "wrong-set" ? `${binder} doesn't take this item.` : "Couldn't move the item. Try again in a moment.";
 
 // Change of the binder's owned items over a price period, against each item's oldest known price in it
 export const binderChange = (binder: BinderWithItems, period: PricePeriod) => {
