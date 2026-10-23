@@ -6,6 +6,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useSwipeToClose } from "@/lib/use-swipe-to-close";
 import { fontVariables } from "@/lib/fonts";
 import { cn } from "@/lib/utils";
+import { buttonClass } from "@/components/atoms/button";
 
 interface ModalProps {
   open: boolean;
@@ -55,12 +56,6 @@ const Modal = ({ open, onClose, title, description, children, footer, sheet }: M
   );
 };
 
-export const modalButton = {
-  secondary: "h-[38px] px-4 rounded-[9px] border border-line bg-transparent text-sm font-medium cursor-pointer hover:bg-chip",
-  primary: "h-[38px] px-4 rounded-[9px] bg-fill text-on-fill text-sm font-medium cursor-pointer disabled:opacity-40 disabled:cursor-default",
-  danger: "h-[38px] px-4 rounded-[9px] bg-loss text-white text-sm font-medium cursor-pointer",
-};
-
 interface ConfirmModalProps {
   open: boolean;
   onClose: () => void;
@@ -78,12 +73,12 @@ export const ConfirmModal = ({ open, onClose, onConfirm, title, description, con
     description={description}
     footer={
       <>
-        <button type="button" className={modalButton.secondary} onClick={onClose}>
+        <button type="button" className={buttonClass("secondary")} onClick={onClose}>
           Cancel
         </button>
         <button
           type="button"
-          className={modalButton.danger}
+          className={buttonClass("danger")}
           onClick={() => {
             onConfirm();
             onClose();

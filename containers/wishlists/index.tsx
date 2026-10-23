@@ -8,10 +8,12 @@ import { useDispatch, useSelector } from "@/redux/store";
 import { deleteWishlist, getWishlists, setWishlist } from "@/redux/slices/wishlists";
 import { getBinders } from "@/redux/slices/binders";
 import { getSets } from "@/redux/slices/sets";
+import { cn } from "@/lib/utils";
 
 // Components
 import Topbar from "@/components/organisms/topbar";
 import { ConfirmModal } from "@/components/atoms/modal";
+import { buttonClass } from "@/components/atoms/button";
 import NewListModal from "@/components/organisms/new-list-modal";
 import WishlistRail from "./components/wishlist-rail";
 import WishlistHeader from "./components/wishlist-header";
@@ -71,7 +73,7 @@ const WishlistsContainer = () => {
               <div className="flex flex-col items-center gap-3 py-24 text-center">
                 <h1 className="font-display font-semibold text-[30px] tracking-[-0.03em]">No wishlists yet</h1>
                 <p className="text-sm text-ink-muted">List the cards you want and set a target price for each.</p>
-                <EditButton type="button" onClick={() => setCreating(true)} className="h-[38px] px-4 mt-2 rounded-[9px] bg-fill text-on-fill text-sm font-medium cursor-pointer">
+                <EditButton type="button" onClick={() => setCreating(true)} className={cn(buttonClass("primary"), "mt-2")}>
                   + New wishlist
                 </EditButton>
               </div>

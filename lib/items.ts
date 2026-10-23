@@ -102,6 +102,13 @@ export const setCompletion = (binder: BinderWithItems, sets: Set[]) => {
   return { set: set.name, owned, total: set.cards, percent: Math.min(100, Math.round((owned / set.cards) * 100)) };
 };
 
+// A target price as typed ("12,5" too): rounded to cents, undefined for no target (empty), null when it isn't a price
+export const parseTarget = (text: string): number | undefined | null => {
+  if (text.trim() === "") return undefined;
+  const value = Number(text.replace(",", "."));
+  return Number.isFinite(value) && value >= 0 ? Math.round(value * 100) / 100 : null;
+};
+
 // A wishlist item is a "target hit" when its price is at or below the price the user set
 export const targetHit = (item: WishlistItem) => item.target !== undefined && itemPrice(item) > 0 && itemPrice(item) <= item.target;
 

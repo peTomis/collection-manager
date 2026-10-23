@@ -4,7 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 
 // Components
-import Modal, { modalButton } from "@/components/atoms/modal";
+import Modal from "@/components/atoms/modal";
+import { buttonClass } from "@/components/atoms/button";
 import Segmented from "@/components/atoms/segmented";
 import { useSetUnlink } from "@/components/organisms/set-unlink";
 
@@ -120,15 +121,15 @@ const AddItemModal = ({ set, catalog, product, destination, initialVariant = 0, 
       footer={
         list ? (
           <>
-            <button type="button" className={modalButton.secondary} onClick={close}>
+            <button type="button" className={buttonClass("secondary")} onClick={close}>
               Cancel
             </button>
-            <EditButton type="button" className={modalButton.primary} disabled={!valid} onClick={confirm}>
+            <EditButton type="button" className={buttonClass("primary")} disabled={!valid} onClick={confirm}>
               {mode === "binder" ? (existingBinderItem && isOwned(existingBinderItem) ? "Add another" : "Add to binder") : "Add to wishlist"}
             </EditButton>
           </>
         ) : (
-          <Link href={mode === "binder" ? "/binders" : "/wishlists"} className={cn(modalButton.primary, "inline-flex items-center")}>
+          <Link href={mode === "binder" ? "/binders" : "/wishlists"} className={cn(buttonClass("primary"), "inline-flex items-center")}>
             Create a {mode}
           </Link>
         )

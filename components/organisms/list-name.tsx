@@ -3,7 +3,8 @@ import { useReadOnly } from "@/lib/offline";
 import { useState } from "react";
 
 // Components
-import Modal, { modalButton } from "@/components/atoms/modal";
+import Modal from "@/components/atoms/modal";
+import { buttonClass } from "@/components/atoms/button";
 
 // State
 import { useDispatch, useSelector } from "@/redux/store";
@@ -66,10 +67,10 @@ const ListName = ({ kind, list }: ListNameProps) => {
         title={`Rename ${kind}`}
         footer={
           <>
-            <button type="button" className={modalButton.secondary} onClick={() => setEditing(false)}>
+            <button type="button" className={buttonClass("secondary")} onClick={() => setEditing(false)}>
               Cancel
             </button>
-            <button type="button" className={modalButton.primary} disabled={!trimmed} onClick={save}>
+            <button type="button" className={buttonClass("primary")} disabled={!trimmed} onClick={save}>
               Save
             </button>
           </>

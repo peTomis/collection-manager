@@ -8,6 +8,7 @@ import Segmented from "@/components/atoms/segmented";
 import { ConfirmModal } from "@/components/atoms/modal";
 import CardArt from "@/components/atoms/card-art";
 import SealedArt from "@/components/atoms/sealed-art";
+import Stepper from "@/components/atoms/stepper";
 import ItemDetail from "@/components/organisms/item-detail";
 
 // State
@@ -424,7 +425,7 @@ const BinderList = ({ rows, numbered, setQuantity, markOwned, onView, selected, 
               </span>
             </div>
             {isOwned(r.item) ? (
-              <Stepper className="mt-1.5 lg:hidden" quantity={r.item.quantity} onChange={(q) => setQuantity(r.item, q)} />
+              <Stepper size="sm" min={0} className="mt-1.5 lg:hidden" value={r.item.quantity} onChange={(q) => setQuantity(r.item, q)} />
             ) : (
               <MarkOwned className="flex mt-1.5 lg:hidden" onClick={() => markOwned(r.item)} />
             )}
@@ -432,7 +433,7 @@ const BinderList = ({ rows, numbered, setQuantity, markOwned, onView, selected, 
           <span className="hidden truncate lg:block text-ink-muted">{variantLabel(r.item)}</span>
           <span className="hidden text-xs font-medium lg:block font-geist-mono">{languageLabel(r.item)}</span>
           {isOwned(r.item) ? (
-            <Stepper className="hidden lg:flex justify-self-center" quantity={r.item.quantity} onChange={(q) => setQuantity(r.item, q)} />
+            <Stepper size="sm" min={0} className="hidden lg:flex justify-self-center" value={r.item.quantity} onChange={(q) => setQuantity(r.item, q)} />
           ) : (
             <MarkOwned className="hidden lg:flex justify-self-center" onClick={() => markOwned(r.item)} />
           )}
@@ -444,21 +445,6 @@ const BinderList = ({ rows, numbered, setQuantity, markOwned, onView, selected, 
           <span className={cn("hidden lg:block text-right font-geist-mono font-medium text-[13px]", deltaColor(r.change1m))}>{pct(r.change1m)}</span>
         </div>
       ))}
-    </div>
-  );
-};
-
-const Stepper = ({ quantity, onChange, className }: { quantity: number; onChange: (q: number) => void; className?: string }) => {
-  const button = "w-7 h-7 grid place-items-center rounded-md text-ink-muted hover:bg-chip hover:text-ink cursor-pointer";
-  return (
-    <div className={cn("flex items-center w-fit border border-line rounded-lg", className)}>
-      <EditButton type="button" aria-label="Decrease quantity" className={button} onClick={() => onChange(quantity - 1)}>
-        −
-      </EditButton>
-      <span className="w-6 text-center font-geist-mono text-[13px]">{quantity}</span>
-      <EditButton type="button" aria-label="Increase quantity" className={button} onClick={() => onChange(quantity + 1)}>
-        +
-      </EditButton>
     </div>
   );
 };

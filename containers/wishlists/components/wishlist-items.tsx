@@ -4,18 +4,19 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 // Components
-import Modal, { modalButton } from "@/components/atoms/modal";
+import Modal from "@/components/atoms/modal";
+import { buttonClass } from "@/components/atoms/button";
 import CardArt from "@/components/atoms/card-art";
 import SealedArt from "@/components/atoms/sealed-art";
 import ItemDetail from "@/components/organisms/item-detail";
 import TargetSuggestions from "@/components/atoms/target-suggestions";
-import { useSetUnlink } from "@/components/organisms/set-unlink";
+import { useAcquire } from "@/components/organisms/use-acquire";
 
 // State
 import { useDispatch, useSelector } from "@/redux/store";
 import { acquireWishlistItem, deleteWishlistItem, setWishlistItemTarget } from "@/redux/slices/wishlists";
 import { WishlistItem, WishlistWithItems } from "@/types/mongodb";
-import { cardNumber, cardNumberLabel, isSealed, itemPrice, languageLabel, sealedPath, summarizeWishlist, targetHit, variantLabel, binderAccepts, intoBinderError } from "@/lib/items";
+import { cardNumber, cardNumberLabel, isSealed, itemPrice, languageLabel, sealedPath, summarizeWishlist, targetHit, variantLabel, binderAccepts, intoBinderError, parseTarget } from "@/lib/items";
 import { useSetsImages } from "@/lib/tcgdex";
 import { eur } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -236,12 +237,12 @@ const EditTargetModal = ({ item, onClose }: { item: WishlistItem | null; onClose
     onClose();
   };
 
-  const parsed = value.trim() === "" ? undefined : Number(value.replace(",", "."));
-  const valid = parsed === undefined || (Number.isFinite(parsed) && parsed >= 0);
+  const target = parseTarget(value);
+  const valid = target !== null;
 
   const save = () => {
     if (!item || !user || !valid) return;
-    dispatch(setWishlistItemTarget(user, item, parsed === undefined ? undefined : Math.round(parsed * 100) / 100));
+    dispatch(setWishlistItemTarget(user, item, target));
     close();
   };
 
@@ -259,13 +260,13 @@ const EditTargetModal = ({ item, onClose }: { item: WishlistItem | null; onClose
       description={item ? `Current price ${eur(itemPrice(item))}. You'll see an alert when it drops to your target.` : undefined}
       footer={
         <>
-          <EditButton type="button" className={cn(modalButton.secondary, "mr-auto text-loss")} onClick={remove}>
+          <EditButton type="button" className={cn(buttonClass("secondary"), "mr-auto text-loss")} onClick={remove}>
             Remove
           </EditButton>
-          <button type="button" className={modalButton.secondary} onClick={close}>
+          <button type="button" className={buttonClass("secondary")} onClick={close}>
             Cancel
           </button>
-          <EditButton type="button" className={modalButton.primary} disabled={!valid} onClick={save}>
+          <EditButton type="button" className={buttonClass("primary")} disabled={!valid} onClick={save}>
             Save
           </EditButton>
         </>
@@ -291,38 +292,16 @@ const EditTargetModal = ({ item, onClose }: { item: WishlistItem | null; onClose
 
 // Move the item into a binder: add it there (or bump its quantity) and remove it from the wishlist
 const GotItModal = ({ item, notice, onClose }: { item: WishlistItem | null; notice?: string; onClose: () => void }) => {
-  const [binderId, setBinderId] = useState("");
-  const [moving, setMoving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const { binders } = useSelector((state) => state.binders);
-  const user = useSelector((state) => state.user.user) ?? "";
-  const dispatch = useDispatch();
-  const setUnlink = useSetUnlink();
-
-  // The linked binder comes first. A copy: the store's array is frozen, and sort works in place
-  const choices = [...binders].sort((a, b) => Number(b.wishlist === item?.wishlist) - Number(a.wishlist === item?.wishlist));
-  const selected = choices.find((b) => b._id === binderId) ?? choices[0];
+  const { choices, selected, setBinderId, acquire, moving, error, reset, modal } = useAcquire(item);
   const outsideSet = !!item && !!selected && !binderAccepts(selected, item.type, item.item);
 
   const close = () => {
-    setBinderId("");
-    setError(null);
+    reset();
     onClose();
   };
 
   // The modal only closes once the item is in the binder
-  const confirm = () => {
-    if (!item || !user || !selected || moving) return;
-    // Set binders only take cards of their set: anything else asks to remove the set first
-    setUnlink.guard(selected, item.type, item.item, async () => {
-      setMoving(true);
-      setError(null);
-      const result = await dispatch(acquireWishlistItem(user, item, selected));
-      setMoving(false);
-      if (result === "acquired") return close();
-      setError(intoBinderError(result, selected.name));
-    });
-  };
+  const confirm = () => selected && acquire(selected, close);
 
   return (
     <Modal
@@ -335,15 +314,15 @@ const GotItModal = ({ item, notice, onClose }: { item: WishlistItem | null; noti
       footer={
         selected ? (
           <>
-            <button type="button" className={modalButton.secondary} onClick={close}>
+            <button type="button" className={buttonClass("secondary")} onClick={close}>
               Cancel
             </button>
-            <EditButton type="button" className={modalButton.primary} disabled={moving} onClick={confirm}>
+            <EditButton type="button" className={buttonClass("primary")} disabled={moving} onClick={confirm}>
               {moving ? "Moving…" : "Move to binder"}
             </EditButton>
           </>
         ) : (
-          <Link href="/binders" className={cn(modalButton.primary, "inline-flex items-center")}>
+          <Link href="/binders" className={cn(buttonClass("primary"), "inline-flex items-center")}>
             Go to binders
           </Link>
         )
@@ -365,7 +344,7 @@ const GotItModal = ({ item, notice, onClose }: { item: WishlistItem | null; noti
           {(error ?? notice) && <p className="mt-1.5 text-xs text-loss">{error ?? notice}</p>}
         </>
       )}
-      {setUnlink.modal}
+      {modal}
     </Modal>
   );
 };

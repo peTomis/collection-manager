@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { ObjectId } from "mongodb";
-import { binderAccepts, binderChange, cardNumberLabel, formatCardNumber, mergeMovedItem, setCompletion, summarizeBinder, summarizeWishlist, targetHit } from "@/lib/items";
+import { binderAccepts, binderChange, cardNumberLabel, formatCardNumber, mergeMovedItem, parseTarget, setCompletion, summarizeBinder, summarizeWishlist, targetHit } from "@/lib/items";
 import { LIMITS } from "@/lib/limits";
 import { ItemType } from "@/types/mongodb";
 import { binder, binderItem, card, sealed, set, wishlist, wishlistItem } from "./factories";
@@ -105,6 +105,20 @@ describe("setCompletion", () => {
   test("is null when the cards come from different sets or the set is unknown", () => {
     expect(setCompletion(binder([binderItem({ item: card({ set: "base" }) }), binderItem({ item: card({ set: "jungle" }) })]), [set()])).toBeNull();
     expect(setCompletion(binder([binderItem()]), [])).toBeNull();
+  });
+});
+
+describe("parseTarget", () => {
+  test("a price rounded to cents, with a dot or a comma", () => {
+    expect(parseTarget("12.345")).toBe(12.35);
+    expect(parseTarget("12,5")).toBe(12.5);
+    expect(parseTarget("0")).toBe(0);
+  });
+
+  test("empty is no target, anything else that isn't a price is invalid", () => {
+    expect(parseTarget("  ")).toBeUndefined();
+    expect(parseTarget("-1")).toBeNull();
+    expect(parseTarget("abc")).toBeNull();
   });
 });
 

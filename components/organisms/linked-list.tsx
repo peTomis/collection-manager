@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/router";
 
 // Components
-import Modal, { modalButton } from "@/components/atoms/modal";
+import Modal from "@/components/atoms/modal";
+import { buttonClass } from "@/components/atoms/button";
 
 // State
 import { useDispatch, useSelector } from "@/redux/store";
@@ -102,12 +103,12 @@ const Linked = ({ source, other, name, id }: { source: Source; other: "binder" |
         footer={
           deleting ? (
             <>
-              <button type="button" className={modalButton.secondary} onClick={() => setDeleting(false)}>
+              <button type="button" className={buttonClass("secondary")} onClick={() => setDeleting(false)}>
                 Back
               </button>
               <button
                 type="button"
-                className={modalButton.danger}
+                className={buttonClass("danger")}
                 onClick={() => {
                   if (user) dispatch(other === "wishlist" ? deleteWishlist(user, id) : deleteBinder(user, id));
                   close();
@@ -118,15 +119,15 @@ const Linked = ({ source, other, name, id }: { source: Source; other: "binder" |
             </>
           ) : (
             <>
-              <button type="button" className={cn(modalButton.secondary, "mr-auto text-loss")} onClick={() => setDeleting(true)}>
+              <button type="button" className={cn(buttonClass("secondary"), "mr-auto text-loss")} onClick={() => setDeleting(true)}>
                 Delete {other}
               </button>
-              <button type="button" className={modalButton.secondary} onClick={close}>
+              <button type="button" className={buttonClass("secondary")} onClick={close}>
                 Cancel
               </button>
               <button
                 type="button"
-                className={modalButton.primary}
+                className={buttonClass("primary")}
                 onClick={() => {
                   if (user) dispatch(unlinkBinder(user, binderId));
                   close();
@@ -218,10 +219,10 @@ const CreateLinked = ({ source, other }: { source: Source; other: "binder" | "wi
         description={description}
         footer={
           <>
-            <button type="button" className={modalButton.secondary} onClick={() => setOpen(false)}>
+            <button type="button" className={buttonClass("secondary")} onClick={() => setOpen(false)}>
               Cancel
             </button>
-            <EditButton type="button" className={modalButton.primary} disabled={!valid || saving} onClick={create}>
+            <EditButton type="button" className={buttonClass("primary")} disabled={!valid || saving} onClick={create}>
               {saving ? "Creating…" : `Create ${other}`}
             </EditButton>
           </>

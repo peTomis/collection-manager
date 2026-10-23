@@ -11,20 +11,22 @@ import Select from "@/components/atoms/select";
 import CardArt from "@/components/atoms/card-art";
 import SealedArt from "@/components/atoms/sealed-art";
 import { ConfirmModal } from "@/components/atoms/modal";
+import { buttonClass } from "@/components/atoms/button";
+import Stepper from "@/components/atoms/stepper";
 import TargetSuggestions from "@/components/atoms/target-suggestions";
 import { useSetUnlink } from "@/components/organisms/set-unlink";
+import { useAcquire } from "@/components/organisms/use-acquire";
 
 // State
 import { useDispatch, useSelector } from "@/redux/store";
 import { changeBinderItemQuantity, deleteBinderItem, moveBinderItem } from "@/redux/slices/binders";
-import { acquireWishlistItem, deleteWishlistItem, setWishlistItemTarget } from "@/redux/slices/wishlists";
+import { deleteWishlistItem, setWishlistItemTarget } from "@/redux/slices/wishlists";
 import { BinderItem, Card, CardVariant, HistoricPrice, ItemType, Language, Sealed, SealedVariant, WishlistItem } from "@/types/mongodb";
 import { Product, displayName, historicPriceKey, priceKey } from "@/containers/database/use-set-catalog";
 import type { Destination } from "@/containers/database/components/add-item-modal";
 import { getPastPrice, getPrice, PricePeriod } from "@/lib/prices";
-import { VARIANT_LABELS, binderAccepts, cardNumberLabel, intoBinderError, isOwned } from "@/lib/items";
+import { VARIANT_LABELS, cardNumberLabel, intoBinderError, isOwned, parseTarget } from "@/lib/items";
 import { useCardInfo, useSetImages } from "@/lib/tcgdex";
-import { LIMITS } from "@/lib/limits";
 import { fontVariables } from "@/lib/fonts";
 import { change, deltaColor, eur, pct, signedEur } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -408,24 +410,6 @@ const Listings = ({ prices }: { prices: { items: number; timestamp: number }[] |
 };
 
 const fieldClass = "flex items-center gap-2 h-12 lg:h-[38px] px-3 border border-line rounded-[10px] lg:rounded-[9px] bg-paper text-sm lg:text-[13px]";
-const primaryClass = "h-12 lg:h-[38px] px-[18px] rounded-[10px] lg:rounded-[9px] bg-fill text-on-fill text-[15px] lg:text-sm font-medium cursor-pointer disabled:opacity-40 disabled:cursor-default";
-const secondaryClass = "h-12 lg:h-[38px] px-3.5 rounded-[10px] lg:rounded-[9px] border border-line bg-paper text-sm font-medium cursor-pointer hover:bg-chip disabled:opacity-40 disabled:cursor-default";
-const removeClass = "h-12 lg:h-[38px] px-3.5 bg-transparent text-loss text-sm font-medium cursor-pointer";
-
-const Stepper = ({ value, onChange, disabled }: { value: number; onChange: (v: number) => void; disabled?: boolean }) => {
-  const button = "w-11 h-11 lg:w-9 lg:h-9 grid place-items-center text-lg lg:text-[18px] cursor-pointer disabled:opacity-30 disabled:cursor-default";
-  return (
-    <div className={cn("flex items-center border border-line rounded-[10px] lg:rounded-[9px] bg-paper", disabled && "opacity-40 pointer-events-none")}>
-      <button type="button" aria-label="Decrease quantity" className={button} disabled={value <= 1} onClick={() => onChange(value - 1)}>
-        −
-      </button>
-      <span className="min-w-7 text-center font-geist-mono font-medium text-[15px] lg:text-sm">{value}</span>
-      <button type="button" aria-label="Increase quantity" className={button} disabled={value >= LIMITS.QUANTITY} onClick={() => onChange(value + 1)}>
-        +
-      </button>
-    </div>
-  );
-};
 
 // Mark it owned or missing, change the quantity, move the item to another binder or remove it
 const BinderActions = ({ item, onClose }: { item: BinderItem; onClose: () => void }) => {
@@ -487,11 +471,11 @@ const BinderActions = ({ item, onClose }: { item: BinderItem; onClose: () => voi
           </span>
         </div>
         <div className="grid grid-cols-[auto_1fr_2fr] gap-2 lg:flex lg:ml-auto">
-          <button type="button" className={removeClass} onClick={() => setRemoving(true)}>
+          <button type="button" className={buttonClass("remove", "lg")} onClick={() => setRemoving(true)}>
             Remove
           </button>
           {destinations.length > 0 && (
-            <label className={cn(secondaryClass, "relative flex items-center justify-center")}>
+            <label className={cn(buttonClass("secondary", "lg"), "relative flex items-center justify-center")}>
               Move to…
               <select aria-label="Move to binder" value="" disabled={moving} onChange={(e) => move(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer">
                 <option value="" disabled>
@@ -505,7 +489,7 @@ const BinderActions = ({ item, onClose }: { item: BinderItem; onClose: () => voi
               </select>
             </label>
           )}
-          <button type="button" className={cn(primaryClass, destinations.length === 0 && "col-span-2")} disabled={!changed || moving} onClick={save}>
+          <button type="button" className={cn(buttonClass("primary", "lg"), destinations.length === 0 && "col-span-2")} disabled={!changed || moving} onClick={save}>
             Save
           </button>
         </div>
@@ -532,44 +516,20 @@ const BinderActions = ({ item, onClose }: { item: BinderItem; onClose: () => voi
 const WishlistActions = ({ item, price, onClose }: { item: WishlistItem; price: number; onClose: () => void }) => {
   const readOnly = useReadOnly();
   const [value, setValue] = useState(item.target !== undefined ? String(item.target) : "");
-  const [binderId, setBinderId] = useState("");
-  const [acquiring, setAcquiring] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const { binders } = useSelector((state) => state.binders);
   const user = useSelector((state) => state.user.user) ?? "";
   const dispatch = useDispatch();
-  const setUnlink = useSetUnlink();
+  const { choices, selected, linked, setBinderId, acquire, moving, error, modal } = useAcquire(item);
 
-  const parsed = value.trim() === "" ? undefined : Number(value.replace(",", "."));
-  const valid = parsed === undefined || (Number.isFinite(parsed) && parsed >= 0);
-  const rounded = parsed === undefined ? undefined : Math.round(parsed * 100) / 100;
-  const changed = valid && rounded !== item.target;
-  const gap = rounded !== undefined && valid && price > 0 ? (price <= rounded ? `${eur(rounded - price)} below target` : `${eur(price - rounded)} above target`) : undefined;
-
-  // The linked binder comes first. A copy: the store's array is frozen, and sort works in place
-  const choices = [...binders].sort((a, b) => Number(b.wishlist === item.wishlist) - Number(a.wishlist === item.wishlist));
+  const target = parseTarget(value);
+  const changed = target !== null && target !== item.target;
+  const gap = target != null && price > 0 ? (price <= target ? `${eur(target - price)} below target` : `${eur(price - target)} above target`) : undefined;
   // A linked wishlist's items go to its binder without asking, unless it is a set binder that can't take them
-  const linked = choices.find((b) => b.wishlist === item.wishlist && binderAccepts(b, item.type, item.item));
-  const binder = linked ?? choices.find((b) => b._id === binderId) ?? choices[0];
+  const binder = linked ?? selected;
 
   const save = () => {
     if (!user || !changed) return;
-    dispatch(setWishlistItemTarget(user, item, rounded));
+    dispatch(setWishlistItemTarget(user, item, target));
     onClose();
-  };
-
-  // The panel only closes once the item is in the binder
-  const acquire = () => {
-    if (!user || !binder || acquiring) return;
-    // Set binders only take cards of their set: anything else asks to remove the set first
-    setUnlink.guard(binder, item.type, item.item, async () => {
-      setAcquiring(true);
-      setError(null);
-      const result = await dispatch(acquireWishlistItem(user, item, binder));
-      setAcquiring(false);
-      if (result === "acquired") return onClose();
-      setError(intoBinderError(result, binder.name));
-    });
   };
 
   const remove = () => {
@@ -582,55 +542,60 @@ const WishlistActions = ({ item, price, onClose }: { item: WishlistItem; price: 
 
   return (
     <div className="flex flex-col gap-2.5">
-    <TargetSuggestions historicPrice={item.historicPrice} value={value} onPick={(v) => setValue(String(v))} />
-    <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:gap-3.5">
-      <div className="flex items-center gap-3">
-        <label className={cn(fieldClass, "flex-1 lg:flex-none")}>
-          <span className="text-ink-muted whitespace-nowrap">Target (€)</span>
-          <input
-            inputMode="decimal"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && save()}
-            placeholder="None"
-            className="w-20 min-w-0 font-medium bg-transparent outline-none font-geist-mono text-ink placeholder:text-ink-muted"
-          />
-        </label>
-        {gap && <span className="font-geist-mono font-medium text-xs lg:text-[13px] text-ink-muted whitespace-nowrap">{gap}</span>}
-        {changed && (
-          <button type="button" className={secondaryClass} onClick={save}>
-            Save
-          </button>
-        )}
-      </div>
-      <div className="flex gap-2 lg:ml-auto">
-        <button type="button" className={removeClass} onClick={remove}>
-          Remove
-        </button>
-        {binder ? (
-          <>
-            {!linked && choices.length > 1 && (
-              <Select
-                aria-label="Binder"
-                value={binder._id}
-                onChange={setBinderId}
-                options={choices.map((b) => ({ value: b._id, label: b.name }))}
-                className="flex-1 min-w-0 lg:flex-none lg:max-w-[180px]"
-              />
-            )}
-            <button type="button" className={cn(primaryClass, "flex-1 max-w-[200px] ml-auto lg:ml-0 lg:w-[200px] whitespace-nowrap")} disabled={acquiring} onClick={acquire}>
-              {acquiring ? "Moving…" : "Got it"}
+      <TargetSuggestions historicPrice={item.historicPrice} value={value} onPick={(v) => setValue(String(v))} />
+      <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:gap-3.5">
+        <div className="flex items-center gap-3">
+          <label className={cn(fieldClass, "flex-1 lg:flex-none")}>
+            <span className="text-ink-muted whitespace-nowrap">Target (€)</span>
+            <input
+              inputMode="decimal"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && save()}
+              placeholder="None"
+              className="w-20 min-w-0 font-medium bg-transparent outline-none font-geist-mono text-ink placeholder:text-ink-muted"
+            />
+          </label>
+          {gap && <span className="font-geist-mono font-medium text-xs lg:text-[13px] text-ink-muted whitespace-nowrap">{gap}</span>}
+          {changed && (
+            <button type="button" className={buttonClass("secondary", "lg")} onClick={save}>
+              Save
             </button>
-          </>
-        ) : (
-          <Link href="/binders" className={cn(primaryClass, "flex-1 lg:flex-none inline-flex items-center justify-center")}>
-            Create a binder
-          </Link>
-        )}
+          )}
+        </div>
+        <div className="flex gap-2 lg:ml-auto">
+          <button type="button" className={buttonClass("remove", "lg")} onClick={remove}>
+            Remove
+          </button>
+          {binder ? (
+            <>
+              {!linked && choices.length > 1 && (
+                <Select
+                  aria-label="Binder"
+                  value={binder._id}
+                  onChange={setBinderId}
+                  options={choices.map((b) => ({ value: b._id, label: b.name }))}
+                  className="flex-1 min-w-0 lg:flex-none lg:max-w-[180px]"
+                />
+              )}
+              <button
+                type="button"
+                className={cn(buttonClass("primary", "lg"), "flex-1 max-w-[200px] ml-auto lg:ml-0 lg:w-[200px] whitespace-nowrap")}
+                disabled={moving}
+                onClick={() => acquire(binder, onClose)}
+              >
+                {moving ? "Moving…" : "Got it"}
+              </button>
+            </>
+          ) : (
+            <Link href="/binders" className={cn(buttonClass("primary", "lg"), "flex-1 lg:flex-none inline-flex items-center justify-center")}>
+              Create a binder
+            </Link>
+          )}
+        </div>
       </div>
-    </div>
-    {error && <p className="text-[13px] text-loss">{error}</p>}
-    {setUnlink.modal}
+      {error && <p className="text-[13px] text-loss">{error}</p>}
+      {modal}
     </div>
   );
 };
@@ -662,10 +627,10 @@ const DatabaseActions = ({ variants, label, prices, keyOf, index, onIndex, onAdd
       />
       {!priced && <span className="text-xs text-loss">No price data yet for this version</span>}
       <div className="grid grid-cols-[1fr_2fr] gap-2 lg:flex lg:ml-auto">
-        <EditButton type="button" className={secondaryClass} disabled={!priced} onClick={() => onAdd("wishlist")}>
+        <EditButton type="button" className={buttonClass("secondary", "lg")} disabled={!priced} onClick={() => onAdd("wishlist")}>
           + Wishlist
         </EditButton>
-        <EditButton type="button" className={primaryClass} disabled={!priced} onClick={() => onAdd("binder")}>
+        <EditButton type="button" className={buttonClass("primary", "lg")} disabled={!priced} onClick={() => onAdd("binder")}>
           + Add to binder
         </EditButton>
       </div>
