@@ -134,7 +134,7 @@ const WishlistCard = ({ row: r, onView, onEdit, onAcquire }: { row: Row; onView:
   const target = r.item.target;
   const gap = target !== undefined ? (r.hit ? `${eur(target - r.price)} below target` : `${eur(r.price - target)} above target`) : "No target set";
   const gapClass = cn("font-geist-mono font-medium text-xs", r.hit ? "text-gain" : "text-ink-muted");
-  const acquireClass = cn("rounded-lg font-medium cursor-pointer", r.hit ? "bg-ink text-paper" : "bg-chip text-ink hover:bg-line");
+  const acquireClass = cn("rounded-lg font-medium cursor-pointer", r.hit ? "bg-fill text-on-fill" : "bg-chip text-ink hover:bg-line");
 
   return (
     <div

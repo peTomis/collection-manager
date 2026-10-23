@@ -252,7 +252,7 @@ const NewListModal = ({ open, onClose, type: initialType, switchable, set: initi
                     key={t}
                     type="button"
                     onClick={() => setType(t)}
-                    className={cn("h-10 lg:h-9 rounded-[7px] text-sm font-medium cursor-pointer", t === type ? "bg-ink text-paper" : "text-ink-muted hover:text-ink")}
+                    className={cn("h-10 lg:h-9 rounded-[7px] text-sm font-medium cursor-pointer", t === type ? "bg-fill text-on-fill" : "text-ink-muted hover:text-ink")}
                   >
                     {t === "binder" ? "Binder" : "Wishlist"}
                   </button>
@@ -351,7 +351,7 @@ const NewListModal = ({ open, onClose, type: initialType, switchable, set: initi
                     onClick={() => setPicking(true)}
                     className={cn(
                       "flex-none h-11 px-1 text-[13px] font-medium whitespace-nowrap cursor-pointer lg:h-8 lg:px-3 lg:border lg:rounded-lg",
-                      picking ? "lg:bg-ink lg:text-paper lg:border-ink" : "lg:bg-paper lg:border-line lg:hover:bg-chip",
+                      picking ? "lg:bg-fill lg:text-on-fill lg:border-fill" : "lg:bg-paper lg:border-line lg:hover:bg-chip",
                     )}
                   >
                     <span className="hidden lg:inline">Change set ▾</span>
@@ -448,7 +448,7 @@ const NewListModal = ({ open, onClose, type: initialType, switchable, set: initi
                 type="button"
                 disabled={!valid || saving}
                 onClick={save}
-                className="flex-1 lg:flex-none h-[50px] lg:h-10 px-[18px] rounded-[11px] lg:rounded-[9px] bg-ink text-paper text-[15px] lg:text-sm font-medium whitespace-nowrap cursor-pointer disabled:opacity-40 disabled:cursor-default"
+                className="flex-1 lg:flex-none h-[50px] lg:h-10 px-[18px] rounded-[11px] lg:rounded-[9px] bg-fill text-on-fill text-[15px] lg:text-sm font-medium whitespace-nowrap cursor-pointer disabled:opacity-40 disabled:cursor-default"
               >
                 {cta}
               </EditButton>
@@ -480,7 +480,7 @@ const Pills = <T extends string>({ options, value, onChange, multiple }: { optio
         onClick={() => onChange(o.value)}
         className={cn(
           "h-10 lg:h-[34px] px-3 rounded-full border text-[13px] font-medium whitespace-nowrap cursor-pointer",
-          (multiple ? value.includes(o.value) : o.value === value) ? "bg-ink text-paper border-ink" : "bg-paper text-ink border-line hover:bg-chip",
+          (multiple ? value.includes(o.value) : o.value === value) ? "bg-fill text-on-fill border-fill" : "bg-paper text-ink border-line hover:bg-chip",
         )}
       >
         {o.label}

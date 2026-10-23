@@ -29,17 +29,6 @@ const Footer = () => (
         </nav>
       </div>
       <div className="flex flex-col gap-2 pt-6 text-xs border-t border-line">
-        <p>
-          Prices from{" "}
-          <a href="https://www.cardmarket.com" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-ink">
-            Cardmarket
-          </a>
-          , card details from{" "}
-          <a href="https://tcgdex.dev" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-ink">
-            TCGdex
-          </a>
-          .
-        </p>
         <p>Binderly is an unofficial fan project, not affiliated with Nintendo, The Pokémon Company or Cardmarket. Pokémon and its trademarks belong to their respective owners.</p>
         <p>© {new Date().getFullYear()} Binderly</p>
       </div>

@@ -57,7 +57,7 @@ const Modal = ({ open, onClose, title, description, children, footer, sheet }: M
 
 export const modalButton = {
   secondary: "h-[38px] px-4 rounded-[9px] border border-line bg-transparent text-sm font-medium cursor-pointer hover:bg-chip",
-  primary: "h-[38px] px-4 rounded-[9px] bg-ink text-paper text-sm font-medium cursor-pointer disabled:opacity-40 disabled:cursor-default",
+  primary: "h-[38px] px-4 rounded-[9px] bg-fill text-on-fill text-sm font-medium cursor-pointer disabled:opacity-40 disabled:cursor-default",
   danger: "h-[38px] px-4 rounded-[9px] bg-loss text-white text-sm font-medium cursor-pointer",
 };
 

@@ -66,7 +66,7 @@ const BinderRail = () => {
               onClick={() => select(b)}
               className={cn(
                 "flex flex-none items-center gap-[7px] h-10 px-3.5 rounded-full border text-[13px] font-medium cursor-pointer",
-                active ? "bg-ink text-paper border-ink" : "bg-paper text-ink border-line"
+                active ? "bg-fill text-on-fill border-fill" : "bg-paper text-ink border-line"
               )}
             >
               <span className={cn("w-[7px] h-[7px] rounded-full", dotColor(summary))} />

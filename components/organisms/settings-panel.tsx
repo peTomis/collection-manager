@@ -59,6 +59,7 @@ const THEMES: { value: Theme; label: string }[] = [
   { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },
   { value: "system", label: "System" },
+  { value: "pokemon", label: "Pokémon" },
 ];
 
 interface SettingsPanelProps {
@@ -118,7 +119,7 @@ const SettingsPanel = ({ open, onOpenChange, theme, onThemeChange }: SettingsPan
 
             <div className="py-5">
               <div className="font-geist-mono font-medium text-[11px] md:text-xs tracking-[.08em] uppercase text-ink-muted mb-2.5 md:mb-3">Theme</div>
-              <div className="grid grid-cols-3 gap-0.5 p-[3px] border border-line rounded-[10px] bg-canvas">
+              <div className="grid grid-cols-4 gap-0.5 p-[3px] border border-line rounded-[10px] bg-canvas">
                 {THEMES.map((t) => (
                   <button
                     key={t.value}
@@ -126,7 +127,7 @@ const SettingsPanel = ({ open, onOpenChange, theme, onThemeChange }: SettingsPan
                     onClick={() => onThemeChange(t.value)}
                     className={cn(
                       "h-10 md:h-[34px] rounded-[7px] text-sm md:text-[13px] font-medium cursor-pointer",
-                      theme === t.value ? "bg-ink text-paper" : "bg-transparent text-ink-muted hover:text-ink"
+                      theme === t.value ? "bg-fill text-on-fill" : "bg-transparent text-ink-muted hover:text-ink"
                     )}
                   >
                     {t.label}

@@ -43,6 +43,12 @@
     --cm-binder-page: 239 235 227;
     --cm-pocket-a: #e0dacd;
     --cm-pocket-b: #e9e4da;
+    /* Primary buttons and selected segments, charts, top and tab bars: ink and paper unless a theme sets them */
+    --cm-fill: var(--cm-ink);
+    --cm-on-fill: var(--cm-paper);
+    --cm-chart: var(--cm-ink);
+    --cm-bar: var(--cm-paper);
+    --cm-bar-on: var(--cm-ink);
     /* Native controls (select popups, scrollbars) follow the theme */
     color-scheme: light;
   }
@@ -63,6 +69,32 @@
     --cm-binder-page: 29 27 24;
     --cm-pocket-a: #34312b;
     --cm-pocket-b: #3b3832;
+  }
+
+  /* Pokémon: always paired with .dark (lib/theme.ts), so dark: variants and the dark color-scheme still apply */
+  .dark.pokemon {
+    --cm-paper: 18 56 127;
+    --cm-canvas: 11 42 99;
+    --cm-ink: 242 246 255;
+    --cm-ink-muted: 169 188 224;
+    --cm-line: 42 84 158;
+    --cm-chip: 26 65 137;
+    --cm-gain: oklch(0.8 0.15 155);
+    --cm-loss: oklch(0.74 0.16 25);
+    --cm-stripe-a: #1c4a96;
+    --cm-stripe-b: #22529f;
+    --cm-binder: 6 28 71;
+    --cm-binder-page: 21 64 138;
+    --cm-pocket-a: #1c4a96;
+    --cm-pocket-b: #22529f;
+    --cm-fill: 255 203 5;
+    --cm-on-fill: 10 40 95;
+    --cm-chart: 255 203 5;
+    --cm-bar: 7 31 78;
+    --cm-bar-on: 255 203 5;
+  }
+  .pokemon .font-display {
+    font-family: var(--font-jost), sans-serif;
   }
 }
 

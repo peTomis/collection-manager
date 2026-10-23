@@ -16,6 +16,9 @@ import SetRail from "./components/set-rail";
 import SetHeader from "./components/set-header";
 import SetItems from "./components/set-items";
 
+// TCGdex id of Base Set, the set the database opens on
+const DEFAULT_SET = "base1";
+
 const DatabaseContainer = () => {
   const { user } = useSelector((state) => state.user);
   // Oldest first, as the store keeps them
@@ -36,11 +39,11 @@ const DatabaseContainer = () => {
     dispatch(getWishlists(user));
   }, [user]);
 
-  // Open the searched set, otherwise the newest one until the user picks one
+  // Open the searched set, otherwise Base Set (or the oldest one) until the user picks one
   useEffect(() => {
     const searched = querySet && sets.find((s) => s._id === querySet);
     if (searched) dispatch(setSet(searched));
-    else if (!set && sets.length) dispatch(setSet(sets[sets.length - 1]));
+    else if (!set && sets.length) dispatch(setSet(sets.find((s) => s.tcgdex === DEFAULT_SET) ?? sets[0]));
     // Only a set: nothing else to open, so the URL can go back to /database
     if (searched && !queryItem) router.replace("/database", undefined, { shallow: true });
   }, [sets, querySet]);

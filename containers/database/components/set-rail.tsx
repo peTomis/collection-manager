@@ -82,9 +82,14 @@ const SetRail = ({ sets, selected, onSelect }: SetRailProps) => {
 
   return (
     <>
-      <aside className="hidden px-4 border-r lg:block border-line py-7 lg:overflow-y-auto">
-        <SetSearch value={query} onChange={setQuery} />
-        <SetList sets={filtered} selected={selected?._id} onSelect={onSelect} query={query} />
+      {/* The search stays put, only the sets scroll */}
+      <aside className="hidden min-h-0 border-r lg:flex lg:flex-col border-line">
+        <div className="flex-none px-4 pt-7">
+          <SetSearch value={query} onChange={setQuery} />
+        </div>
+        <div className="flex-1 min-h-0 px-4 overflow-y-auto pb-7">
+          <SetList sets={filtered} selected={selected?._id} onSelect={onSelect} query={query} />
+        </div>
       </aside>
 
       <div className="flex flex-none gap-2 px-4 pt-3.5 overflow-x-auto no-scrollbar lg:hidden">

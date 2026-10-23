@@ -96,13 +96,13 @@ const Topbar = () => {
   const title = NAV.find((n) => isActive(pathname, n.href))?.label ?? "";
 
   const account = (
-    <button type="button" title="Settings" onClick={() => setOpen(true)} className="grid rounded-full cursor-pointer shadow-[0_0_0_2px_rgb(var(--cm-paper)),0_0_0_3px_rgb(var(--cm-line))]">
+    <button type="button" title="Settings" onClick={() => setOpen(true)} className="grid rounded-full cursor-pointer shadow-[0_0_0_2px_rgb(var(--cm-bar)),0_0_0_3px_rgb(var(--cm-line))]">
       <Avatar className="w-[38px] h-[38px] text-[13px]" />
     </button>
   );
 
   return (
-    <header className={cn(fontVariables, "sticky top-0 z-40 flex-none font-geist bg-paper border-b border-line text-ink")}>
+    <header className={cn(fontVariables, "sticky top-0 z-40 flex-none font-geist bg-bar border-b border-line text-ink")}>
       {readOnly && <div role="status" className="px-4 py-1 text-xs text-center border-b bg-chip border-line">{offline ? "Offline snapshot · Collection is read-only" : "Downloading offline data · Collection edits are paused"}</div>}
       {/* Desktop */}
       <div className="items-center hidden h-16 px-8 md:flex gap-7">
@@ -113,7 +113,7 @@ const Topbar = () => {
           {NAV.map((n) => {
             const active = isActive(pathname, n.href);
             return (
-              <Link key={n.href} href={n.href} className={cn("px-3.5 py-2 rounded-lg text-sm font-medium", active ? "bg-chip text-ink" : "text-ink-muted hover:text-ink")}>
+              <Link key={n.href} href={n.href} className={cn("px-3.5 py-2 rounded-lg text-sm font-medium", active ? "bg-chip text-bar-on" : "text-ink-muted hover:text-ink")}>
                 {n.label}
               </Link>
             );
@@ -165,7 +165,7 @@ const Topbar = () => {
       </div>
 
       {/* Mobile tab bar */}
-      <nav className="mobile-tab-bar fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 px-2 pt-1 pb-[max(4px,env(safe-area-inset-bottom))] border-t md:hidden border-line bg-paper">
+      <nav className="mobile-tab-bar fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 px-2 pt-1 pb-[max(4px,env(safe-area-inset-bottom))] border-t md:hidden border-line bg-bar">
         {NAV.map((n) => {
           const active = isActive(pathname, n.href);
           return (
@@ -173,7 +173,7 @@ const Topbar = () => {
               key={n.href}
               href={n.href}
               aria-current={active ? "page" : undefined}
-              className={cn("flex flex-col items-center justify-center gap-1 min-h-[48px] text-[11px] font-medium", active ? "text-ink" : "text-ink-muted")}
+              className={cn("flex flex-col items-center justify-center gap-1 min-h-[48px] text-[11px] font-medium", active ? "text-bar-on" : "text-ink-muted")}
             >
               <svg
                 width="20"

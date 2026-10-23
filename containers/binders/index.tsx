@@ -57,7 +57,7 @@ const BindersContainer = () => {
               <div className="flex flex-col items-center gap-3 py-24 text-center">
                 <h1 className="font-display font-semibold text-[30px] tracking-[-0.03em]">No binders yet</h1>
                 <p className="text-sm text-ink-muted">Group the cards you own into binders to track their value.</p>
-                <EditButton type="button" onClick={() => setCreating(true)} className="h-[38px] px-4 mt-2 rounded-[9px] bg-ink text-paper text-sm font-medium cursor-pointer">
+                <EditButton type="button" onClick={() => setCreating(true)} className="h-[38px] px-4 mt-2 rounded-[9px] bg-fill text-on-fill text-sm font-medium cursor-pointer">
                   + New binder
                 </EditButton>
               </div>

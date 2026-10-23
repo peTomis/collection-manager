@@ -173,10 +173,10 @@ const BinderItems = ({ binder }: { binder: BinderWithItems }) => {
             ))}
           </select>
         </label>
-        <Link href="/database" className="hidden lg:flex items-center ml-auto h-10 px-4 rounded-[10px] bg-ink text-paper text-sm font-medium">
+        <Link href="/database" className="hidden lg:flex items-center ml-auto h-10 px-4 rounded-[10px] bg-fill text-on-fill text-sm font-medium">
           + Add cards
         </Link>
-        <Link href="/database" aria-label="Add cards" className="grid w-10 h-10 rounded-[10px] bg-ink text-paper text-[22px] place-items-center lg:hidden">
+        <Link href="/database" aria-label="Add cards" className="grid w-10 h-10 rounded-[10px] bg-fill text-on-fill text-[22px] place-items-center lg:hidden">
           +
         </Link>
       </div>
@@ -195,7 +195,7 @@ const BinderItems = ({ binder }: { binder: BinderWithItems }) => {
       ) : (
         <>
           {selectedIds.length > 0 && (
-            <div className="flex flex-none items-center gap-1 lg:gap-2 h-11 lg:h-[42px] mb-2.5 lg:mb-3 pl-3.5 pr-1.5 rounded-[10px] bg-ink text-paper text-[13px] font-medium">
+            <div className="flex flex-none items-center gap-1 lg:gap-2 h-11 lg:h-[42px] mb-2.5 lg:mb-3 pl-3.5 pr-1.5 rounded-[10px] bg-fill text-on-fill text-[13px] font-medium">
               <span className="mr-auto">{selectedIds.length} selected</span>
               <button type="button" onClick={toggleAll} className="h-8 px-2.5 rounded-lg cursor-pointer hover:bg-paper/10">
                 {rows.every((r) => selected.has(r.item._id)) ? "Unselect all" : `Select all (${rows.length})`}
@@ -318,7 +318,7 @@ const Page = ({ rows, onView, className }: { rows: Row[]; onView: (item: BinderI
                 Missing
               </span>
             ) : r.item.quantity > 1 && (
-              <span className="absolute top-1 right-1 lg:top-1.5 lg:right-1.5 font-geist-mono font-medium text-[9px] lg:text-[10px] bg-ink text-paper px-1 lg:px-[5px] py-px lg:py-0.5 rounded-[3px]">
+              <span className="absolute top-1 right-1 lg:top-1.5 lg:right-1.5 font-geist-mono font-medium text-[9px] lg:text-[10px] bg-fill text-on-fill px-1 lg:px-[5px] py-px lg:py-0.5 rounded-[3px]">
                 ×{r.item.quantity}
               </span>
             )}

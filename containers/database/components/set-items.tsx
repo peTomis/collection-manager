@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 // Components
 import CardArt from "@/components/atoms/card-art";
+import Select from "@/components/atoms/select";
 import SealedArt from "@/components/atoms/sealed-art";
 import ItemDetail from "@/components/organisms/item-detail";
 import AddItemModal, { Destination } from "./add-item-modal";
@@ -29,6 +30,13 @@ const TABS: { value: Tab; label: string }[] = [
   { value: ItemSpecificType.BOOSTER_BOX, label: "Booster Box" },
   { value: ItemSpecificType.DECK, label: "Deck" },
   { value: ItemSpecificType.OTHER, label: "Other" },
+];
+
+type Sort = "number" | "value";
+
+const SORTS: { value: Sort; label: string }[] = [
+  { value: "number", label: "Card number" },
+  { value: "value", label: "Value" },
 ];
 
 interface Row {
@@ -58,6 +66,7 @@ interface SetItemsProps {
 
 const SetItems = ({ set, catalog, owned, openItem, onOpened }: SetItemsProps) => {
   const [tab, setTab] = useState<Tab>("all");
+  const [sort, setSort] = useState<Sort>("number");
   const [adding, setAdding] = useState<{ product: Product; destination: Destination; variant?: number } | null>(null);
   const [viewing, setViewing] = useState<Product | null>(null);
   const images = useSetImages(set.tcgdex || undefined);
@@ -91,30 +100,35 @@ const SetItems = ({ set, catalog, owned, openItem, onOpened }: SetItemsProps) =>
   }, [catalog, openItem]);
 
   const counts = new Map(TABS.map((t) => [t.value, rows.filter((r) => matches(r.product, t.value)).length]));
-  const visible = rows.filter((r) => matches(r.product, tab));
+  // By number keeps the catalog's order; by value the most expensive first, unpriced last
+  const filtered = rows.filter((r) => matches(r.product, tab));
+  const visible = sort === "value" ? [...filtered].sort((a, b) => (b.price ?? -1) - (a.price ?? -1)) : filtered;
   const tabLabel = TABS.find((t) => t.value === tab)?.label.toLowerCase();
 
   return (
     <div className="flex flex-col lg:flex-1 lg:min-h-0">
-      <div className="flex flex-none gap-1.5 py-3.5 lg:flex-wrap lg:mt-6 lg:mb-5 lg:py-0 lg:pt-5 lg:border-t border-line overflow-x-auto no-scrollbar -mx-4 px-4 lg:mx-0 lg:px-0">
-        {TABS.map((t) => {
-          const count = counts.get(t.value) ?? 0;
-          return (
-            <button
-              key={t.value}
-              type="button"
-              disabled={!count && t.value !== "all"}
-              onClick={() => setTab(t.value)}
-              className={cn(
-                "flex flex-none items-center gap-1.5 lg:gap-2 h-[38px] lg:h-9 px-3 lg:px-3.5 rounded-full border text-[13px] font-medium cursor-pointer disabled:opacity-45 disabled:cursor-default",
-                t.value === tab ? "bg-ink text-paper border-ink" : "bg-paper text-ink border-line"
-              )}
-            >
-              {t.label}
-              <span className="font-geist-mono font-normal text-[11px] lg:text-xs opacity-70">{catalog ? count : ""}</span>
-            </button>
-          );
-        })}
+      <div className="flex flex-none flex-col gap-2.5 py-3.5 lg:flex-row lg:items-start lg:gap-4 lg:mt-6 lg:mb-5 lg:py-0 lg:pt-5 lg:border-t border-line">
+        <div className="flex gap-1.5 lg:flex-1 lg:flex-wrap overflow-x-auto no-scrollbar -mx-4 px-4 lg:mx-0 lg:px-0">
+          {TABS.map((t) => {
+            const count = counts.get(t.value) ?? 0;
+            return (
+              <button
+                key={t.value}
+                type="button"
+                disabled={!count && t.value !== "all"}
+                onClick={() => setTab(t.value)}
+                className={cn(
+                  "flex flex-none items-center gap-1.5 lg:gap-2 h-[38px] lg:h-9 px-3 lg:px-3.5 rounded-full border text-[13px] font-medium cursor-pointer disabled:opacity-45 disabled:cursor-default",
+                  t.value === tab ? "bg-fill text-on-fill border-fill" : "bg-paper text-ink border-line"
+                )}
+              >
+                {t.label}
+                <span className="font-geist-mono font-normal text-[11px] lg:text-xs opacity-70">{catalog ? count : ""}</span>
+              </button>
+            );
+          })}
+        </div>
+        <Select label="Sort" value={sort} onChange={setSort} options={SORTS} className="flex-none h-[38px] lg:h-9 lg:w-[200px]" />
       </div>
 
       <div className="pb-5 lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:pb-10">
@@ -159,7 +173,7 @@ const ProductCard = ({ row: r, onView, onAdd }: { row: Row; onView: () => void; 
       <span className="font-geist-mono text-[10px] text-ink-muted">{r.product.kind === ItemType.CARD ? "card art" : "product shot"}</span>
       {r.image && <CardArt image={r.image} alt={r.name} />}
       {r.product.kind === ItemType.SEALED && r.product.item.path && <SealedArt path={r.product.item.path} alt={r.name} />}
-      {r.owned > 0 && <span className="absolute top-1.5 left-1.5 lg:top-2 lg:left-2 text-[10px] lg:text-[11px] font-medium px-[7px] lg:px-2 py-0.5 lg:py-[3px] rounded-[10px] bg-ink text-paper">Owned ×{r.owned}</span>}
+      {r.owned > 0 && <span className="absolute top-1.5 left-1.5 lg:top-2 lg:left-2 text-[10px] lg:text-[11px] font-medium px-[7px] lg:px-2 py-0.5 lg:py-[3px] rounded-[10px] bg-fill text-on-fill">Owned ×{r.owned}</span>}
     </button>
 
     {/* Mobile */}
@@ -169,7 +183,7 @@ const ProductCard = ({ row: r, onView, onAdd }: { row: Row; onView: () => void; 
       </div>
       <div className="flex items-center justify-between mt-1">
         <span className="font-geist-mono font-medium text-[13px]">{r.price !== undefined ? eur(r.price) : "—"}</span>
-        <EditButton type="button" aria-label={`Add ${r.name}`} onClick={() => onAdd("binder")} className="w-9 h-9 rounded-lg bg-ink text-paper text-lg cursor-pointer">
+        <EditButton type="button" aria-label={`Add ${r.name}`} onClick={() => onAdd("binder")} className="w-9 h-9 rounded-lg bg-fill text-on-fill text-lg cursor-pointer">
           +
         </EditButton>
       </div>
@@ -188,7 +202,7 @@ const ProductCard = ({ row: r, onView, onAdd }: { row: Row; onView: () => void; 
         </div>
       </div>
       <div className="grid grid-cols-2 gap-1.5 mt-auto pt-2.5">
-        <EditButton type="button" onClick={() => onAdd("binder")} className="h-8 rounded-[7px] bg-ink text-paper text-xs font-medium cursor-pointer whitespace-nowrap">
+        <EditButton type="button" onClick={() => onAdd("binder")} className="h-8 rounded-[7px] bg-fill text-on-fill text-xs font-medium cursor-pointer whitespace-nowrap">
           + Binder
         </EditButton>
         <EditButton type="button" onClick={() => onAdd("wishlist")} className="h-8 rounded-[7px] border border-line text-xs font-medium cursor-pointer whitespace-nowrap hover:bg-chip">

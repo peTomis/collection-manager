@@ -19,7 +19,7 @@ const Segmented = <T extends string>({ options, value, onChange, mono, className
         className={cn(
           "flex-1 h-8 min-w-[44px] px-3 rounded-[7px] whitespace-nowrap text-[13px] font-medium cursor-pointer",
           mono && "font-geist-mono",
-          o.value === value ? "bg-ink text-paper" : "bg-transparent text-ink-muted hover:text-ink"
+          o.value === value ? "bg-fill text-on-fill" : "bg-transparent text-ink-muted hover:text-ink"
         )}
       >
         {o.label}

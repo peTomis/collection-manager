@@ -132,10 +132,10 @@ const Chart = ({ points }: { points: number[] }) => {
           <line key={gy} x1="0" y1={gy} x2="1000" y2={gy} style={{ stroke: "rgb(var(--cm-line))" }} strokeDasharray="3 5" vectorEffect="non-scaling-stroke" />
         ))}
         <path d={line + " L1000,280 L0,280 Z"} fill="oklch(0.52 0.13 155 / 0.10)" />
-        <path d={line} fill="none" style={{ stroke: "rgb(var(--cm-ink))" }} strokeWidth="2" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        <path d={line} fill="none" style={{ stroke: "rgb(var(--cm-chart))" }} strokeWidth="2" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
       </svg>
       <div
-        className="absolute right-[-5px] w-2.5 h-2.5 -mt-[5px] rounded-full bg-ink shadow-[0_0_0_5px_oklch(0.52_0.13_155/0.18)]"
+        className="absolute right-[-5px] w-2.5 h-2.5 -mt-[5px] rounded-full bg-chart shadow-[0_0_0_5px_oklch(0.52_0.13_155/0.18)]"
         style={{ top: `${endTop}%` }}
       />
       <div className="absolute top-0 left-0 hidden lg:flex flex-col gap-1 font-geist-mono text-xs text-ink-muted">

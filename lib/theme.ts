@@ -1,21 +1,23 @@
 import { useEffect, useState } from "react";
 import { DARK_QUERY, KEY, THEME_SCRIPT } from "./theme-script";
 
-export type Theme = "light" | "dark" | "system";
+// Pokémon is a dark theme with its own palette: it sets both .dark and .pokemon
+export type Theme = "light" | "dark" | "system" | "pokemon";
 
 export { THEME_SCRIPT };
 
 const readTheme = (): Theme => {
   try {
     const t = localStorage.getItem(KEY);
-    if (t === "light" || t === "dark" || t === "system") return t;
+    if (t === "light" || t === "dark" || t === "system" || t === "pokemon") return t;
   } catch {}
   return "system";
 };
 
 const applyTheme = (theme: Theme) => {
-  const dark = theme === "dark" || (theme === "system" && window.matchMedia(DARK_QUERY).matches);
+  const dark = theme === "dark" || theme === "pokemon" || (theme === "system" && window.matchMedia(DARK_QUERY).matches);
   document.documentElement.classList.toggle("dark", dark);
+  document.documentElement.classList.toggle("pokemon", theme === "pokemon");
 };
 
 export const useTheme = () => {

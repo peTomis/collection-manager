@@ -45,7 +45,7 @@ const TargetSuggestions = ({ historicPrice, value, onPick, className }: TargetSu
           onClick={() => onPick(s.value)}
           className={cn(
             "flex items-center gap-1.5 h-9 lg:h-8 px-2.5 rounded-full border text-xs font-medium cursor-pointer",
-            value.trim() !== "" && current === s.value ? "bg-ink text-paper border-ink" : "bg-paper border-line hover:bg-chip",
+            value.trim() !== "" && current === s.value ? "bg-fill text-on-fill border-fill" : "bg-paper border-line hover:bg-chip",
           )}
         >
           {s.label}

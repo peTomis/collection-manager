@@ -7,6 +7,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 
 // Components
 import Segmented from "@/components/atoms/segmented";
+import Select from "@/components/atoms/select";
 import CardArt from "@/components/atoms/card-art";
 import SealedArt from "@/components/atoms/sealed-art";
 import { ConfirmModal } from "@/components/atoms/modal";
@@ -333,9 +334,9 @@ const PriceChart = ({ points, gain }: { points: number[]; gain: boolean }) => {
           <line key={gy} x1="0" y1={gy} x2="1000" y2={gy} className="hidden lg:block" style={{ stroke: "rgb(var(--cm-line))" }} strokeDasharray="3 5" vectorEffect="non-scaling-stroke" />
         ))}
         <path d={line + " L1000,280 L0,280 Z"} fill={gain ? "oklch(0.52 0.13 155 / 0.10)" : "oklch(0.55 0.16 27 / 0.10)"} />
-        <path d={line} fill="none" style={{ stroke: "rgb(var(--cm-ink))" }} strokeWidth="2" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        <path d={line} fill="none" style={{ stroke: "rgb(var(--cm-chart))" }} strokeWidth="2" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
       </svg>
-      <div className="absolute right-[-5px] w-2.5 h-2.5 -mt-[5px] rounded-full bg-ink hidden lg:block" style={{ top: `${endTop}%` }} />
+      <div className="absolute right-[-5px] w-2.5 h-2.5 -mt-[5px] rounded-full bg-chart hidden lg:block" style={{ top: `${endTop}%` }} />
       <div className="absolute top-0 left-0 hidden lg:block font-geist-mono text-[11px] text-ink-muted">
         High {eur(max)} · Low {eur(min)}
       </div>
@@ -387,7 +388,7 @@ const Listings = ({ prices }: { prices: { items: number; timestamp: number }[] |
                 <div
                   key={d.timestamp}
                   title={`${d.items} listed`}
-                  className={cn("rounded-t-[2px] lg:rounded-t-[3px]", i === days.length - 1 ? "bg-ink" : "bg-line")}
+                  className={cn("rounded-t-[2px] lg:rounded-t-[3px]", i === days.length - 1 ? "bg-chart" : "bg-line")}
                   style={{ height: `${Math.max(4, Math.round((d.items / max) * 100))}%` }}
                 />
               ))}
@@ -407,7 +408,7 @@ const Listings = ({ prices }: { prices: { items: number; timestamp: number }[] |
 };
 
 const fieldClass = "flex items-center gap-2 h-12 lg:h-[38px] px-3 border border-line rounded-[10px] lg:rounded-[9px] bg-paper text-sm lg:text-[13px]";
-const primaryClass = "h-12 lg:h-[38px] px-[18px] rounded-[10px] lg:rounded-[9px] bg-ink text-paper text-[15px] lg:text-sm font-medium cursor-pointer disabled:opacity-40 disabled:cursor-default";
+const primaryClass = "h-12 lg:h-[38px] px-[18px] rounded-[10px] lg:rounded-[9px] bg-fill text-on-fill text-[15px] lg:text-sm font-medium cursor-pointer disabled:opacity-40 disabled:cursor-default";
 const secondaryClass = "h-12 lg:h-[38px] px-3.5 rounded-[10px] lg:rounded-[9px] border border-line bg-paper text-sm font-medium cursor-pointer hover:bg-chip disabled:opacity-40 disabled:cursor-default";
 const removeClass = "h-12 lg:h-[38px] px-3.5 bg-transparent text-loss text-sm font-medium cursor-pointer";
 
@@ -608,13 +609,13 @@ const WishlistActions = ({ item, price, onClose }: { item: WishlistItem; price: 
         {binder ? (
           <>
             {!linked && choices.length > 1 && (
-              <select aria-label="Binder" value={binder._id} onChange={(e) => setBinderId(e.target.value)} className={cn(fieldClass, "min-w-0 flex-1 lg:flex-none lg:max-w-[180px] cursor-pointer outline-none")}>
-                {choices.map((b) => (
-                  <option key={b._id} value={b._id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
+              <Select
+                aria-label="Binder"
+                value={binder._id}
+                onChange={setBinderId}
+                options={choices.map((b) => ({ value: b._id, label: b.name }))}
+                className="flex-1 min-w-0 lg:flex-none lg:max-w-[180px]"
+              />
             )}
             <button type="button" className={cn(primaryClass, "flex-1 max-w-[200px] ml-auto lg:ml-0 lg:w-[200px] whitespace-nowrap")} onClick={acquire}>
               Got it
@@ -647,19 +648,16 @@ const DatabaseActions = ({ variants, label, prices, keyOf, index, onIndex, onAdd
   const priced = !!variants[index] && prices.has(keyOf(variants[index]));
   return (
     <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:gap-3.5">
-      <label className={cn(fieldClass, "lg:max-w-[360px]")}>
-        <span className="text-ink-muted">Version</span>
-        <select value={index} onChange={(e) => onIndex(Number(e.target.value))} className="flex-1 min-w-0 font-medium bg-transparent outline-none cursor-pointer text-ink">
-          {variants.map((v, i) => {
-            const hp = prices.get(keyOf(v));
-            return (
-              <option key={i} value={i}>
-                {label(v)} — {hp ? eur(getPrice(hp)) : "no price data"}
-              </option>
-            );
-          })}
-        </select>
-      </label>
+      <Select
+        label="Version"
+        value={String(index)}
+        onChange={(v) => onIndex(Number(v))}
+        options={variants.map((v, i) => {
+          const hp = prices.get(keyOf(v));
+          return { value: String(i), label: label(v), hint: hp ? eur(getPrice(hp)) : "no price" };
+        })}
+        className="lg:w-[360px]"
+      />
       {!priced && <span className="text-xs text-loss">No price data yet for this version</span>}
       <div className="grid grid-cols-[1fr_2fr] gap-2 lg:flex lg:ml-auto">
         <EditButton type="button" className={secondaryClass} disabled={!priced} onClick={() => onAdd("wishlist")}>
