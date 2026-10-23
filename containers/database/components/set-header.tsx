@@ -10,7 +10,7 @@ import { setSize } from "./set-rail";
 import { Catalog, priceKey } from "../use-set-catalog";
 import { VARIANT_LABELS } from "@/lib/items";
 import { eur } from "@/lib/format";
-import { getPrice } from "@/utils/utils";
+import { getPrice } from "@/lib/prices";
 
 interface SetHeaderProps {
   set: Set;

@@ -17,7 +17,7 @@ import { NewListItem } from "@/lib/demo-collection";
 import { Catalog, priceKey, useSetCatalog } from "@/containers/database/use-set-catalog";
 import { setCardCount, setSealedCount } from "@/containers/database/components/set-rail";
 import { setEra } from "@/lib/sets";
-import { getPrice } from "@/utils/utils";
+import { getPrice } from "@/lib/prices";
 import { VARIANT_LABELS, isOwned } from "@/lib/items";
 import { LIMITS } from "@/lib/limits";
 import { fontVariables } from "@/lib/fonts";

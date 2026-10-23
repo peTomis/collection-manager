@@ -4,7 +4,7 @@ import { assertEditable } from "./offline";
 // in this browser's localStorage: the demo never reads or writes the database.
 import { BinderItemToCreate, BinderToSave, BinderWithItems, Card, HistoricPrice, Portfolio, Sealed, WishlistItemToCreate, WishlistToSave, WishlistWithItems } from "@/types/mongodb";
 import { DEMO_USER } from "@/types/constants";
-import { getPrice } from "@/utils/utils";
+import { getPrice } from "@/lib/prices";
 import { binderAccepts, isOwned } from "@/lib/items";
 
 const STORAGE_KEY = "demo-collection";

@@ -11,7 +11,7 @@ import ItemDetail from "@/components/organisms/item-detail";
 import { useSelector } from "@/redux/store";
 import { BinderItem, Card, ItemType, Sealed } from "@/types/mongodb";
 import { cardNumberLabel, variantLabel } from "@/lib/items";
-import { getPastPrice, getPrice, PricePeriod } from "@/utils/utils";
+import { getPastPrice, getPrice, PricePeriod } from "@/lib/prices";
 import { useSetsImages } from "@/lib/tcgdex";
 import { change, deltaColor, eur, pct, signedEur } from "@/lib/format";
 import { cn } from "@/lib/utils";

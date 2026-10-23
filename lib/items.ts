@@ -1,5 +1,5 @@
 import { Binder, BinderWithItems, Card, CardHistoricPrice, CardVariantType, ItemType, ItemWithJoin, Sealed, Set, WishlistItem, WishlistWithItems } from "@/types/mongodb";
-import { getPastPrice, getPrice, PricePeriod } from "@/utils/utils";
+import { getPastPrice, getPrice, PricePeriod } from "@/lib/prices";
 import { change } from "@/lib/format";
 
 export const VARIANT_LABELS: Record<CardVariantType, string> = {

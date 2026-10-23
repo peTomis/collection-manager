@@ -12,7 +12,7 @@ import AddItemModal, { Destination } from "./add-item-modal";
 // State
 import { ItemType, Set } from "@/types/mongodb";
 import { ItemSpecificType } from "@/types/constants";
-import { getPrice } from "@/utils/utils";
+import { getPrice } from "@/lib/prices";
 import { Catalog, Product, displayName, priceKey } from "../use-set-catalog";
 import { useSetImages } from "@/lib/tcgdex";
 import { cardNumberLabel } from "@/lib/items";

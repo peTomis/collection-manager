@@ -13,7 +13,7 @@ import { useDispatch, useSelector } from "@/redux/store";
 import { addBinderItem, changeBinderItemQuantity } from "@/redux/slices/binders";
 import { addWishlistItem } from "@/redux/slices/wishlists";
 import { CardVariant, ItemType, SealedVariant, Set } from "@/types/mongodb";
-import { getPrice } from "@/utils/utils";
+import { getPrice } from "@/lib/prices";
 import { VARIANT_LABELS, binderAccepts, cardNumberLabel, isOwned } from "@/lib/items";
 import { LIMITS } from "@/lib/limits";
 import { Catalog, Product, displayName, priceKey } from "../use-set-catalog";

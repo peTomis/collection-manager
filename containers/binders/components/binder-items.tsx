@@ -14,7 +14,7 @@ import ItemDetail from "@/components/organisms/item-detail";
 import { useDispatch, useSelector } from "@/redux/store";
 import { changeBinderItemQuantity, deleteBinderItems } from "@/redux/slices/binders";
 import { BinderItem, BinderWithItems } from "@/types/mongodb";
-import { getPastPrice } from "@/utils/utils";
+import { getPastPrice } from "@/lib/prices";
 import { binderSetId, cardNumber, cardNumberLabel, formatCardNumber, isOwned, isSealed, itemPrice, languageLabel, sealedPath, variantLabel } from "@/lib/items";
 import { useSetsImages } from "@/lib/tcgdex";
 import { LIMITS } from "@/lib/limits";

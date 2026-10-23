@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useDispatch, useSelector } from "@/redux/store";
 import { setBinder } from "@/redux/slices/binders";
 import { BinderWithItems, ItemType } from "@/types/mongodb";
-import { getPrice } from "@/utils/utils";
+import { getPrice } from "@/lib/prices";
 import { deltaColor, eur, pct } from "@/lib/format";
 import { binderChange, isOwned, summarizeBinder } from "@/lib/items";
 import { cn } from "@/lib/utils";

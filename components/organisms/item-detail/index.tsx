@@ -21,7 +21,7 @@ import { acquireWishlistItem, deleteWishlistItem, setWishlistItemTarget } from "
 import { BinderItem, Card, CardVariant, HistoricPrice, ItemType, Language, Sealed, SealedVariant, WishlistItem } from "@/types/mongodb";
 import { Product, displayName, historicPriceKey, priceKey } from "@/containers/database/use-set-catalog";
 import type { Destination } from "@/containers/database/components/add-item-modal";
-import { getPastPrice, getPrice, PricePeriod } from "@/utils/utils";
+import { getPastPrice, getPrice, PricePeriod } from "@/lib/prices";
 import { VARIANT_LABELS, binderAccepts, cardNumberLabel, isOwned } from "@/lib/items";
 import { useCardInfo, useSetImages } from "@/lib/tcgdex";
 import { LIMITS } from "@/lib/limits";

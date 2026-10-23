@@ -4,7 +4,7 @@ import Segmented from "@/components/atoms/segmented";
 
 // State
 import { useSelector } from "@/redux/store";
-import { getPrice, PricePeriod } from "@/utils/utils";
+import { getPrice, PricePeriod } from "@/lib/prices";
 import { change, deltaColor, eur, pct, signedEur } from "@/lib/format";
 import { isOwned } from "@/lib/items";
 import { cn } from "@/lib/utils";

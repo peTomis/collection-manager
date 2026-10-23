@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { getPastPrice, getPrice } from "@/utils/utils";
+import { getPastPrice, getPrice } from "@/lib/prices";
 import { historicPrice } from "./factories";
 
 describe("getPrice", () => {

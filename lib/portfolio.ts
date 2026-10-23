@@ -1,7 +1,7 @@
 // Server only: recomputes a user's portfolio totals from their binders
 import { Db, ObjectId } from "mongodb";
 import { HistoricPrice, ItemType } from "@/types/mongodb";
-import { getPrice } from "@/utils/utils";
+import { getPrice } from "@/lib/prices";
 
 const round = (value: number) => Number(value.toFixed(2));
 

@@ -1,6 +1,6 @@
 // Types
 import { HistoricPrice } from "@/types/mongodb";
-import { getPrice } from "@/utils/utils";
+import { getPrice } from "@/lib/prices";
 import { eur } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
