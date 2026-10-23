@@ -12,53 +12,34 @@ import SetPicker from "@/components/organisms/set-picker";
 import { useDispatch, useSelector } from "@/redux/store";
 import { createBinder } from "@/redux/slices/binders";
 import { createWishlist } from "@/redux/slices/wishlists";
-import { BinderItemToCreate, Card, CardVariantType, HistoricPrice, ItemType, Language, Sealed, Set } from "@/types/mongodb";
-import { NewListItem } from "@/lib/demo-collection";
-import { Catalog, priceKey, useSetCatalog } from "@/containers/database/use-set-catalog";
+import { CardVariantType, Language, Set } from "@/types/mongodb";
+import { useSetCatalog } from "@/containers/database/use-set-catalog";
 import { setCardCount, setSealedCount } from "@/containers/database/components/set-rail";
 import { setEra } from "@/lib/sets";
-import { getPrice } from "@/lib/prices";
-import { VARIANT_LABELS, isOwned } from "@/lib/items";
+import { VARIANT_LABELS } from "@/lib/items";
+import {
+  ListType,
+  Scope,
+  availableLanguages as languagesOf,
+  availableVersions as versionsOf,
+  candidatesOf,
+  listItems,
+  newListSummary,
+  ownedCountBySet,
+  ownedPriceIds,
+  parseDiscount,
+  pickAvailable,
+  selectCandidates,
+  setBinderOf,
+  toggle,
+  wishlistGetsItems as getsItems,
+} from "@/lib/new-list";
 import { LIMITS } from "@/lib/limits";
 import { fontVariables } from "@/lib/fonts";
-import { eur } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-export type ListType = "binder" | "wishlist";
 type Source = "empty" | "set";
-type Scope = "cards" | "sealed" | "both";
 type AddAs = "missing" | "owned";
-
-const LANGUAGES: { value: Language; label: string }[] = [
-  { value: Language.ENGLISH, label: "English" },
-  { value: Language.ITALIAN, label: "Italian" },
-  { value: Language.JAPANESE, label: "Japanese" },
-];
-
-// Versions in the order they are offered
-const VERSIONS = [CardVariantType.REGULAR, CardVariantType.FIRST_EDITION, CardVariantType.SHADOWLESS, CardVariantType.REVERSE_HOLO, CardVariantType.ONE_STAR, CardVariantType.TWO_STAR];
-
-interface Candidate {
-  name: string;
-  type: ItemType;
-  item: Card | Sealed;
-  historicPrice?: HistoricPrice;
-}
-
-// One entry per card version and sealed product of the set in scope that exists in the chosen languages and versions
-const candidatesOf = (catalog: Catalog, scope: Scope, languages: Language[], versions: CardVariantType[]): Candidate[] => [
-  ...(scope === "sealed" ? [] : catalog.cards).flatMap((c) =>
-    c.variants
-      .filter((v) => languages.includes(v.language) && versions.includes(v.type))
-      .map((v) => ({ name: c.name, type: ItemType.CARD, item: c, historicPrice: catalog.prices.get(priceKey(c._id, v.language, v.type)) })),
-  ),
-  ...(scope === "cards" ? [] : catalog.sealed).flatMap((s) =>
-    s.variants.filter((v) => languages.includes(v.language)).map((v) => ({ name: s.name, type: ItemType.SEALED, item: s, historicPrice: catalog.prices.get(priceKey(s._id, v.language)) })),
-  ),
-];
-
-// Toggle a value of a multi-select, keeping at least one
-const toggle = <T,>(values: T[], value: T) => (values.includes(value) ? (values.length > 1 ? values.filter((v) => v !== value) : values) : [...values, value]);
 
 interface NewListModalProps {
   open: boolean;
@@ -127,86 +108,36 @@ const NewListModal = ({ open, onClose, type: initialType, switchable, set: initi
   const isBinder = type === "binder";
   const missing = isBinder && addAs === "missing";
   const other = isBinder ? "wishlist" : "binder";
-  // What the wishlist gets: the set's items when it is the wishlist, the missing ones when it mirrors a binder
-  const wishlistGetsItems = !isBinder || (linked && missing);
+  const wishlistGetsItems = getsItems({ type, linked, missing });
 
   const catalog = useSetCatalog(user || null, open && fromSet ? set._id : undefined);
 
-  // What the set has to offer: languages in scope, and versions of its cards in those languages
-  const availableLanguages = useMemo(() => (catalog ? LANGUAGES.filter((l) => candidatesOf(catalog, scope, [l.value], VERSIONS).length > 0) : []), [catalog, scope]);
-  const chosenLanguages = languages.filter((l) => availableLanguages.some((a) => a.value === l));
-  const langs = chosenLanguages.length ? chosenLanguages : availableLanguages.slice(0, 1).map((l) => l.value);
-  const availableVersions = useMemo(
-    () => (catalog ? VERSIONS.filter((v) => catalog.cards.some((c) => c.variants.some((cv) => cv.type === v && langs.includes(cv.language)))) : []),
-    [catalog, langs.join()],
-  );
-  const chosenVersions = versions.filter((v) => availableVersions.includes(v));
-  const vers = chosenVersions.length ? chosenVersions : availableVersions.slice(0, 1);
+  // What the set has to offer, and what of it is chosen (the first option when nothing chosen is on offer)
+  const availableLanguages = useMemo(() => (catalog ? languagesOf(catalog, scope) : []), [catalog, scope]);
+  const langs = pickAvailable(languages, availableLanguages.map((l) => l.value));
+  const availableVersions = useMemo(() => (catalog ? versionsOf(catalog, langs) : []), [catalog, langs.join()]);
+  const vers = pickAvailable(versions, availableVersions);
 
-  // Versions already owned in any binder, by price id (one per item, language and version)
-  // Items owned per set, shown in the picker
-  const ownedBySet = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const i of binders.flatMap((b) => b.items).filter(isOwned)) if (i.item?.set) counts.set(i.item.set, (counts.get(i.item.set) ?? 0) + 1);
-    return counts;
-  }, [binders]);
-  const ownedIds = useMemo(() => new globalThis.Set(binders.flatMap((b) => b.items.filter(isOwned).map((i) => i.historicPrice?._id))), [binders]);
-  const isOwnedAlready = (c: Candidate) => !!c.historicPrice && ownedIds.has(c.historicPrice._id);
-
-  const candidates = catalog && fromSet ? candidatesOf(catalog, scope, langs, vers) : [];
-  const ownedCount = candidates.filter(isOwnedAlready).length;
-  const toAdd = candidates.filter((c) => c.historicPrice && !(skipOwned && isOwnedAlready(c)));
-  const withoutPrice = candidates.filter((c) => !c.historicPrice).length;
-  const total = toAdd.reduce((acc, c) => acc + getPrice(c.historicPrice!), 0);
-  const percent = Number(targetPercent.replace(",", "."));
-  const validPercent = targetPercent.trim() === "" || (Number.isFinite(percent) && percent >= 0 && percent < 100);
+  const ownedBySet = useMemo(() => ownedCountBySet(binders), [binders]);
+  const ownedIds = useMemo(() => ownedPriceIds(binders), [binders]);
+  const { toAdd, ownedCount, withoutPrice, total } = selectCandidates(catalog && fromSet ? candidatesOf(catalog, scope, langs, vers) : [], ownedIds, skipOwned);
+  const discount = parseDiscount(targetPercent);
 
   // A list made from a set is named after it
   const suggestedName = fromSet ? set.name : "";
   const finalName = (name ?? suggestedName).trim();
   const loading = fromSet && !catalog;
   const tooMany = toAdd.length > LIMITS.ITEMS_PER_LIST;
-  const valid = !!finalName && !loading && !tooMany && validPercent && (!fromSet || toAdd.length > 0);
+  const valid = !!finalName && !loading && !tooMany && discount !== null && (!fromSet || toAdd.length > 0);
 
-  const itemsLabel = (n: number) => (n === 1 ? "1 item" : `${n} items`);
-  const summary = !fromSet
-    ? linked
-      ? `Both start empty. Missing items stay in sync.`
-      : "Starts empty. Add items from the Database."
-    : loading
-      ? `Loading ${set.name}…`
-      : tooMany
-        ? `${toAdd.length} items: a ${type} holds up to ${LIMITS.ITEMS_PER_LIST}`
-        : toAdd.length === 0
-          ? "Nothing to add with these options."
-          : [
-              missing
-                ? `${toAdd.length} slots added as missing, completion tracked`
-                : isBinder
-                  ? `${itemsLabel(toAdd.length)} added as owned`
-                  : `${itemsLabel(toAdd.length)} · about ${eur(total)} to complete`,
-              linked && (isBinder ? (missing ? "same in a linked wishlist" : "linked wishlist starts empty") : "tracked as missing in a linked binder"),
-              withoutPrice && `${withoutPrice} without a price left out`,
-            ]
-              .filter(Boolean)
-              .join(" · ");
+  const summary = newListSummary({ type, missing, linked, set: fromSet ? set : undefined, loading, toAdd: toAdd.length, total, withoutPrice });
 
   const save = async () => {
     if (!valid || !user || saving) return;
     setSaving(true);
     setError(null);
-    const details = (c: Candidate) => ({ item: c.item, historicPrice: c.historicPrice! });
-    const base = (c: Candidate) => ({ name: c.name, type: c.type, item: c.item._id, historicPrice: c.historicPrice!._id });
-    const off = targetPercent.trim() === "" ? 0 : percent;
-    const target = (c: Candidate) => (off ? Math.round(getPrice(c.historicPrice!) * (100 - off)) / 100 : undefined);
-
-    // A binder mirroring a wishlist tracks its items as missing
-    const binderItems: NewListItem<BinderItemToCreate>[] = fromSet
-      ? toAdd.map((c) => ({ item: { ...base(c), quantity: 1, ...((!isBinder || missing) && { owned: false }) }, details: details(c) }))
-      : [];
-    const wishlistItems = fromSet && wishlistGetsItems ? toAdd.map((c) => ({ item: { ...base(c), target: target(c) }, details: details(c) })) : [];
-    // A set binder only takes cards of its set, so a set with sealed products becomes an ordinary binder
-    const setBinder = fromSet && scope === "cards" ? set._id : undefined;
+    const { binderItems, wishlistItems } = listItems(toAdd, { type, missing, linked, discount: discount ?? 0 });
+    const setBinder = fromSet ? setBinderOf(set._id, scope) : undefined;
 
     const id = await dispatch(isBinder ? createBinder(user, finalName, setBinder, binderItems) : createWishlist(user, finalName, wishlistItems));
     // The linked list comes second, pointing at the first

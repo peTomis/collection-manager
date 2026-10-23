@@ -3,7 +3,7 @@ import { apiFetch } from "@/lib/api-fetch";
 import { useEffect, useState } from "react";
 
 // Types
-import { Card, CardHistoricPrice, CardVariantType, HistoricPrice, ItemType, Language, Sealed, SealedHistoricPrice } from "@/types/mongodb";
+import { Card, HistoricPrice, ItemType, Sealed } from "@/types/mongodb";
 import { LIMITS } from "@/lib/limits";
 
 export type Product = { kind: ItemType.CARD; item: Card } | { kind: ItemType.SEALED; item: Sealed };
@@ -11,17 +11,10 @@ export type Product = { kind: ItemType.CARD; item: Card } | { kind: ItemType.SEA
 // Card names carry cardmarket disambiguations like "Charizard (Base Set 4)"
 export const displayName = (product: Product) => (product.kind === ItemType.CARD ? product.item.name.replace(/\s*\(.*?\)\s*/g, " ").trim() : product.item.name);
 
-export interface Catalog {
-  cards: Card[];
-  sealed: Sealed[];
-  prices: Map<string, HistoricPrice>;
-}
-
-// Key of a price in the catalog: one per item, language and (for cards) variant type
-export const priceKey = (item: string, language: Language, type?: CardVariantType) => `${item}|${language}|${type ?? ""}`;
-
-export const historicPriceKey = (price: HistoricPrice) =>
-  "card" in price ? priceKey(price.card, price.language, (price as CardHistoricPrice).type) : priceKey((price as SealedHistoricPrice).sealed, price.language);
+// The catalog's shape and keys are plain logic, shared with lib/
+import { Catalog, historicPriceKey, priceKey } from "@/lib/catalog";
+export { historicPriceKey, priceKey };
+export type { Catalog };
 
 const fetchJson = async (url: string, init?: RequestInit) => (await apiFetch(url, init)).json();
 
