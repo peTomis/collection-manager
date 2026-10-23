@@ -11,51 +11,9 @@
 // Usage: node --env-file=.env scripts/setup-collections.mjs           (dry run: shows the rules and documents that break them)
 //        node --env-file=.env scripts/setup-collections.mjs --apply   (applies them)
 import { MongoClient } from "mongodb";
+import { RULES, validatorOf } from "./collection-rules.mjs";
 
 const apply = process.argv.includes("--apply");
-
-const objectId = { bsonType: "objectId" };
-const hexId = { bsonType: "string", pattern: "^[0-9a-f]{24}$" };
-const number = { bsonType: ["int", "long", "double", "decimal"] };
-const itemType = { enum: ["card", "sealed"] };
-
-const RULES = {
-  binders: {
-    schema: { required: ["user", "name"], properties: { user: objectId, name: { bsonType: "string" }, set: objectId } },
-    indexes: [{ user: 1 }],
-  },
-  wishlists: {
-    schema: { required: ["user", "name"], properties: { user: objectId, name: { bsonType: "string" } } },
-    indexes: [{ user: 1 }],
-  },
-  "binder-items": {
-    schema: {
-      required: ["user", "binder", "item", "historicPrice", "type", "quantity"],
-      properties: { user: objectId, binder: hexId, item: hexId, historicPrice: hexId, type: itemType, quantity: { ...number, minimum: 1 }, owned: { bsonType: "bool" } },
-    },
-    indexes: [{ user: 1, binder: 1 }],
-  },
-  "wishlist-items": {
-    schema: {
-      required: ["user", "wishlist", "item", "historicPrice", "type"],
-      properties: { user: objectId, wishlist: hexId, item: hexId, historicPrice: hexId, type: itemType, target: { ...number, minimum: 0 } },
-    },
-    indexes: [{ user: 1, wishlist: 1 }],
-  },
-  // Written by the external scraper: only warn (in the MongoDB log) so a mismatch never blocks its daily run
-  portfolios: {
-    schema: { required: ["user"], properties: { user: objectId } },
-    indexes: [{ user: 1 }],
-    action: "warn",
-  },
-  cards: { indexes: [{ set: 1 }] },
-  sealed: { indexes: [{ set: 1 }, { type: 1 }] },
-  // Price charts read one version's daily prices in order
-  "card-prices": { indexes: [{ card: 1, language: 1, type: 1, timestamp: 1 }] },
-  "sealed-prices": { indexes: [{ sealed: 1, language: 1, timestamp: 1 }] },
-  "card-historic-prices": { indexes: [{ card: 1, language: 1, type: 1 }] },
-  "sealed-historic-prices": { indexes: [{ sealed: 1, language: 1 }] },
-};
 
 const uri = process.env.MONGODB_ADMIN_URI || process.env.MONGODB_URI;
 if (!uri) throw new Error('Missing environment variable: "MONGODB_ADMIN_URI" or "MONGODB_URI"');
@@ -74,7 +32,7 @@ try {
 
   for (const [name, { schema, action = "error" }] of Object.entries(RULES)) {
     if (!schema) continue;
-    const validator = { $jsonSchema: { bsonType: "object", ...schema } };
+    const validator = validatorOf(schema);
     const invalid = existing.has(name) ? await db.collection(name).countDocuments({ $nor: [validator] }) : 0;
     if (invalid) console.warn(`${name}: ${invalid} existing document(s) break its rules: they stay, but can't be updated until fixed`);
     if (!apply) continue;

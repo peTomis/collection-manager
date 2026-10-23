@@ -6,8 +6,9 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run && yarn test:offline",
+    "test:unit": "vitest run --project unit",
     "test:watch": "vitest",
-    "test:offline":"node --test tests/offline.test.cjs",
+    "test:offline": "node --test tests/offline.test.cjs",
     "demo:generate": "node --env-file=.env scripts/generate-demo.mjs",
     "db:setup": "node --env-file=.env scripts/setup-collections.mjs"
   },
@@ -32,6 +33,7 @@
     "@types/node": "18.7.5",
     "@types/react": "^19.0.7",
     "autoprefixer": "^10.4.20",
+    "mongodb-memory-server": "11.3.0",
     "postcss": "^8.5.1",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.9.3",
