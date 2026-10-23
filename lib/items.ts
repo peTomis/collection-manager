@@ -1,5 +1,5 @@
 import { Binder, BinderWithItems, Card, CardHistoricPrice, CardVariantType, ItemType, ItemWithJoin, Sealed, Set, WishlistItem, WishlistWithItems } from "@/types/mongodb";
-import { getPastPrice, getPrice } from "@/utils/utils";
+import { getPastPrice, getPrice, PricePeriod } from "@/utils/utils";
 import { change } from "@/lib/format";
 
 export const VARIANT_LABELS: Record<CardVariantType, string> = {
@@ -65,6 +65,18 @@ export const summarizeBinder = (binder: BinderWithItems) => {
   }
   const count = [cards && `${cards} cards`, sealed && `${sealed} sealed`, missing && `${missing} missing`].filter(Boolean).join(" · ") || "Empty";
   return { value, cards, sealed, missing, count, change1w: change(value, value1w), change1m: change(value, value1m) };
+};
+
+// Change of the binder's owned items over a price period, against each item's oldest known price in it
+export const binderChange = (binder: BinderWithItems, period: PricePeriod) => {
+  let now = 0;
+  let then = 0;
+  for (const item of binder.items) {
+    if (!isOwned(item) || !item.historicPrice) continue;
+    now += getPrice(item.historicPrice) * item.quantity;
+    then += getPastPrice(item.historicPrice, period) * item.quantity;
+  }
+  return change(now, then);
 };
 
 // How much of a set the binder holds: its own set for a set binder, otherwise the set all its cards come from (if they do)

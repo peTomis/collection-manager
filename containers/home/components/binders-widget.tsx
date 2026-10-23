@@ -7,15 +7,16 @@ import { setBinder } from "@/redux/slices/binders";
 import { BinderWithItems, ItemType } from "@/types/mongodb";
 import { getPrice } from "@/utils/utils";
 import { deltaColor, eur, pct } from "@/lib/format";
-import { isOwned, summarizeBinder } from "@/lib/items";
+import { binderChange, isOwned, summarizeBinder } from "@/lib/items";
 import { cn } from "@/lib/utils";
+import { Period, PERIODS } from "./net-worth";
 
-const summarize = (binder: BinderWithItems) => ({ binder, ...summarizeBinder(binder) });
-
-const BindersWidget = () => {
+const BindersWidget = ({ period }: { period: Period }) => {
   const { binders } = useSelector((state) => state.binders);
   const dispatch = useDispatch();
 
+  const price = PERIODS.find((p) => p.value === period)!.price;
+  const summarize = (binder: BinderWithItems) => ({ binder, ...summarizeBinder(binder), change: binderChange(binder, price.period) });
   const rows = binders.map(summarize).sort((a, b) => b.value - a.value);
   const total = rows.reduce((acc, r) => acc + r.value, 0);
   const items = rows.reduce((acc, r) => acc + r.cards + r.sealed, 0);
@@ -69,8 +70,8 @@ const BindersWidget = () => {
             </div>
             <div className="text-right">
               <div className="font-geist-mono font-medium text-sm lg:text-[15px]">{eur(r.value)}</div>
-              <div className={cn("font-geist-mono text-[11px] lg:text-xs lg:mt-1", deltaColor(r.change1m))}>
-                {pct(r.change1m)} <span className="text-ink-muted">30d</span>
+              <div className={cn("font-geist-mono text-[11px] lg:text-xs lg:mt-1", deltaColor(r.change))}>
+                {pct(r.change)} <span className="text-ink-muted">{price.label}</span>
               </div>
             </div>
           </Link>

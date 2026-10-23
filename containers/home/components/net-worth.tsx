@@ -1,24 +1,23 @@
 // Libraries
-import { useState } from "react";
-
 // Components
 import Segmented from "@/components/atoms/segmented";
 
 // State
 import { useSelector } from "@/redux/store";
-import { getPrice } from "@/utils/utils";
+import { getPrice, PricePeriod } from "@/utils/utils";
 import { change, deltaColor, eur, pct, signedEur } from "@/lib/format";
 import { isOwned } from "@/lib/items";
 import { cn } from "@/lib/utils";
 
-type Period = "24h" | "7d" | "30d" | "1y" | "all";
+export type Period = "24h" | "7d" | "30d" | "1y" | "all";
 
-const PERIODS: { value: Period; label: string; days: number; text: string }[] = [
-  { value: "24h", label: "24h", days: 1, text: "past 24 hours" },
-  { value: "7d", label: "7d", days: 7, text: "past 7 days" },
-  { value: "30d", label: "30d", days: 30, text: "past 30 days" },
-  { value: "1y", label: "1y", days: 365, text: "past year" },
-  { value: "all", label: "All", days: Infinity, text: "since first record" },
+// price: the item price history the period maps to (it goes back one year at most, so "all" falls back to it)
+export const PERIODS: { value: Period; label: string; days: number; text: string; price: { period: PricePeriod; label: string } }[] = [
+  { value: "24h", label: "24h", days: 1, text: "past 24 hours", price: { period: "1d", label: "24h" } },
+  { value: "7d", label: "7d", days: 7, text: "past 7 days", price: { period: "1w", label: "7d" } },
+  { value: "30d", label: "30d", days: 30, text: "past 30 days", price: { period: "1m", label: "30d" } },
+  { value: "1y", label: "1y", days: 365, text: "past year", price: { period: "1y", label: "1y" } },
+  { value: "all", label: "All", days: Infinity, text: "since first record", price: { period: "1y", label: "1y" } },
 ];
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -37,8 +36,7 @@ const axisLabels = (timestamps: number[], period: Period) => {
   return idx.map((i, n) => (n === count - 1 ? "Today" : format(timestamps[i], n === 0)));
 };
 
-const NetWorth = () => {
-  const [period, setPeriod] = useState<Period>("30d");
+const NetWorth = ({ period, onPeriodChange }: { period: Period; onPeriodChange: (period: Period) => void }) => {
   const { portfolio } = useSelector((state) => state.portfolio);
   const { binders } = useSelector((state) => state.binders);
   const { wishlists } = useSelector((state) => state.wishlists);
@@ -84,7 +82,7 @@ const NetWorth = () => {
             <span className="text-[13px] lg:text-sm text-ink-muted">{current.text}</span>
           </div>
         </div>
-        <Segmented className="hidden lg:flex" mono options={PERIODS} value={period} onChange={setPeriod} />
+        <Segmented className="hidden lg:flex" mono options={PERIODS} value={period} onChange={onPeriodChange} />
       </div>
 
       <Chart points={points.map((p) => p.value)} />
@@ -96,7 +94,7 @@ const NetWorth = () => {
           <span key={i}>{label}</span>
         ))}
       </div>
-      <Segmented className="mt-3.5 lg:hidden bg-paper" mono options={PERIODS} value={period} onChange={setPeriod} />
+      <Segmented className="mt-3.5 lg:hidden bg-paper" mono options={PERIODS} value={period} onChange={onPeriodChange} />
 
       <div className="grid grid-cols-2 mt-4 overflow-hidden border border-line rounded-xl bg-paper lg:grid-cols-4 lg:mt-0 lg:-mx-7 lg:border-0 lg:border-t lg:rounded-none lg:bg-transparent">
         {stats.map((s, i) => (
