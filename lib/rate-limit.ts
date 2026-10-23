@@ -1,5 +1,5 @@
 // Server only: fixed-window request limits, counted in MongoDB so they hold across server instances
-import client from "@/lib/mongodb";
+import { getDb } from "@/lib/mongodb";
 
 interface Window {
   _id: string;
@@ -11,8 +11,7 @@ let indexed: Promise<unknown> | undefined;
 
 // Whether one more request for key fits in the current window. retryAfter: seconds until the next window.
 export const rateLimit = async (key: string, limit: number, windowMs: number): Promise<{ ok: boolean; retryAfter: number }> => {
-  await client.connect();
-  const windows = client.db("collection-manager").collection<Window>("rate-limits");
+  const windows = (await getDb()).collection<Window>("rate-limits");
   // MongoDB removes the windows once they expire
   indexed ??= windows.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }).catch((error) => {
     indexed = undefined;

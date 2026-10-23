@@ -1,4 +1,4 @@
-import { MongoClient } from "mongodb";
+import { Db, MongoClient } from "mongodb";
 
 if (!process.env.MONGODB_URI) {
   throw new Error('Invalid/Missing environment variable: "MONGODB_URI"');
@@ -28,3 +28,9 @@ if (process.env.NODE_ENV === "development") {
 // Export a module-scoped MongoClient. By doing this in a
 // separate module, the client can be shared across functions.
 export default client;
+
+// The app's database, connecting on first use (later calls reuse the connection)
+export const getDb = async (): Promise<Db> => {
+  await client.connect();
+  return client.db("collection-manager");
+};

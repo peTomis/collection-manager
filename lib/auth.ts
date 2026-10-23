@@ -1,12 +1,11 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { getServerSession, NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-import { Db, ObjectId } from "mongodb";
-import client from "@/lib/mongodb";
+import { ObjectId } from "mongodb";
+import { getDb } from "@/lib/mongodb";
 
 const upsertUser = async (providerId: string, email?: string | null, name?: string | null, image?: string | null): Promise<string> => {
-  await client.connect();
-  const db: Db = client.db("collection-manager");
+  const db = await getDb();
   const now = Date.now();
   const user = await db.collection("users").findOneAndUpdate(
     { provider: "google", providerId },

@@ -1,20 +1,17 @@
-import { Db } from "mongodb";
 import { NextApiRequest, NextApiResponse } from "next";
-import client from "@/lib/mongodb";
+import { getDb } from "@/lib/mongodb";
 import { allowMethods } from "@/lib/guards";
 import { queryString } from "@/lib/validation";
 import { CardPrice, CardVariantType, ItemType, Price, SealedPrice } from "@/types/mongodb";
 
 const fetchCardPrices = async (card: string, language: string, type: CardVariantType): Promise<CardPrice[]> => {
-  await client.connect();
-  const db: Db = client.db("collection-manager");
+  const db = await getDb();
   const prices = await db.collection("card-prices").find({ card, language, type }).sort({ timestamp: 1 }).toArray();
   return JSON.parse(JSON.stringify(prices));
 };
 
 const fetchSealedPrices = async (sealed: string, language: string): Promise<SealedPrice[]> => {
-  await client.connect();
-  const db: Db = client.db("collection-manager");
+  const db = await getDb();
   const prices = await db.collection("sealed-prices").find({ sealed, language }).sort({ timestamp: 1 }).toArray();
   return JSON.parse(JSON.stringify(prices));
 };

@@ -1,19 +1,17 @@
-import { Db, ObjectId } from "mongodb";
+import { ObjectId } from "mongodb";
 import { NextApiRequest, NextApiResponse } from "next";
-import client from "@/lib/mongodb";
+import { getDb } from "@/lib/mongodb";
 import { allowMethods } from "@/lib/guards";
 import { parseObjectId, queryString } from "@/lib/validation";
 
 const fetchCardsBySet = async (set: string) => {
-  await client.connect();
-  const db: Db = client.db("collection-manager");
-  const games = await db.collection("cards").find({ set }).sort({}).toArray();
+  const db = await getDb();
+  const games = await db.collection("cards").find({ set }).toArray();
   return JSON.parse(JSON.stringify(games));
 };
 
 export const fetchCard = async (_id: ObjectId) => {
-  await client.connect();
-  const db: Db = client.db("collection-manager");
+  const db = await getDb();
   const set = await db.collection("cards").findOne({ _id });
   return JSON.parse(JSON.stringify(set));
 };

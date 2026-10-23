@@ -1,16 +1,22 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import client from "@/lib/mongodb";
+import { getDb } from "@/lib/mongodb";
 import { queryString } from "@/lib/validation";
+import { rateLimit } from "@/lib/rate-limit";
 
 const LIMITS = { sets: 5, cards: 12, sealed: 6 };
+
+// Search is open to visitors too, so it's limited per address: plenty for typing, too few to scrape the catalog with it
+const SEARCHES_PER_MINUTE = 60;
+
+// The client's address as the hosting proxy reports it (the first x-forwarded-for entry is the original client)
+const clientAddress = (req: NextApiRequest) => queryString(req.headers["x-real-ip"]) ?? queryString(req.headers["x-forwarded-for"])?.split(",")[0].trim() ?? req.socket.remoteAddress ?? "unknown";
 
 // Matches anywhere in the text, ignoring case; the query is taken literally
 const contains = (query: string) => new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
 
 // Sets, cards and sealed products whose name (or set code) contains the query: the top bar's quick search
 const search = async (query: string) => {
-  await client.connect();
-  const db = client.db("collection-manager");
+  const db = await getDb();
   const match = contains(query);
   const [sets, cards, sealed] = await Promise.all([
     db
@@ -29,6 +35,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== "GET") return res.status(405).json({ message: "Method not allowed" });
   const query = queryString(req.query.q)?.trim() ?? "";
   if (query.length < 2 || query.length > 100) return res.status(200).json({ sets: [], cards: [], sealed: [] });
+  const limit = await rateLimit(`search:${clientAddress(req)}`, SEARCHES_PER_MINUTE, 60 * 1000);
+  if (!limit.ok) {
+    res.setHeader("Retry-After", String(limit.retryAfter));
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(429).json({ message: "Too many searches. Try again in a minute." });
+  }
   res.setHeader("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
   return res.status(200).json(await search(query));
 }

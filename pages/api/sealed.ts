@@ -1,26 +1,23 @@
-import { Db, ObjectId } from "mongodb";
+import { ObjectId } from "mongodb";
 import { NextApiRequest, NextApiResponse } from "next";
-import client from "@/lib/mongodb";
+import { getDb } from "@/lib/mongodb";
 import { allowMethods } from "@/lib/guards";
 import { parseObjectId, queryString } from "@/lib/validation";
 
 const fetchSealedBySet = async (set: string) => {
-  await client.connect();
-  const db: Db = client.db("collection-manager");
-  const games = await db.collection("sealed").find({ set }).sort({}).toArray();
+  const db = await getDb();
+  const games = await db.collection("sealed").find({ set }).toArray();
   return JSON.parse(JSON.stringify(games));
 };
 
 const fetchSealedByType = async (type: string) => {
-  await client.connect();
-  const db: Db = client.db("collection-manager");
-  const games = await db.collection("sealed").find({ type }).sort({}).toArray();
+  const db = await getDb();
+  const games = await db.collection("sealed").find({ type }).toArray();
   return JSON.parse(JSON.stringify(games));
 };
 
 export const fetchSingleSealed = async (_id: ObjectId) => {
-  await client.connect();
-  const db: Db = client.db("collection-manager");
+  const db = await getDb();
   const set = await db.collection("sealed").findOne({ _id });
   return JSON.parse(JSON.stringify(set));
 };

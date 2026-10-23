@@ -1,250 +1,27 @@
-import { Binder, BinderItem, BinderItemToCreate, BinderToSave, ItemType } from "@/types/mongodb";
-import { Db, ObjectId, WithoutId } from "mongodb";
+import { BinderItemToCreate, BinderToSave, ItemType } from "@/types/mongodb";
+import { ObjectId } from "mongodb";
 import { NextApiRequest, NextApiResponse } from "next";
-import client from "@/lib/mongodb";
 import { getUserId } from "@/lib/auth";
-import { refreshPortfolio } from "@/lib/portfolio";
-import { deleteLinked, linkable, mirrorToWishlist, setLink, unmirrorFromWishlist } from "@/lib/mirror";
+import {
+  addItemToBinder,
+  changeItemQuantity,
+  createBinder,
+  deleteBinder,
+  deleteItemFromBinder,
+  deleteItemsFromBinder,
+  fetchBinder,
+  fetchBinders,
+  fetchBindersWithCard,
+  itemsFitSet,
+  removeBinderSet,
+  renameBinder,
+  unlinkBinder,
+} from "@/lib/db/binders";
+import { setExists } from "@/lib/db/sets";
+import { updatePortfolio } from "@/lib/db/portfolios";
 import { LIMITS, parseObjectId } from "@/lib/validation";
-import { insertCapped } from "@/lib/caps";
 import { allowMethods, requireJson } from "@/lib/guards";
 import * as Joi from "joi";
-
-const fetchBinders = async (user: ObjectId): Promise<Binder[]> => {
-  await client.connect();
-  const db: Db = client.db("collection-manager");
-  const items = await db.collection("binders").find({ user }).sort({}).toArray();
-  return items as unknown as Binder[];
-};
-
-export const fetchBindersWithCard = async (user: ObjectId): Promise<Binder[]> => {
-  await client.connect();
-  const db: Db = client.db("collection-manager");
-
-  const pipeline = [
-    { $match: { user } },
-    {
-      $lookup: {
-        from: "binder-items",
-        let: { binderId: "$_id", userId: "$user" },
-        pipeline: [
-          {
-            $match: {
-              // Items carry their owner too: only the binder owner's items are joined
-              $expr: { $and: [{ $eq: [{ $toObjectId: "$binder" }, "$$binderId"] }, { $eq: ["$user", "$$userId"] }] },
-            },
-          },
-
-          // ITEM: cards vs sealed
-          {
-            $lookup: {
-              from: "cards",
-              let: { itemId: "$item", t: "$type" },
-              pipeline: [
-                {
-                  $match: {
-                    $expr: {
-                      $and: [{ $eq: ["$$t", "card"] }, { $eq: ["$_id", { $toObjectId: "$$itemId" }] }],
-                    },
-                  },
-                },
-              ],
-              as: "itemCard",
-            },
-          },
-          {
-            $lookup: {
-              from: "sealed",
-              let: { itemId: "$item", t: "$type" },
-              pipeline: [
-                {
-                  $match: {
-                    $expr: {
-                      $and: [
-                        { $ne: ["$$t", "card"] }, // or $eq: ["$$t", "sealed"]
-                        { $eq: ["$_id", { $toObjectId: "$$itemId" }] },
-                      ],
-                    },
-                  },
-                },
-              ],
-              as: "itemSealed",
-            },
-          },
-          {
-            $set: {
-              item: { $first: { $concatArrays: ["$itemCard", "$itemSealed"] } },
-            },
-          },
-          { $unset: ["itemCard", "itemSealed"] },
-
-          // HISTORIC PRICE: card-historic-prices vs sealed-historic-prices
-          {
-            $lookup: {
-              from: "card-historic-prices",
-              let: { priceId: "$historicPrice", t: "$type" },
-              pipeline: [
-                {
-                  $match: {
-                    $expr: {
-                      $and: [{ $eq: ["$$t", "card"] }, { $eq: ["$_id", { $toObjectId: "$$priceId" }] }],
-                    },
-                  },
-                },
-              ],
-              as: "hpCard",
-            },
-          },
-          {
-            $lookup: {
-              from: "sealed-historic-prices",
-              let: { priceId: "$historicPrice", t: "$type" },
-              pipeline: [
-                {
-                  $match: {
-                    $expr: {
-                      $and: [{ $ne: ["$$t", "card"] }, { $eq: ["$_id", { $toObjectId: "$$priceId" }] }],
-                    },
-                  },
-                },
-              ],
-              as: "hpSealed",
-            },
-          },
-          {
-            $set: {
-              historicPrice: {
-                $first: { $concatArrays: ["$hpCard", "$hpSealed"] },
-              },
-            },
-          },
-          { $unset: ["hpCard", "hpSealed"] },
-        ],
-        as: "items",
-      },
-    },
-  ];
-
-  const items = await db.collection<Binder>("binders").aggregate<Binder & { items: BinderItem[] }>(pipeline).toArray();
-
-  return items;
-};
-
-const fetchBinder = async (_id: ObjectId, user: ObjectId): Promise<Binder> => {
-  await client.connect();
-  const db: Db = client.db("collection-manager");
-  const item = await db.collection("binders").findOne({ _id, user });
-  return JSON.parse(JSON.stringify(item));
-};
-
-const setExists = async (_id: ObjectId): Promise<boolean> => {
-  await client.connect();
-  return (await client.db("collection-manager").collection("sets").countDocuments({ _id }, { limit: 1 })) === 1;
-};
-
-// A set binder only takes cards of its set: every card must be one of them, and nothing sealed
-const itemsFitSet = async (set: ObjectId, items: BinderItemToCreate[]): Promise<boolean> => {
-  if (items.some((i) => i.type !== ItemType.CARD)) return false;
-  await client.connect();
-  const ids = [...new globalThis.Set(items.map((i) => i.item))].map((id) => new ObjectId(id));
-  return (await client.db("collection-manager").collection("cards").countDocuments({ _id: { $in: ids }, set: String(set) })) === ids.length;
-};
-
-// items: the binder's first items, e.g. a whole set added at once. null when the user has too many binders.
-const saveBinder = async (binder: WithoutId<Binder>, items: BinderItemToCreate[] = []): Promise<Binder | null> => {
-  await client.connect();
-  const db: Db = client.db("collection-manager");
-  const insertedId = await insertCapped(db, "binders", binder, { user: binder.user }, LIMITS.LISTS_PER_USER);
-  if (!insertedId) return null;
-  const id = String(insertedId);
-  if (items.length) {
-    // Only the known fields are stored, stamped with the owner
-    await db
-      .collection("binder-items")
-      .insertMany(
-        items.map((i) => ({ name: i.name, type: i.type, item: i.item, historicPrice: i.historicPrice, quantity: i.quantity, ...(i.owned === false && { owned: false }), binder: id, user: binder.user }))
-      );
-  }
-  return JSON.parse(JSON.stringify({ ...binder, _id: insertedId }));
-};
-
-const deleteBinder = async (id: string, user: ObjectId): Promise<boolean> => {
-  await client.connect();
-  const _id = new ObjectId(id);
-  const db: Db = client.db("collection-manager");
-  const deleted = await db.collection("binders").findOneAndDelete({ _id, user });
-  if (!deleted) return false;
-  await db.collection("binder-items").deleteMany({ binder: id, user });
-  // The linked wishlist goes too
-  await deleteLinked(db, user, "wishlists", deleted.wishlist);
-  return true;
-};
-
-const addItemToBinder = async (user: ObjectId, item: BinderToSave): Promise<BinderItem | "not-found" | "wrong-set" | "full"> => {
-  await client.connect();
-  const db: Db = client.db("collection-manager");
-  const binderData = await db.collection("binders").findOne({ _id: new ObjectId(item.binder), user });
-  if (!binderData) return "not-found";
-  // A set binder only takes cards of its set
-  if (binderData.set) {
-    const card = item.type === ItemType.CARD ? await db.collection("cards").findOne({ _id: new ObjectId(item.item) }) : null;
-    if (card?.set !== String(binderData.set)) return "wrong-set";
-  }
-  // Only the known fields are stored, stamped with the owner
-  const itemData = { name: item.name, type: item.type, item: item.item, historicPrice: item.historicPrice, quantity: item.quantity, ...(item.owned === false && { owned: false }), binder: item.binder, user };
-  const insertedId = await insertCapped(db, "binder-items", itemData, { binder: item.binder, user }, LIMITS.ITEMS_PER_LIST);
-  if (!insertedId) return "full";
-  await mirrorToWishlist(db, user, binderData.wishlist, item, item.owned === false);
-  return JSON.parse(JSON.stringify({ ...itemData, _id: insertedId }));
-};
-
-// owned: false keeps it a missing slot, anything else makes it owned
-const changeItemQuantity = async (user: ObjectId, binder: string, id: string, quantity: number, owned?: boolean): Promise<boolean> => {
-  await client.connect();
-  const _id = new ObjectId(id);
-  const db: Db = client.db("collection-manager");
-  const binderData = await db.collection("binders").findOne({ _id: new ObjectId(binder), user });
-  if (!binderData) return false;
-  const update = owned === false ? { $set: { quantity, owned } } : { $set: { quantity }, $unset: { owned: "" } };
-  const updated = await db.collection("binder-items").findOneAndUpdate({ _id, binder, user }, update);
-  if (!updated) return false;
-  await mirrorToWishlist(db, user, binderData.wishlist, updated as unknown as BinderToSave, owned === false);
-  return true;
-};
-
-const deleteItemFromBinder = async (user: ObjectId, binder: string, id: string): Promise<boolean> => {
-  await client.connect();
-  const _id = new ObjectId(id);
-  const db: Db = client.db("collection-manager");
-  const binderData = await db.collection("binders").findOne({ _id: new ObjectId(binder), user });
-  if (!binderData) return false;
-  const deleted = await db.collection("binder-items").findOneAndDelete({ _id, binder, user });
-  if (!deleted) return false;
-  if (deleted.owned === false) await unmirrorFromWishlist(db, user, binderData.wishlist, [deleted.historicPrice]);
-  return true;
-};
-
-const deleteItemsFromBinder = async (user: ObjectId, binder: string, ids: string[]): Promise<number> => {
-  await client.connect();
-  const db: Db = client.db("collection-manager");
-  const binderData = await db.collection("binders").findOne({ _id: new ObjectId(binder), user });
-  if (!binderData) return 0;
-  const match = { _id: { $in: ids.map((id) => new ObjectId(id)) }, binder, user };
-  const missing = await db.collection("binder-items").find({ ...match, owned: false }, { projection: { historicPrice: 1 } }).toArray();
-  const result = await db.collection("binder-items").deleteMany(match);
-  await unmirrorFromWishlist(db, user, binderData.wishlist, missing.map((i) => i.historicPrice));
-  return result.deletedCount;
-};
-
-// Keep the portfolio totals in step with the binders. The change itself is already saved, so a failure here only logs.
-const updatePortfolio = async (user: ObjectId) => {
-  try {
-    await client.connect();
-    await refreshPortfolio(client.db("collection-manager"), user);
-  } catch (error) {
-    console.error("Portfolio update failed", error);
-  }
-};
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!allowMethods(req, res, ["GET", "POST", "DELETE"])) return;
@@ -272,12 +49,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.body?.unlink) {
       const id = parseObjectId(req.body.unlink);
       if (!id) return res.status(400).json({ message: "Invalid binder ID" });
-      await client.connect();
-      const db = client.db("collection-manager");
-      const binderData = await db.collection("binders").findOne({ _id: id, user });
-      if (!binderData) return res.status(404).json({ message: "Binder not found" });
-      await setLink(db, user, "binders", String(id), undefined);
-      await setLink(db, user, "wishlists", binderData.wishlist, undefined);
+      if (!(await unlinkBinder(user, id))) return res.status(404).json({ message: "Binder not found" });
       return res.status(200).json({});
     }
 
@@ -285,9 +57,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.body?.removeSet) {
       const id = parseObjectId(req.body.removeSet);
       if (!id) return res.status(400).json({ message: "Invalid binder ID" });
-      await client.connect();
-      const result = await client.db("collection-manager").collection("binders").updateOne({ _id: id, user }, { $unset: { set: "" } });
-      if (!result.matchedCount) return res.status(404).json({ message: "Binder not found" });
+      if (!(await removeBinderSet(user, id))) return res.status(404).json({ message: "Binder not found" });
       return res.status(200).json({});
     }
 
@@ -295,9 +65,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.body?.rename) {
       const id = parseObjectId(req.body.rename.id);
       if (!id || validateBinder({ name: req.body.rename.name }).error) return res.status(400).json({ message: "Invalid binder name" });
-      await client.connect();
-      const result = await client.db("collection-manager").collection("binders").updateOne({ _id: id, user }, { $set: { name: String(req.body.rename.name).trim() } });
-      if (!result.matchedCount) return res.status(404).json({ message: "Binder not found" });
+      if (!(await renameBinder(user, id, String(req.body.rename.name).trim()))) return res.status(404).json({ message: "Binder not found" });
       return res.status(200).json({});
     }
 
@@ -308,14 +76,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const set = req.body.binder.set ? new ObjectId(req.body.binder.set as string) : undefined;
       if (set && !(await setExists(set))) return res.status(400).json({ message: "Set not found" });
       if (set && items.length && !(await itemsFitSet(set, items))) return res.status(422).json({ message: "Only cards of the binder's set can be added" });
-      // Linked to a wishlist: the two keep their missing items in step (the caller sends matching items)
       const wishlist = req.body.binder.wishlist as string | undefined;
-      await client.connect();
-      const db = client.db("collection-manager");
-      if (!(await linkable(db, user, "wishlists", wishlist))) return res.status(409).json({ message: "Wishlist not found or already linked" });
-      const newBinder = await saveBinder({ name: req.body.binder.name, user, ...(set && { set }), ...(wishlist && { wishlist }) }, items);
-      if (!newBinder) return res.status(409).json({ message: "Binders limit reached" });
-      await setLink(db, user, "wishlists", wishlist, newBinder._id);
+      const newBinder = await createBinder({ name: req.body.binder.name, user, ...(set && { set }), ...(wishlist && { wishlist }) }, items);
+      if (newBinder === "invalid-item") return res.status(422).json({ message: "Item and price don't match" });
+      if (newBinder === "not-linkable") return res.status(409).json({ message: "Wishlist not found or already linked" });
+      if (newBinder === "full") return res.status(409).json({ message: "Binders limit reached" });
       if (items.length) await updatePortfolio(user);
       return res.status(201).json({ item: newBinder });
     }
@@ -338,6 +103,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const added = await addItemToBinder(user, item);
       if (added === "not-found") return res.status(404).json({ message: "Binder not found" });
+      if (added === "invalid-item") return res.status(422).json({ message: "Item and price don't match" });
       if (added === "wrong-set") return res.status(422).json({ message: "Only cards of the binder's set can be added" });
       if (added === "full") return res.status(409).json({ message: "Binder items limit reached" });
       await updatePortfolio(user);

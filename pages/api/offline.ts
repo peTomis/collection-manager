@@ -1,13 +1,13 @@
 // One authenticated HTTP response streams the complete offline snapshot.
 import type { NextApiRequest, NextApiResponse } from "next";
-import client from "@/lib/mongodb";
+import { getDb } from "@/lib/mongodb";
 import { getUserId } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
 import { queryString } from "@/lib/validation";
-import { fetchSets } from "./sets";
-import { fetchBindersWithCard } from "./binders";
-import { fetchWishlistsWithCard } from "./wishlists";
-import { fetchPortfolio } from "./portfolios";
+import { fetchSets } from "@/lib/db/sets";
+import { fetchBindersWithCard } from "@/lib/db/binders";
+import { fetchWishlistsWithCard } from "@/lib/db/wishlists";
+import { fetchPortfolio } from "@/lib/db/portfolios";
 
 export const config = { api: { responseLimit: false } };
 export const maxDuration = 300;
@@ -51,8 +51,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   };
   try {
-    await client.connect();
-    const db = client.db("collection-manager");
+    const db = await getDb();
     const [sets, binders, wishlists, portfolio] = await Promise.all([fetchSets(), fetchBindersWithCard(owner), fetchWishlistsWithCard(owner), fetchPortfolio(owner)]);
     res.setHeader("Content-Type", "application/x-ndjson; charset=utf-8");
     res.setHeader("Cache-Control", "private, no-store");

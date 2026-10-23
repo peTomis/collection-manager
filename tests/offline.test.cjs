@@ -195,7 +195,6 @@ async function runExportAPI(requestedUser, owner = "owner", limited = false) {
   const limitedKeys = [];
   const dbReads = [];
   const client = {
-    connect: async () => {},
     db: () => ({
       collection: (name) => ({
         find: (filter) => ({
@@ -210,7 +209,7 @@ async function runExportAPI(requestedUser, owner = "owner", limited = false) {
     }),
   };
   const mocks = {
-    "@/lib/mongodb": { default: client, __esModule: true },
+    "@/lib/mongodb": { getDb: async () => client.db() },
     "@/lib/auth": { getUserId: async () => owner },
     "@/lib/rate-limit": {
       rateLimit: async (key) => {
@@ -219,20 +218,20 @@ async function runExportAPI(requestedUser, owner = "owner", limited = false) {
       },
     },
     "@/lib/validation": { queryString: (value) => (typeof value === "string" ? value : undefined) },
-    "./sets": { fetchSets: async () => [{ _id: "set", name: "151" }] },
-    "./binders": {
+    "@/lib/db/sets": { fetchSets: async () => [{ _id: "set", name: "151" }] },
+    "@/lib/db/binders": {
       fetchBindersWithCard: async (user) => {
         queriedOwners.push(user);
         return [{ _id: "binder", user, items: [] }];
       },
     },
-    "./wishlists": {
+    "@/lib/db/wishlists": {
       fetchWishlistsWithCard: async (user) => {
         queriedOwners.push(user);
         return [{ _id: "wishlist", user, items: [] }];
       },
     },
-    "./portfolios": {
+    "@/lib/db/portfolios": {
       fetchPortfolio: async (user) => {
         queriedOwners.push(user);
         return { user, value: 120 };

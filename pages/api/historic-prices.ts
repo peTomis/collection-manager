@@ -1,6 +1,6 @@
 import { Db } from "mongodb";
 import { NextApiRequest, NextApiResponse } from "next";
-import client from "@/lib/mongodb";
+import { getDb } from "@/lib/mongodb";
 import { allowMethods } from "@/lib/guards";
 import { LIMITS, queryString } from "@/lib/validation";
 import * as Joi from "joi";
@@ -26,7 +26,6 @@ const fetchCardHistoricPrices = async (db: Db, items: PriceRequest[]): Promise<C
         type: item.variant,
       })),
     })
-    .sort({})
     .toArray();
   return JSON.parse(JSON.stringify(prices));
 };
@@ -42,16 +41,13 @@ export const fetchSealedHistoricPrices = async (db: Db, items: PriceRequest[]): 
         language: item.language,
       })),
     })
-    .sort({})
     .toArray();
 
   return JSON.parse(JSON.stringify(prices));
 };
 
 const fetchHistoricPrices = async (items: PriceRequest[]): Promise<HistoricPrice[]> => {
-  await client.connect();
-
-  const db: Db = client.db("collection-manager");
+  const db = await getDb();
 
   const cardPrices = await fetchCardHistoricPrices(db, items);
   const sealedPrices = await fetchSealedHistoricPrices(db, items);
@@ -60,15 +56,13 @@ const fetchHistoricPrices = async (items: PriceRequest[]): Promise<HistoricPrice
 };
 
 const fetchCardHistoricPrice = async (card: string, language: string, type: CardVariantType): Promise<CardHistoricPrice> => {
-  await client.connect();
-  const db: Db = client.db("collection-manager");
+  const db = await getDb();
   const price = await db.collection("card-historic-prices").findOne({ card, language, type });
   return JSON.parse(JSON.stringify(price));
 };
 
 const fetchSealedHistoricPrice = async (sealed: string, language: string): Promise<SealedHistoricPrice> => {
-  await client.connect();
-  const db: Db = client.db("collection-manager");
+  const db = await getDb();
   const price = await db.collection("sealed-historic-prices").findOne({ sealed, language });
   return JSON.parse(JSON.stringify(price));
 };
