@@ -143,6 +143,26 @@ export interface SealedPrice {
 
 export type Price = CardPrice | SealedPrice;
 
+// One Cardmarket listing of a version, written by the external scraper: one document per listing,
+// updated at every scrape that sees it
+export interface Offer {
+  _id: string;
+  article: string; // Cardmarket article id: stable for the life of the listing
+  seller: string;
+  comment: string; // Seller's comment, e.g. "1§ CGC 4.5 6136896086"
+  image?: string; // Photo of the listing on Cardmarket's S3, if the seller uploaded one
+  price: number;
+  item: string;
+  itemType: ItemType;
+  type?: CardVariantType; // Cards only
+  language: Language;
+  url: string;
+  firstSeenAt: number;
+  lastSeenAt: number;
+  // One entry per scrape that listed the offer
+  seen: { timestamp: number; price: number }[];
+}
+
 declare global {
   var _mongoClientPromise: Promise<MongoClient>;
 }
