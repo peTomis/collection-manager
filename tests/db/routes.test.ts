@@ -5,6 +5,7 @@ import { getUserId } from "@/lib/auth";
 import binders from "@/pages/api/binders";
 import wishlists from "@/pages/api/wishlists";
 import search from "@/pages/api/search";
+import portfolios from "@/pages/api/portfolios";
 import { fetchPortfolio } from "@/lib/db/portfolios";
 import { LIMITS } from "@/lib/limits";
 import { newUser, seedCatalog } from "./fixtures";
@@ -94,6 +95,18 @@ describe("/api/wishlists", () => {
     const wishlist = (await call(wishlists, { method: "POST", body: { wishlist: { name: "W" } } })).body.item._id;
     expect((await call(wishlists, { method: "POST", body: { item: { ...catalog.charizard, wishlist, target: -1 } } })).status).toBe(400);
     expect((await call(wishlists, { method: "POST", body: { item: { ...catalog.charizard, wishlist, target: 250 } } })).status).toBe(201);
+  });
+});
+
+describe("/api/portfolios", () => {
+  test("is the session user's portfolio, and needs a session", async () => {
+    const binder = (await call(binders, { method: "POST", body: { binder: { name: "Vault" }, items: [{ ...catalog.charizard, quantity: 2 }] } })).body.item._id;
+    expect(binder).toBeTruthy();
+    const portfolio = await call(portfolios);
+    expect(portfolio.body.portfolio).toMatchObject({ user: String(user), cardsValue: 600, cardsQuantity: 2, value: 600 });
+    expect((await call(portfolios, { method: "POST", body: {} })).status).toBe(405);
+    vi.mocked(getUserId).mockResolvedValueOnce(null);
+    expect((await call(portfolios)).status).toBe(401);
   });
 });
 

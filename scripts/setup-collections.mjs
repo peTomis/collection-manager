@@ -11,7 +11,7 @@
 // Usage: node --env-file=.env scripts/setup-collections.mjs           (dry run: shows the rules and documents that break them)
 //        node --env-file=.env scripts/setup-collections.mjs --apply   (applies them)
 import { MongoClient } from "mongodb";
-import { RULES, validatorOf } from "./collection-rules.mjs";
+import { indexArgs, RULES, validatorOf } from "./collection-rules.mjs";
 
 const apply = process.argv.includes("--apply");
 
@@ -27,7 +27,19 @@ try {
   // Indexes first: the app's own user can create them, so they're in place even if the validators below are refused
   for (const [name, { schema, indexes, action = "error" }] of Object.entries(RULES)) {
     console.log(`${name}: ${schema ? `require ${schema.required.join(", ")} (${action}), ` : ""}index ${indexes.map((i) => JSON.stringify(i)).join(" ")}`);
-    if (apply) for (const index of indexes) await db.collection(name).createIndex(index);
+    for (const index of indexes) {
+      const [key, options] = indexArgs(index);
+      // A unique index can't be built over duplicates: report them, they have to be merged by hand first
+      if (options.unique && existing.has(name)) {
+        const fields = Object.keys(key);
+        const groups = await db
+          .collection(name)
+          .aggregate([{ $group: { _id: Object.fromEntries(fields.map((f) => [f, `$${f}`])), count: { $sum: 1 } } }, { $match: { count: { $gt: 1 } } }])
+          .toArray();
+        if (groups.length) console.warn(`${name}: ${groups.length} duplicate ${fields.join(" + ")} value(s), e.g. ${JSON.stringify(groups[0]._id)}: the unique index will fail until they're merged`);
+      }
+      if (apply) await db.collection(name).createIndex(key, options);
+    }
   }
 
   for (const [name, { schema, action = "error" }] of Object.entries(RULES)) {

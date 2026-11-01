@@ -82,7 +82,7 @@ yarn db:setup           # dry run: shows the rules
 yarn db:setup --apply   # applies them (needs MONGODB_ADMIN_URI)
 ```
 
-Applies `scripts/collection-rules.mjs`: MongoDB rejects binders, wishlists and their items without a `user` (portfolios only log a warning, since the scraper writes them too), the user data gets an index on `user`, and the catalog and price collections get the indexes their reads need. Run it once per database; running it again is safe.
+Applies `scripts/collection-rules.mjs`: MongoDB rejects binders, wishlists and their items without a `user` (portfolios only log a warning, since the scraper writes them too), the user data gets an index on `user`, `users` gets a unique index on the Google account (so a user is never created twice), and the catalog and price collections get the indexes their reads need. The dry run reports documents that break the rules and duplicate users, which must be merged before the unique index can be built. Run it once per database; running it again is safe.
 
 ### 4. Generate the demo collection (optional)
 
@@ -113,14 +113,24 @@ The app runs on [http://localhost:5555](http://localhost:5555).
 | `yarn test`          | All tests: unit, database (throwaway MongoDB) and offline.                                  |
 | `yarn test:unit`     | Unit tests only (`tests/*.test.ts`), no database needed.                                    |
 | `yarn test:offline`  | Offline-mode regression checks (`node --test`).                                             |
+| `yarn test:coverage` | Unit and database tests with a coverage report in `coverage/`.                              |
+| `yarn test:e2e`      | Production build into `.next-e2e`, then the Playwright journeys on port 5556.               |
 
 One-off maintenance scripts run directly with `node --env-file=.env scripts/<name>.mjs` (dry run by default, `--apply` to write): `fetch-card-images.mjs` (card images TCGdex lacks) and `set-sealed-paths.mjs` (sealed product images). `generate-icons.mjs` rebuilds the home screen icons. They import `sharp`, which comes in only as an optional dependency of Next.js.
 
 ## Testing
 
-`yarn test` runs everything. The database tests (`tests/db/`) start a one-node MongoDB replica set with `mongodb-memory-server`, apply the same validators and indexes as production, and exercise `lib/db/` and the API routes. The first run downloads a MongoDB binary.
+| Layer | Where | What it covers |
+| --- | --- | --- |
+| Unit | `tests/*.test.ts` | Pure logic: prices, items, formatting, new lists, validation, set eras, TCGdex ids |
+| Database | `tests/db/` | `lib/db/` and every API route against a one-node MongoDB replica set (`mongodb-memory-server`) with the production validators and indexes; sign-in; demo mode following the server's rules |
+| Contract | `tests/contract.test.ts` | The scraper's document types still match `types/mongodb.ts` (needs `../collection-manager-backend`, skipped without it) |
+| Offline | `tests/offline.test.cjs` | Offline snapshot reads, blocked writes, stream integrity, account isolation |
+| End-to-end | `e2e/` | Playwright on a production build, desktop and phone: creating a binder and adding cards, two users' isolation, the demo, offline browsing |
 
-GitHub Actions (`.github/workflows/ci.yml`) runs the typecheck, all tests and a production build on every push to `main` and every pull request, and `yarn audit` on those and weekly.
+`yarn test` runs the first four, `yarn test:e2e` the last (install its browser once with `npx playwright install chromium`). The first database run downloads a MongoDB binary. The end-to-end tests sign in by minting a session cookie with a test secret, so they need no Google account, and never touch the database in `.env`.
+
+GitHub Actions (`.github/workflows/ci.yml`) runs the typecheck, the tests with coverage (summary on the run page, report as an artifact) and the end-to-end journeys on every push to `main` and every pull request, and `yarn audit` on those and weekly. The contract test runs there only if the repository has a `BACKEND_TOKEN` secret: a fine-grained token with read-only Contents access to the backend repository.
 
 ## Project structure
 
@@ -132,7 +142,8 @@ redux/          Store and slices, one per resource
 lib/            MongoDB client, authentication, input validation, demo collection
 types/          Data models and constants
 scripts/        Maintenance scripts (demo generator, collection setup, cleanups)
-tests/          Unit, database and offline tests
+tests/          Unit, database, contract and offline tests
+e2e/            Playwright journeys, their server and catalog
 public/         Static assets, demo collection, offline service worker
 ```
 

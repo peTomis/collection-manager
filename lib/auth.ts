@@ -7,14 +7,17 @@ import { getDb } from "@/lib/mongodb";
 const upsertUser = async (providerId: string, email?: string | null, name?: string | null, image?: string | null): Promise<string> => {
   const db = await getDb();
   const now = Date.now();
-  const user = await db.collection("users").findOneAndUpdate(
-    { provider: "google", providerId },
-    {
-      $set: { email, name, image, lastLoginAt: now },
-      $setOnInsert: { provider: "google", providerId, createdAt: now },
-    },
-    { upsert: true, returnDocument: "after" }
-  );
+  const upsert = () =>
+    db.collection("users").findOneAndUpdate(
+      { provider: "google", providerId },
+      {
+        $set: { email, name, image, lastLoginAt: now },
+        $setOnInsert: { provider: "google", providerId, createdAt: now },
+      },
+      { upsert: true, returnDocument: "after" }
+    );
+  // Two first sign-ins at once both try to insert: the unique index on { provider, providerId } refuses the second, which retries as an update
+  const user = await upsert().catch((error) => (error?.code === 11000 ? upsert() : Promise.reject(error)));
   return user!._id.toString();
 };
 

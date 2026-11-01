@@ -17,20 +17,33 @@ yarn install
 yarn typecheck       # tsc --noEmit (must pass)
 yarn test            # vitest (unit + db) and node:test (offline)
 yarn test:unit       # pure logic only, no MongoDB
+yarn test:coverage   # vitest with a coverage report in coverage/
+yarn test:e2e        # Playwright journeys on a production build in .next-e2e
 yarn build           # production build
 ```
 
 - The user keeps `yarn dev` running on port 5555. Do not start a second dev server or `next build`
   while it runs: both write `.next/` and break the running one. Ask before building.
+  `yarn test:e2e` is safe alongside it: it builds into `.next-e2e` and serves on port 5556.
 - `yarn db:setup --apply`, `yarn demo:generate` and the `scripts/*.mjs` with `--apply` write to the
   database in `.env` (production). Only run their dry runs unless asked.
 - Database tests (`tests/db/`) use a throwaway `mongodb-memory-server` replica set with the
   production rules from `scripts/collection-rules.mjs`. After changing `lib/db/`, an API route or
   the rules, run `yarn test`. Routes are called through `tests/db/call.ts` (`call`, plus `visitor`
   and `inOneWindow` for rate limits); only `getUserId` is mocked.
-- CI (`.github/workflows/ci.yml`) runs typecheck, tests, build and `yarn audit`, which fails on any
-  advisory, dev tools included. Keep it at 0: upgrade, or pin a patched transitive version in
-  `resolutions`.
+- `tests/db/demo-parity.test.ts` runs the same scenarios through the API routes and through
+  `lib/demo-collection.ts` and compares the collections and answers. A rule changed on one side
+  (limits, set binders, linked lists, moves) must change on the other, with a scenario here.
+- `tests/contract.test.ts` type-checks the backend's document types against `types/mongodb.ts`
+  (needs `../collection-manager-backend` or `BACKEND_DIR`; skipped otherwise). When it fails, the
+  scraper's format changed: update the frontend types and their readers.
+- End-to-end (`e2e/`): `e2e/server.mjs` starts a throwaway MongoDB seeded from `e2e/catalog.mjs`
+  and `next start`; `signIn` in `e2e/session.ts` mints a NextAuth session cookie with the test
+  secret, no Google. Every journey runs on a desktop and a phone layout: find buttons by role and
+  name, and use `filter({ visible: true })` where the two layouts render different controls.
+- CI (`.github/workflows/ci.yml`) runs typecheck, tests with coverage, the end-to-end journeys and
+  `yarn audit`, which fails on any advisory, dev tools included. Keep it at 0: upgrade, or pin a
+  patched transitive version in `resolutions`.
 
 ## Code map
 
@@ -71,7 +84,10 @@ yarn build           # production build
   binder = wanted in the wishlist). Moves between lists run in a transaction (`inTransaction`).
 - **Portfolio**: call `updatePortfolio(user)` after any change to binder contents; its failure only
   logs.
-- **Demo and offline**: signed-out visitors (`DEMO_USER`) never reach the database. Every client
+- **Users**: one `users` document per Google account, enforced by a unique index on
+  `{ provider, providerId }`; `upsertUser` retries once when a concurrent first sign-in wins.
+- **Demo and offline**: signed-out visitors (`DEMO_USER`) never reach the database. Demo mode
+  follows the server's rules and answers (see the parity test). Every client
   API call goes through `apiFetch`; offline mode is read-only and must never fall back to live
   data. Personal API responses are never cached (no `Cache-Control: public` on user data).
 - **Catalog is read-only**: `cards`, `sealed`, `sets`, the price collections and `offers` belong to

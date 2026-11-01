@@ -6,7 +6,10 @@ const hexId = { bsonType: "string", pattern: "^[0-9a-f]{24}$" };
 const number = { bsonType: ["int", "long", "double", "decimal"] };
 const itemType = { enum: ["card", "sealed"] };
 
+// Indexes are key specs, or { key, unique: true } for one that also refuses duplicates (see indexArgs)
 export const RULES = {
+  // One document per Google account: two first sign-ins at once would otherwise both insert (lib/auth.ts)
+  users: { indexes: [{ key: { provider: 1, providerId: 1 }, unique: true }] },
   binders: {
     schema: { required: ["user", "name"], properties: { user: objectId, name: { bsonType: "string" }, set: objectId } },
     indexes: [{ user: 1 }],
@@ -43,6 +46,9 @@ export const RULES = {
   "card-historic-prices": { indexes: [{ card: 1, language: 1, type: 1 }] },
   "sealed-historic-prices": { indexes: [{ sealed: 1, language: 1 }] },
 };
+
+// createIndex's arguments for an index of RULES
+export const indexArgs = (index) => (index.key ? [index.key, { unique: !!index.unique }] : [index, {}]);
 
 // The MongoDB validator enforcing a collection's schema
 export const validatorOf = (schema) => ({ $jsonSchema: { bsonType: "object", ...schema } });

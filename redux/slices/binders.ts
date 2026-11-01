@@ -91,7 +91,7 @@ export function createBinder(user: string, name: string, set?: string, items: Ne
     try {
       assertEditable();
       let id: string | undefined;
-      if (user === DEMO_USER) id = await createDemoBinder(name, set, items, wishlist);
+      if (user === DEMO_USER) id = (await createDemoBinder(name, set, items, wishlist)) ?? undefined;
       else {
         const response = await apiFetch(`/api/binders?user=${user}`, {
           method: "POST",
@@ -245,7 +245,8 @@ export function moveBinderItem(user: string, item: BinderItem, to: string, quant
       assertEditable();
       const move = { id: item._id, from: item.binder, to, quantity, owned };
       if (user === DEMO_USER) {
-        if (!(await moveDemoBinderItem(move))) return "wrong-set";
+        const moved = await moveDemoBinderItem(move);
+        if (moved !== "moved") return moved === "not-found" ? "error" : moved;
       } else {
         const response = await apiFetch(`/api/binders?user=${user}`, {
           method: "POST",

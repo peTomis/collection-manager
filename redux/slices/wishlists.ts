@@ -79,7 +79,7 @@ export function createWishlist(user: string, name: string, items: NewListItem<Wi
     try {
       assertEditable();
       let id: string | undefined;
-      if (user === DEMO_USER) id = await createDemoWishlist(name, items, binder);
+      if (user === DEMO_USER) id = (await createDemoWishlist(name, items, binder)) ?? undefined;
       else {
         const response = await apiFetch(`/api/wishlists?user=${user}`, {
           method: "POST",
@@ -207,7 +207,8 @@ export function acquireWishlistItem(user: string, item: WishlistItem, binder: Bi
       assertEditable();
       const acquire = { id: item._id, wishlist: item.wishlist, binder: binder._id };
       if (user === DEMO_USER) {
-        if (!(await acquireDemoWishlistItem(acquire))) return "wrong-set";
+        const acquired = await acquireDemoWishlistItem(acquire);
+        if (acquired !== "acquired") return acquired === "not-found" ? "error" : acquired;
       } else {
         const response = await apiFetch(`/api/wishlists?user=${user}`, {
           method: "POST",

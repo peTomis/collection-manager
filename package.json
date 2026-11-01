@@ -7,8 +7,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run && yarn test:offline",
     "test:unit": "vitest run --project unit",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "test:offline": "node --test tests/offline.test.cjs",
+    "test:e2e": "node e2e/build.mjs && playwright test",
     "demo:generate": "node --env-file=.env scripts/generate-demo.mjs",
     "db:setup": "node --env-file=.env scripts/setup-collections.mjs"
   },
@@ -29,8 +31,10 @@
     "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/node": "18.7.5",
     "@types/react": "^19.0.7",
+    "@vitest/coverage-v8": "4.1.12",
     "autoprefixer": "^10.4.20",
     "mongodb-memory-server": "11.3.0",
     "postcss": "^8.5.1",

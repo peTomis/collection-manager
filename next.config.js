@@ -24,6 +24,8 @@ const contentSecurityPolicy = [
 ].join("; ");
 
 module.exports = {
+  // yarn test:e2e builds into .next-e2e, so it never touches the .next of a running dev server
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   poweredByHeader: false,
   async headers() {
     return [

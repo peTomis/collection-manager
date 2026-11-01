@@ -4,3 +4,7 @@
 .next/
 .env
 *.tsbuildinfo
+/coverage/
+/.next-e2e/
+/playwright-report/
+/test-results/

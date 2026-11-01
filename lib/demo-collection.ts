@@ -6,6 +6,7 @@ import { BinderItemToCreate, BinderToSave, BinderWithItems, Card, HistoricPrice,
 import { DEMO_USER } from "@/types/constants";
 import { getPrice } from "@/lib/prices";
 import { binderAccepts, isOwned, mergeMovedItem } from "@/lib/items";
+import { LIMITS } from "@/lib/limits";
 
 const STORAGE_KEY = "demo-collection";
 
@@ -92,6 +93,13 @@ const unmirrorFromWishlist = (c: DemoCollection, binder: BinderWithItems, remove
   if (wishlist && ids.length) wishlist.items = wishlist.items.filter((i) => !ids.includes(priceId(i)));
 };
 
+// The list to link a new one to: it must exist and not be linked yet (same rule as linkable in lib/mirror.ts)
+const linkable = (c: DemoCollection, type: "binder" | "wishlist", id: string | undefined) => {
+  if (!id) return true;
+  const list = type === "binder" ? c.binders.find((b) => b._id === id) : c.wishlists.find((w) => w._id === id);
+  return !!list && !(type === "binder" ? (list as BinderWithItems).wishlist : (list as WishlistWithItems).binder);
+};
+
 // Point the other list at the new one (or at nothing)
 const setLink = (c: DemoCollection, type: "binder" | "wishlist", id: string | undefined, to: string | undefined) => {
   const list = type === "binder" ? c.binders.find((b) => b._id === id) : c.wishlists.find((w) => w._id === id);
@@ -106,10 +114,14 @@ const setLink = (c: DemoCollection, type: "binder" | "wishlist", id: string | un
 // Copies: Redux freezes what it stores, while the cache is edited in place
 export const getDemoBinders = async () => structuredClone((await load()).binders);
 
-// Returns the id of the new binder. wishlist: the wishlist to link it to (items already matching)
-export const createDemoBinder = async (name: string, set?: string, items: NewListItem<BinderItemToCreate>[] = [], wishlist?: string) => {
+// Returns the id of the new binder, or null when the user has too many or the wishlist can't be linked.
+// wishlist: the wishlist to link it to (items already matching)
+export const createDemoBinder = async (name: string, set?: string, items: NewListItem<BinderItemToCreate>[] = [], wishlist?: string): Promise<string | null> => {
   const _id = newId();
+  let created = false;
   await update((c) => {
+    if (c.binders.length >= LIMITS.LISTS_PER_USER || !linkable(c, "wishlist", wishlist)) return;
+    created = true;
     const binder: BinderWithItems = {
       _id,
       user: DEMO_USER as unknown as BinderWithItems["user"],
@@ -124,7 +136,7 @@ export const createDemoBinder = async (name: string, set?: string, items: NewLis
     c.binders.push(binder);
     setLink(c, "wishlist", wishlist, _id);
   });
-  return _id;
+  return created ? _id : null;
 };
 
 export const renameDemoList = (type: "binder" | "wishlist", id: string, name: string) =>
@@ -166,7 +178,7 @@ export const saveDemoBinderItem = (item: BinderToSave, details?: DemoItemDetails
       mirrorToWishlist(c, binder, existing);
       return;
     }
-    if (!details || !binderAccepts(binder, item.type, details.item)) return;
+    if (!details || !binderAccepts(binder, item.type, details.item) || binder.items.length >= LIMITS.ITEMS_PER_LIST) return;
     const added = { _id: newId(), name: item.name, type: item.type, binder: item.binder, quantity: item.quantity, ...(item.owned === false && { owned: false }), ...details };
     binder.items.push(added);
     mirrorToWishlist(c, binder, added);
@@ -182,17 +194,18 @@ export const deleteDemoBinderItems = (binderId: string, itemIds: string[]) =>
 
 export const deleteDemoBinderItem = (binderId: string, itemId: string) => deleteDemoBinderItems(binderId, [itemId]);
 
-// Same rules as moveBinderItem in lib/db/binders.ts. Whether it moved (the destination might not take it).
+// Same rules and answers as moveBinderItem in lib/db/binders.ts
 export const moveDemoBinderItem = async (move: { id: string; from: string; to: string; quantity: number; owned: boolean }) => {
-  let moved = false;
+  let moved = "not-found" as "moved" | "not-found" | "wrong-set" | "full";
   await update((c) => {
     const source = c.binders.find((b) => b._id === move.from);
     const destination = c.binders.find((b) => b._id === move.to);
     const item = source?.items.find((i) => i._id === move.id);
     if (!source || !destination || !item || source === destination) return;
     const existing = destination.items.find((i) => priceId(i) === priceId(item));
-    const target = existing ?? (binderAccepts(destination, item.type, item.item) ? { ...item, _id: newId(), binder: destination._id } : undefined);
-    if (!target) return;
+    if (!existing && !binderAccepts(destination, item.type, item.item)) return void (moved = "wrong-set");
+    if (!existing && destination.items.length >= LIMITS.ITEMS_PER_LIST) return void (moved = "full");
+    const target = existing ?? { ...item, _id: newId(), binder: destination._id };
     const { quantity, owned } = existing ? mergeMovedItem(move, existing) : move;
     target.quantity = quantity;
     if (owned) delete target.owned;
@@ -201,7 +214,7 @@ export const moveDemoBinderItem = async (move: { id: string; from: string; to: s
     mirrorToWishlist(c, destination, target);
     unmirrorFromWishlist(c, source, [item]);
     source.items = source.items.filter((i) => i !== item);
-    moved = true;
+    moved = "moved";
   });
   return moved;
 };
@@ -210,10 +223,14 @@ export const moveDemoBinderItem = async (move: { id: string; from: string; to: s
 
 export const getDemoWishlists = async () => structuredClone((await load()).wishlists);
 
-// Returns the id of the new wishlist. binder: the binder to link it to (items already matching)
-export const createDemoWishlist = async (name: string, items: NewListItem<WishlistItemToCreate>[] = [], binder?: string) => {
+// Returns the id of the new wishlist, or null when the user has too many or the binder can't be linked.
+// binder: the binder to link it to (items already matching)
+export const createDemoWishlist = async (name: string, items: NewListItem<WishlistItemToCreate>[] = [], binder?: string): Promise<string | null> => {
   const _id = newId();
+  let created = false;
   await update((c) => {
+    if (c.wishlists.length >= LIMITS.LISTS_PER_USER || !linkable(c, "binder", binder)) return;
+    created = true;
     c.wishlists.push({
       _id,
       user: DEMO_USER as unknown as WishlistWithItems["user"],
@@ -223,7 +240,7 @@ export const createDemoWishlist = async (name: string, items: NewListItem<Wishli
     });
     setLink(c, "binder", binder, _id);
   });
-  return _id;
+  return created ? _id : null;
 };
 
 export const deleteDemoWishlist = (id: string) =>
@@ -237,7 +254,7 @@ export const deleteDemoWishlist = (id: string) =>
 export const addDemoWishlistItem = (item: WishlistToSave, details?: DemoItemDetails) =>
   update((c) => {
     const wishlist = c.wishlists.find((w) => w._id === item.wishlist);
-    if (!wishlist || !details) return;
+    if (!wishlist || !details || wishlist.items.length >= LIMITS.ITEMS_PER_LIST) return;
     wishlist.items.push({ _id: newId(), name: item.name, type: item.type, wishlist: item.wishlist, target: item.target, ...details });
     // The linked binder tracks it as missing, unless it has it already or can't take it
     const binder = c.binders.find((b) => b._id === wishlist.binder);
@@ -263,17 +280,18 @@ export const deleteDemoWishlistItem = (wishlistId: string, itemId: string) =>
     if (binder && removed) binder.items = binder.items.filter((i) => isOwned(i) || priceId(i) !== priceId(removed));
   });
 
-// Same rules as acquireWishlistItem in lib/db/wishlists.ts. Whether it went into the binder (it might not take it).
+// Same rules and answers as acquireWishlistItem in lib/db/wishlists.ts
 export const acquireDemoWishlistItem = async (acquire: { id: string; wishlist: string; binder: string }) => {
-  let acquired = false;
+  let acquired = "not-found" as "acquired" | "not-found" | "wrong-set" | "full";
   await update((c) => {
     const wishlist = c.wishlists.find((w) => w._id === acquire.wishlist);
     const binder = c.binders.find((b) => b._id === acquire.binder);
     const item = wishlist?.items.find((i) => i._id === acquire.id);
     if (!wishlist || !binder || !item) return;
     const existing = binder.items.find((i) => priceId(i) === priceId(item));
-    const target = existing ?? (binderAccepts(binder, item.type, item.item) ? { _id: newId(), name: item.name, type: item.type, binder: binder._id, quantity: 1, item: item.item, historicPrice: item.historicPrice } : undefined);
-    if (!target) return;
+    if (!existing && !binderAccepts(binder, item.type, item.item)) return void (acquired = "wrong-set");
+    if (!existing && binder.items.length >= LIMITS.ITEMS_PER_LIST) return void (acquired = "full");
+    const target = existing ?? { _id: newId(), name: item.name, type: item.type, binder: binder._id, quantity: 1, item: item.item, historicPrice: item.historicPrice };
     target.quantity = existing ? mergeMovedItem({ quantity: 1, owned: true }, existing).quantity : 1;
     delete target.owned;
     if (!existing) binder.items.push(target);
@@ -283,7 +301,7 @@ export const acquireDemoWishlistItem = async (acquire: { id: string; wishlist: s
       const linked = c.binders.find((b) => b._id === wishlist.binder);
       if (linked) linked.items = linked.items.filter((i) => isOwned(i) || priceId(i) !== priceId(item));
     }
-    acquired = true;
+    acquired = "acquired";
   });
   return acquired;
 };

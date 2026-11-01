@@ -3,7 +3,7 @@
 import { MongoClient } from "mongodb";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import type { TestProject } from "vitest/node";
-import { RULES, validatorOf } from "../../scripts/collection-rules.mjs";
+import { indexArgs, RULES, validatorOf } from "../../scripts/collection-rules.mjs";
 
 declare module "vitest" {
   export interface ProvidedContext {
@@ -18,7 +18,7 @@ export default async function setup(project: TestProject) {
   const db = client.db("collection-manager");
   for (const [name, rules] of Object.entries(RULES) as [string, { schema?: object; indexes: object[] }][]) {
     await db.createCollection(name, rules.schema ? { validator: validatorOf(rules.schema), validationLevel: "strict", validationAction: "error" } : {});
-    for (const index of rules.indexes) await db.collection(name).createIndex(index as Record<string, 1>);
+    for (const index of rules.indexes) await db.collection(name).createIndex(...(indexArgs(index) as [Record<string, 1>, { unique: boolean }]));
   }
   await client.close();
   project.provide("mongoUri", uri);

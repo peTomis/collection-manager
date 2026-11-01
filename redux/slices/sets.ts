@@ -46,18 +46,6 @@ export function getSets() {
   };
 }
 
-export function getSet(id: string) {
-  return async (dispatch: Dispatch) => {
-    try {
-      const response = await apiFetch(`/api/sets?id=${id}`, { method: "GET" });
-      const data = await response.json();
-      dispatch(getSetSuccess(data?.set));
-    } catch (error) {
-      console.error(error);
-    }
-  };
-}
-
 export function setSet(set: Set | null) {
   return async (dispatch: Dispatch) => {
     try {
