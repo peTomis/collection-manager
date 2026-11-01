@@ -1,6 +1,6 @@
 # Binderly
 
-Track the value of your Pokémon TCG collection. Organise cards and sealed products into binders, keep wishlists, and follow price history over time, with market prices collected daily from Cardmarket.
+Track the value of your Pokémon TCG collection. Organise cards and sealed products into binders, keep wishlists, and follow price history over time, with market prices collected from Cardmarket several times a day.
 
 Live at [binderly.petomis.com](https://binderly.petomis.com).
 
@@ -19,19 +19,19 @@ Enable Offline mode while connected, preferably on Wi-Fi, and keep Settings open
 
 The complete data snapshot is transferred in one authenticated `/api/offline` request, streamed set by set. Image files and app assets are cached separately. Data is stored locally in IndexedDB, pages and images in Cache Storage, and the snapshot selection in localStorage. These browser stores support the complete catalog beyond localStorage's small quota. A failed or cancelled download never replaces the previous snapshot. Downloads belong to the account that created them; signing out removes its saved download. Clearing browser site data also removes offline access. Card images use their low-resolution version offline; unavailable images keep the normal placeholder. Optional live TCGdex rarity and illustrator details are not included.
 
-Offline page loading requires HTTPS (or localhost) and service-worker support. Verify it with a production build (`npm run build` then `npm start`), since development chunks change during hot reload. Run the data-routing and read-only regression checks with `npm run test:offline`.
+Offline page loading requires HTTPS (or localhost) and service-worker support. Verify it with a production build (`yarn build` then `yarn start`), since development chunks change during hot reload. Run the data-routing and read-only regression checks with `yarn test:offline`.
 
 ## How it works
 
 ```
- ┌──────────────────┐   daily    ┌─────────┐   reads / user data   ┌──────────────────┐
- │ Scraper (Lambda) │ ─────────▶ │ MongoDB │ ◀───────────────────▶ │     Binderly     │
- │  not in this repo│   prices   └─────────┘                       │  (this Next.js)  │
- └──────────────────┘                                              └──────────────────┘
+ ┌──────────────────┐  every 3 h  ┌─────────┐   reads / user data   ┌──────────────────┐
+ │     Scraper      │ ──────────▶ │ MongoDB │ ◀───────────────────▶ │     Binderly     │
+ │ (separate repo)  │   prices    └─────────┘                       │  (this Next.js)  │
+ └──────────────────┘                                               └──────────────────┘
 ```
 
-- An external scraper runs daily and writes the catalog (sets, cards, sealed products) and their prices to MongoDB. It is not part of this repository.
-- This app reads the catalog and prices, and owns the user data: `users`, `binders`, `binder-items`, `wishlists`, `wishlist-items`. `portfolios` is read by the app.
+- A separate scraper (`collection-manager-backend`, a NestJS worker) runs every 3 hours and writes the catalog (sets, cards, sealed products), their prices and the Cardmarket listings (`offers`) to MongoDB. It is not part of this repository.
+- This app reads the catalog and prices, and owns the user data: `users`, `binders`, `binder-items`, `wishlists`, `wishlist-items`. `portfolios` is shared: the app recomputes the totals after every binder change, the scraper appends the history points. `rate-limits` holds the app's request counters. `offers` is not read by the app yet (its type is `Offer` in `types/mongodb.ts`).
 - Users can only edit their own binders and wishlists. The catalog is read-only for them.
 - The demo collection is a static file, `public/demo-collection.json`. Visitors' edits are kept in their browser's localStorage and never reach the database.
 
@@ -41,7 +41,7 @@ Offline page loading requires HTTPS (or localhost) and service-worker support. V
 - [NextAuth.js v4](https://next-auth.js.org/) with Google sign-in (JWT sessions, no session storage)
 - [MongoDB](https://www.mongodb.com/) with the official Node.js driver
 - Redux Toolkit, Tailwind CSS, Radix UI (dialogs)
-- [TCGdex](https://tcgdex.dev/) for card data and images, and the Pokémon TCG API for set data
+- [TCGdex](https://tcgdex.dev/) for card data and images
 
 ## Getting started
 
@@ -68,6 +68,7 @@ Copy `.env.template` to `.env` and fill it in:
 | `NEXTAUTH_SECRET`      | Random secret used to sign sessions: `openssl rand -base64 32`.                                   |
 | `GOOGLE_CLIENT_ID`     | Google OAuth client ID.                                                                           |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret.                                                                       |
+| `MONGODB_ADMIN_URI`    | Optional, only for `yarn db:setup --apply`: a user with `dbAdmin`, which the app's user lacks.     |
 
 To create the Google OAuth client, in [Google Cloud Console](https://console.cloud.google.com/apis/credentials) create an **OAuth client ID** of type **Web application** with:
 
@@ -81,7 +82,7 @@ yarn db:setup           # dry run: shows the rules
 yarn db:setup --apply   # applies them (needs MONGODB_ADMIN_URI)
 ```
 
-Adds the ownership rules to the user data collections: MongoDB rejects binders, wishlists and their items without a `user`, and each gets an index on `user`. Run it once per database; running it again is safe.
+Applies `scripts/collection-rules.mjs`: MongoDB rejects binders, wishlists and their items without a `user` (portfolios only log a warning, since the scraper writes them too), the user data gets an index on `user`, and the catalog and price collections get the indexes their reads need. Run it once per database; running it again is safe.
 
 ### 4. Generate the demo collection (optional)
 
@@ -107,7 +108,17 @@ The app runs on [http://localhost:5555](http://localhost:5555).
 | `yarn build`         | Build for production.                                                                       |
 | `yarn start`         | Start the production server.                                                                |
 | `yarn demo:generate` | Regenerate the static demo collection from the catalog.                                     |
-| `yarn db:setup`      | Add the ownership validators and indexes to the user data collections (`--apply` to write). |
+| `yarn db:setup`      | Add the validators and indexes of `scripts/collection-rules.mjs` (`--apply` to write).      |
+| `yarn typecheck`     | Type-check the project (`tsc --noEmit`).                                                    |
+| `yarn test`          | All tests: unit, database (throwaway MongoDB) and offline.                                  |
+| `yarn test:unit`     | Unit tests only (`tests/*.test.ts`), no database needed.                                    |
+| `yarn test:offline`  | Offline-mode regression checks (`node --test`).                                             |
+
+One-off maintenance scripts run directly with `node --env-file=.env scripts/<name>.mjs` (dry run by default, `--apply` to write): `fetch-card-images.mjs` (card images TCGdex lacks) and `set-sealed-paths.mjs` (sealed product images). `generate-icons.mjs` rebuilds the home screen icons. They import `sharp`, which comes in only as an optional dependency of Next.js.
+
+## Testing
+
+`yarn test` runs everything. The database tests (`tests/db/`) start a one-node MongoDB replica set with `mongodb-memory-server`, apply the same validators and indexes as production, and exercise `lib/db/` and the API routes. The first run downloads a MongoDB binary.
 
 ## Project structure
 
@@ -119,6 +130,8 @@ redux/          Store and slices, one per resource
 lib/            MongoDB client, authentication, input validation, demo collection
 types/          Data models and constants
 scripts/        Maintenance scripts (demo generator, collection setup, cleanups)
+tests/          Unit, database and offline tests
+public/         Static assets, demo collection, offline service worker
 ```
 
 ## Security
@@ -127,5 +140,7 @@ scripts/        Maintenance scripts (demo generator, collection setup, cleanups)
 - Every binder, wishlist and item carries its owner (`user`), and every query on them filters by the session user, so one user's documents are never read or changed by another. Items are checked through their list and by their own `user`.
 - MongoDB has no row-level security, so the database enforces the next best thing (`yarn db:setup`): documents without an owner are rejected. The app's database user has `readWrite` only and can't change these rules.
 - Visitors who are not signed in cannot use the collection API: the demo runs entirely in their browser.
+- Writes only accept `application/json`, so another site can't send them with the session cookie without a CORS preflight, which the API never grants.
+- Rate limits, counted in MongoDB so they hold across instances: search 60 requests per minute per address, offline downloads 5 per hour per user.
 - API input is validated (Joi), and user content has limits: 50 binders and 50 wishlists per user, 2000 items each, names up to 100 characters.
 - Security headers (Content Security Policy, frame protection, HSTS) are set in `next.config.js`.
