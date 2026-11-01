@@ -1,6 +1,5 @@
 // The API routes end to end on the throwaway database. Only the session is faked: getUserId returns whoever is "signed in".
 import { beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
-import type { NextApiRequest, NextApiResponse } from "next";
 import { ObjectId } from "mongodb";
 import { getUserId } from "@/lib/auth";
 import binders from "@/pages/api/binders";
@@ -9,23 +8,9 @@ import search from "@/pages/api/search";
 import { fetchPortfolio } from "@/lib/db/portfolios";
 import { LIMITS } from "@/lib/limits";
 import { newUser, seedCatalog } from "./fixtures";
+import { call, inOneWindow, visitor } from "./call";
 
 vi.mock("@/lib/auth", () => ({ getUserId: vi.fn() }));
-
-type Handler = (req: NextApiRequest, res: NextApiResponse) => unknown;
-
-// A request as Next.js parses it, and what the route answered
-const call = async (handler: Handler, { method = "GET", query = {}, body, json = true, headers = {} }: { method?: string; query?: Record<string, string>; body?: unknown; json?: boolean; headers?: Record<string, string> } = {}) => {
-  const result = { status: 200, body: undefined as any, headers: {} as Record<string, string> };
-  const res = {
-    status: (code: number) => ((result.status = code), res),
-    json: (data: unknown) => ((result.body = data), res),
-    setHeader: (key: string, value: string) => ((result.headers[key] = value), res),
-  };
-  const req = { method, query, body, headers: { ...(json && body !== undefined && { "content-type": "application/json" }), ...headers }, socket: { remoteAddress: "127.0.0.1" } };
-  await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
-  return result;
-};
 
 let catalog: Awaited<ReturnType<typeof seedCatalog>>;
 let user: ObjectId;
@@ -114,7 +99,8 @@ describe("/api/wishlists", () => {
 
 describe("/api/search", () => {
   test("finds the catalog by name, and limits each address", async () => {
-    const headers = { "x-real-ip": `test-${new ObjectId()}` };
+    inOneWindow();
+    const headers = visitor();
     const found = await call(search, { query: { q: "chari" }, headers });
     expect(found.body.cards.map((c: { name: string }) => c.name)).toContain("Charizard");
     for (let i = 1; i < 60; i++) expect((await call(search, { query: { q: "chari" }, headers })).status).toBe(200);
@@ -122,6 +108,6 @@ describe("/api/search", () => {
     expect(limited.status).toBe(429);
     expect(limited.headers["Cache-Control"]).toBe("no-store");
     // Another address isn't affected
-    expect((await call(search, { query: { q: "chari" }, headers: { "x-real-ip": "someone-else" } })).status).toBe(200);
+    expect((await call(search, { query: { q: "chari" }, headers: visitor() })).status).toBe(200);
   });
 });

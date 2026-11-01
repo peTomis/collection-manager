@@ -32,7 +32,7 @@ const WishlistsContainer = () => {
   useEffect(() => {
     if (!user) return;
     dispatch(getWishlists(user));
-    dispatch(getSets(user));
+    dispatch(getSets());
     // Binders are the destination of "Got it"
     dispatch(getBinders(user));
   }, [user]);

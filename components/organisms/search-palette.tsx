@@ -45,12 +45,12 @@ const EMPTY: Results = { sets: [], cards: [], sealed: [] };
 const fetchJson = async (url: string, init?: RequestInit) => (await apiFetch(url, init)).json();
 
 // A card or sealed product with the prices of all its versions, as the Database has them
-const fetchProduct = async (user: string, kind: ItemType, id: string): Promise<{ product: Product; prices: Map<string, HistoricPrice> } | null> => {
-  const data = await fetchJson(kind === ItemType.CARD ? `/api/cards?user=${user}&id=${id}` : `/api/sealed?user=${user}&id=${id}`);
+const fetchProduct = async (kind: ItemType, id: string): Promise<{ product: Product; prices: Map<string, HistoricPrice> } | null> => {
+  const data = await fetchJson(kind === ItemType.CARD ? `/api/cards?id=${id}` : `/api/sealed?id=${id}`);
   const item: Card | Sealed | undefined = kind === ItemType.CARD ? data?.card : data?.sealed;
   if (!item) return null;
   const items = (item.variants ?? []).slice(0, LIMITS.HISTORIC_PRICES_BATCH).map((v) => ({ type: kind, item: item._id, language: v.language, variant: "type" in v ? v.type : undefined }));
-  const priced = items.length ? await fetchJson(`/api/historic-prices?user=${user}`, { method: "POST", body: JSON.stringify({ items }) }) : null;
+  const priced = items.length ? await fetchJson(`/api/historic-prices`, { method: "POST", body: JSON.stringify({ items }) }) : null;
   const prices = new Map(((priced?.historicPrices ?? []) as HistoricPrice[]).map((p) => [historicPriceKey(p), p]));
   return { product: (kind === ItemType.CARD ? { kind, item } : { kind, item }) as Product, prices };
 };
@@ -79,7 +79,7 @@ const SearchPalette = ({ open, onOpenChange }: { open: boolean; onOpenChange: (o
   // Set names and logos for the results, the user's lists to search, and where "+ Binder" and "+ Wishlist" can add
   useEffect(() => {
     if (!open || !user) return;
-    if (!loaded) dispatch(getSets(user));
+    if (!loaded) dispatch(getSets());
     if (!bindersLoaded) dispatch(getBinders(user));
     if (!wishlistsLoaded) dispatch(getWishlists(user));
   }, [open, user]);
@@ -220,7 +220,7 @@ const SearchPalette = ({ open, onOpenChange }: { open: boolean; onOpenChange: (o
       return;
     }
     try {
-      const picked = await fetchProduct(user, kind, item);
+      const picked = await fetchProduct(kind, item);
       if (!picked) return;
       setFound(picked);
       setViewing(true);

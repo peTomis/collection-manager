@@ -27,10 +27,10 @@ export const { getPricesSuccess } = slice.actions;
 
 export default slice.reducer;
 
-export function getPrices(user: string, id: string, type: ItemType, language: string, variant?: CardVariantType) {
+export function getPrices(id: string, type: ItemType, language: string, variant?: CardVariantType) {
   return async (dispatch: Dispatch) => {
     try {
-      const response = await apiFetch(`/api/prices?user=${user}&id=${id}&type=${type}&language=${language}${variant ? `&variant=${variant}` : ""}`, { method: "GET" });
+      const response = await apiFetch(`/api/prices?id=${id}&type=${type}&language=${language}${variant ? `&variant=${variant}` : ""}`, { method: "GET" });
       const data = await response.json();
       dispatch(getPricesSuccess(data?.prices ?? []));
     } catch (error) {

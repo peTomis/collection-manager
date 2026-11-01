@@ -31,7 +31,7 @@ const BindersContainer = () => {
   useEffect(() => {
     if (!user) return;
     dispatch(getBinders(user));
-    dispatch(getSets(user));
+    dispatch(getSets());
     // The wishlist a binder is linked to
     dispatch(getWishlists(user));
   }, [user]);

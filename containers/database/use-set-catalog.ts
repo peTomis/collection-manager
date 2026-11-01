@@ -19,8 +19,8 @@ export type { Catalog };
 const fetchJson = async (url: string, init?: RequestInit) => (await apiFetch(url, init)).json();
 
 // Every card and sealed product of a set, with the prices of all their variants (fetched in batches)
-const fetchCatalog = async (user: string, set: string): Promise<Catalog> => {
-  const [cardsData, sealedData] = await Promise.all([fetchJson(`/api/cards?user=${user}&set=${set}`), fetchJson(`/api/sealed?user=${user}&set=${set}`)]);
+const fetchCatalog = async (set: string): Promise<Catalog> => {
+  const [cardsData, sealedData] = await Promise.all([fetchJson(`/api/cards?set=${set}`), fetchJson(`/api/sealed?set=${set}`)]);
   const cards: Card[] = (cardsData?.cards ?? []).sort((a: Card, b: Card) => a.number - b.number);
   const sealed: Sealed[] = sealedData?.sealed ?? [];
 
@@ -31,7 +31,7 @@ const fetchCatalog = async (user: string, set: string): Promise<Catalog> => {
   const batches = Array.from({ length: Math.ceil(items.length / LIMITS.HISTORIC_PRICES_BATCH) }, (_, i) =>
     items.slice(i * LIMITS.HISTORIC_PRICES_BATCH, (i + 1) * LIMITS.HISTORIC_PRICES_BATCH)
   );
-  const results = await Promise.all(batches.map((batch) => fetchJson(`/api/historic-prices?user=${user}`, { method: "POST", body: JSON.stringify({ items: batch }) })));
+  const results = await Promise.all(batches.map((batch) => fetchJson(`/api/historic-prices`, { method: "POST", body: JSON.stringify({ items: batch }) })));
   const prices = new Map<string, HistoricPrice>(results.flatMap((r) => (r?.historicPrices ?? []) as HistoricPrice[]).map((p) => [historicPriceKey(p), p]));
 
   return { cards, sealed, prices };
@@ -44,7 +44,7 @@ export const useSetCatalog = (user: string | null, set: string | undefined) => {
     if (!user || !set) return;
     let current = true;
     setCatalog(null);
-    fetchCatalog(user, set)
+    fetchCatalog(set)
       .then((c) => current && setCatalog(c))
       .catch((error) => {
         console.error(error);

@@ -21,7 +21,7 @@ export const useListings = (user: string | null, kind: ItemType, historicPrice: 
     setPrices(null);
     if (!user || !id || !language) return;
     let current = true;
-    fetchJson(`/api/prices?user=${user}&id=${id}&type=${kind}&language=${language}${variant ? `&variant=${variant}` : ""}`)
+    fetchJson(`/api/prices?id=${id}&type=${kind}&language=${language}${variant ? `&variant=${variant}` : ""}`)
       .then((data) => current && setPrices(data?.prices ?? []))
       .catch((error) => {
         console.error(error);
@@ -44,7 +44,7 @@ export const useVersionPrices = (user: string | null, kind: ItemType, item: Card
     if (known || !user || !item.variants?.length) return;
     let current = true;
     const items = item.variants.slice(0, LIMITS.HISTORIC_PRICES_BATCH).map((v) => ({ type: kind, item: item._id, language: v.language, variant: "type" in v ? v.type : undefined }));
-    fetchJson(`/api/historic-prices?user=${user}`, { method: "POST", body: JSON.stringify({ items }) })
+    fetchJson(`/api/historic-prices`, { method: "POST", body: JSON.stringify({ items }) })
       .then((data) => current && setFetched(new Map(((data?.historicPrices ?? []) as HistoricPrice[]).map((p) => [historicPriceKey(p), p]))))
       .catch(console.error);
     return () => {

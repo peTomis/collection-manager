@@ -120,6 +120,8 @@ One-off maintenance scripts run directly with `node --env-file=.env scripts/<nam
 
 `yarn test` runs everything. The database tests (`tests/db/`) start a one-node MongoDB replica set with `mongodb-memory-server`, apply the same validators and indexes as production, and exercise `lib/db/` and the API routes. The first run downloads a MongoDB binary.
 
+GitHub Actions (`.github/workflows/ci.yml`) runs the typecheck, all tests and a production build on every push to `main` and every pull request, and `yarn audit` on those and weekly.
+
 ## Project structure
 
 ```
@@ -141,6 +143,6 @@ public/         Static assets, demo collection, offline service worker
 - MongoDB has no row-level security, so the database enforces the next best thing (`yarn db:setup`): documents without an owner are rejected. The app's database user has `readWrite` only and can't change these rules.
 - Visitors who are not signed in cannot use the collection API: the demo runs entirely in their browser.
 - Writes only accept `application/json`, so another site can't send them with the session cookie without a CORS preflight, which the API never grants.
-- Rate limits, counted in MongoDB so they hold across instances: search 60 requests per minute per address, offline downloads 5 per hour per user.
+- The catalog is public, so its uncacheable reads are rate limited per address (search 60 per minute, price batches 60, single price reads 120), and offline downloads 5 per hour per user. Limits are counted in MongoDB so they hold across instances.
 - API input is validated (Joi), and user content has limits: 50 binders and 50 wishlists per user, 2000 items each, names up to 100 characters.
 - Security headers (Content Security Policy, frame protection, HSTS) are set in `next.config.js`.

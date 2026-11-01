@@ -35,10 +35,10 @@ export const { getHistoricPricesSuccess } = slice.actions;
 
 export default slice.reducer;
 
-export function getHistoricPrices(user: string) {
+export function getHistoricPrices() {
   return async (dispatch: Dispatch, getState: () => RootState) => {
     try {
-      const response = await apiFetch(`/api/historic-prices?user=${user}`, { method: "POST", body: JSON.stringify({ items: [] }) });
+      const response = await apiFetch(`/api/historic-prices`, { method: "POST", body: JSON.stringify({ items: [] }) });
       const data = await response.json();
 
       dispatch(getHistoricPricesSuccess(data?.historicPrices ?? []));
@@ -48,10 +48,10 @@ export function getHistoricPrices(user: string) {
   };
 }
 
-export function getHistoricPricesByCards(user: string, cards: Card[], language: Language, type: CardVariantType) {
+export function getHistoricPricesByCards(cards: Card[], language: Language, type: CardVariantType) {
   return async (dispatch: Dispatch, getState: () => RootState) => {
     try {
-      const response = await apiFetch(`/api/historic-prices?user=${user}`, {
+      const response = await apiFetch(`/api/historic-prices`, {
         method: "POST",
         body: JSON.stringify({
           items: cards.map((c) => ({
@@ -72,10 +72,10 @@ export function getHistoricPricesByCards(user: string, cards: Card[], language: 
   };
 }
 
-export function getHistoricPrice(user: string, id: string, type: string, language: string, variant?: string) {
+export function getHistoricPrice(id: string, type: string, language: string, variant?: string) {
   return async (dispatch: Dispatch) => {
     try {
-      const response = await apiFetch(`/api/historic-prices?user=${user}&id=${id}&type=${type}&language=${language}${variant ? `&variant=${variant}` : ""}`);
+      const response = await apiFetch(`/api/historic-prices?id=${id}&type=${type}&language=${language}${variant ? `&variant=${variant}` : ""}`);
       const data = await response.json();
 
       dispatch(slice.actions.getHistoricPriceSuccess(data?.historicPrice));

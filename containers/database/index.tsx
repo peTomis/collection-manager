@@ -33,7 +33,7 @@ const DatabaseContainer = () => {
 
   useEffect(() => {
     if (!user) return;
-    dispatch(getSets(user));
+    dispatch(getSets());
     // Destinations of "+ Binder" and "+ Wishlist", and what the user already owns
     dispatch(getBinders(user));
     dispatch(getWishlists(user));

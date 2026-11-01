@@ -90,7 +90,7 @@ const Topbar = () => {
   const alertsButton = React.useRef<HTMLButtonElement>(null);
   // Set logos for the list
   React.useEffect(() => {
-    if (alertsOpen && user && !setsLoaded) dispatch(getSets(user));
+    if (alertsOpen && user && !setsLoaded) dispatch(getSets());
   }, [alertsOpen]);
 
   const title = NAV.find((n) => isActive(pathname, n.href))?.label ?? "";

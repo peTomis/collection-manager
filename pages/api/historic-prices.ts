@@ -2,9 +2,16 @@ import { Db } from "mongodb";
 import { NextApiRequest, NextApiResponse } from "next";
 import { getDb } from "@/lib/mongodb";
 import { allowMethods } from "@/lib/guards";
-import { LIMITS, queryString } from "@/lib/validation";
+import { LIMITS, parseVersion } from "@/lib/validation";
+import { limitAddress } from "@/lib/rate-limit";
 import * as Joi from "joi";
 import { CardHistoricPrice, CardVariantType, HistoricPrice, ItemType, Language, SealedHistoricPrice } from "@/types/mongodb";
+
+// Open to visitors: a batch reads up to LIMITS.HISTORIC_PRICES_BATCH versions, so batches are limited per address
+// (a set in the Database takes one to three, an item detail one)
+const BATCHES_PER_MINUTE = 60;
+// Single reads are cached, so this only bounds what bypasses the cache
+const READS_PER_MINUTE = 120;
 
 // One version of an item whose price is requested (variant: cards only)
 interface PriceRequest {
@@ -55,7 +62,7 @@ const fetchHistoricPrices = async (items: PriceRequest[]): Promise<HistoricPrice
   return [...(cardPrices ?? []), ...(sealedPrices ?? [])];
 };
 
-const fetchCardHistoricPrice = async (card: string, language: string, type: CardVariantType): Promise<CardHistoricPrice> => {
+const fetchCardHistoricPrice = async (card: string, language: string, type: CardVariantType | null): Promise<CardHistoricPrice> => {
   const db = await getDb();
   const price = await db.collection("card-historic-prices").findOne({ card, language, type });
   return JSON.parse(JSON.stringify(price));
@@ -67,7 +74,7 @@ const fetchSealedHistoricPrice = async (sealed: string, language: string): Promi
   return JSON.parse(JSON.stringify(price));
 };
 
-const fetchHistoricPrice = async (type: ItemType, id: string, language: string, variant: CardVariantType): Promise<HistoricPrice> => {
+const fetchHistoricPrice = async (type: ItemType, id: string, language: string, variant: CardVariantType | null): Promise<HistoricPrice> => {
   if (type === ItemType.CARD) return await fetchCardHistoricPrice(id, language, variant);
   return await fetchSealedHistoricPrice(id, language);
 };
@@ -75,7 +82,6 @@ const fetchHistoricPrice = async (type: ItemType, id: string, language: string, 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!allowMethods(req, res, ["GET", "POST"])) return;
   if (req.method === "POST") {
-    if (!req?.query?.user) return res.status(400).json({ message: "User not provided" });
     let body;
     try {
       body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
@@ -84,20 +90,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     const { value, error } = validateItems(body?.items);
     if (error) return res.status(400).json({ message: "Invalid items" });
+    if (!(await limitAddress(req, res, "historic-prices", BATCHES_PER_MINUTE, "Too many requests. Try again in a minute."))) return;
     // Only the validated fields reach the query, so no operators can be injected
     const items = value.map(({ type, item, language, variant }: PriceRequest) => ({ type, item, language, variant })) as PriceRequest[];
     const historicPrices = await fetchHistoricPrices(items);
     return res.status(200).json({ historicPrices });
   }
   if (req.method === "GET") {
-    if (!req?.query?.user) return res.status(400).json({ message: "User not provided" });
-    const id = queryString(req.query.id);
-    const type = queryString(req.query.type);
-    const language = queryString(req.query.language);
-    if (!id) return res.status(400).json({ message: "Item not provided" });
-    if (!type) return res.status(400).json({ message: "Type not provided" });
-    if (!language) return res.status(400).json({ message: "Language not provided" });
-    const historicPrice = await fetchHistoricPrice(type as ItemType, id, language, (queryString(req.query.variant) ?? null) as CardVariantType);
+    const version = parseVersion(req.query);
+    if (!version) return res.status(400).json({ message: "Invalid item version" });
+    if (!(await limitAddress(req, res, "historic-price", READS_PER_MINUTE, "Too many requests. Try again in a minute."))) return;
+    const historicPrice = await fetchHistoricPrice(version.type, version.id, version.language, version.variant);
+    res.setHeader("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
     return res.status(200).json({ historicPrice });
   }
 }

@@ -27,7 +27,7 @@ const HomeContainer = () => {
     dispatch(getPortfolio(user));
     dispatch(getBinders(user));
     dispatch(getWishlists(user));
-    dispatch(getSets(user));
+    dispatch(getSets());
   }, [user]);
 
   return (

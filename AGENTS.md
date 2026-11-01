@@ -26,7 +26,11 @@ yarn build           # production build
   database in `.env` (production). Only run their dry runs unless asked.
 - Database tests (`tests/db/`) use a throwaway `mongodb-memory-server` replica set with the
   production rules from `scripts/collection-rules.mjs`. After changing `lib/db/`, an API route or
-  the rules, run `yarn test`.
+  the rules, run `yarn test`. Routes are called through `tests/db/call.ts` (`call`, plus `visitor`
+  and `inOneWindow` for rate limits); only `getUserId` is mocked.
+- CI (`.github/workflows/ci.yml`) runs typecheck, tests, build and `yarn audit`, which fails on any
+  advisory, dev tools included. Keep it at 0: upgrade, or pin a patched transitive version in
+  `resolutions`.
 
 ## Code map
 
@@ -39,7 +43,7 @@ yarn build           # production build
 | `lib/db/`                      | Server-only queries on binders, wishlists, portfolios, sets                       |
 | `lib/mirror.ts`                | Keeps a binder and its linked wishlist in step                                    |
 | `lib/portfolio.ts`             | Recomputes a user's portfolio totals after binder changes                         |
-| `lib/rate-limit.ts`            | Fixed-window limits stored in the `rate-limits` collection                        |
+| `lib/rate-limit.ts`            | Fixed-window limits in `rate-limits`; `limitAddress` for public routes            |
 | `lib/demo-collection.ts`       | Demo mode for signed-out visitors, in localStorage only                           |
 | `lib/api-fetch.ts`, `offline*` | Client API boundary; serves reads from the IndexedDB snapshot in offline mode     |
 | `public/offline-sw.js`         | Service worker: app shell cache, never caches `/api/`                             |
@@ -53,7 +57,9 @@ yarn build           # production build
 - **Ownership**: the user always comes from `getUserId(req, res)`, never from the request. Every
   query on `binders`, `wishlists`, `binder-items`, `wishlist-items` and `portfolios` filters by that
   `user`, items included (by their own `user`, not only through their list). The `?user=` query
-  param that the client sends is not authentication: never use it to select data.
+  param the client sends to collection routes is not authentication: never use it to select data.
+  Catalog routes (`cards`, `sealed`, `sets`, `prices`, `historic-prices`, `search`) are public and
+  take no user: keep them cacheable and rate limit per address (`limitAddress`) what isn't.
 - **Input**: query params go through `queryString` / `parseObjectId` (arrays and objects rejected);
   bodies through a Joi schema; only validated fields reach a query, so no operators can be
   injected. Respect `LIMITS` (names, lists per user, items per list, batch sizes).

@@ -42,10 +42,10 @@ export const { getCardsSuccess, getCardSuccess, clearCardsSuccess } = slice.acti
 
 export default slice.reducer;
 
-export function getCards(user: string) {
+export function getCards() {
   return async (dispatch: Dispatch) => {
     try {
-      const response = await apiFetch(`/api/cards?user=${user}`, { method: "GET" });
+      const response = await apiFetch(`/api/cards`, { method: "GET" });
       const data = await response.json();
       dispatch(getCardsSuccess(data?.cards ?? []));
     } catch (error) {
@@ -64,10 +64,10 @@ export function setCard(card: Card | null) {
   };
 }
 
-export function getCardsBySet(user: string, set: string) {
+export function getCardsBySet(set: string) {
   return async (dispatch: Dispatch) => {
     try {
-      const response = await apiFetch(`/api/cards?user=${user}&set=${set}`, { method: "GET" });
+      const response = await apiFetch(`/api/cards?set=${set}`, { method: "GET" });
       const data = await response.json();
       dispatch(getCardsSuccess(data?.cards ?? []));
     } catch (error) {
@@ -76,10 +76,10 @@ export function getCardsBySet(user: string, set: string) {
   };
 }
 
-export function getCard(user: string, id: string) {
+export function getCard(id: string) {
   return async (dispatch: Dispatch) => {
     try {
-      const response = await apiFetch(`/api/cards?id=${id}&user=${user}`, { method: "GET" });
+      const response = await apiFetch(`/api/cards?id=${id}`, { method: "GET" });
       const data = await response.json();
       dispatch(getCardSuccess(data?.card));
     } catch (error) {

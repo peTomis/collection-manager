@@ -19,7 +19,6 @@ export const fetchCard = async (_id: ObjectId) => {
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!allowMethods(req, res, ["GET"])) return;
   if (req.method === "GET") {
-    if (!req?.query?.user) return res.status(400).json({ message: "User not provided" });
     if (req?.query?.id) {
       const id = parseObjectId(req.query.id);
       if (!id) return res.status(400).json({ message: "Invalid card ID" });
