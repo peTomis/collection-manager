@@ -8,3 +8,4 @@
 /.next-e2e/
 /playwright-report/
 /test-results/
+/.env.sentry-build-plugin

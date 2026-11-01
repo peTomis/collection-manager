@@ -2,6 +2,7 @@
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
 import { refreshPortfolio } from "@/lib/portfolio";
+import { reportError } from "@/lib/monitoring";
 
 export const fetchPortfolio = async (user: ObjectId) => {
   const db = await getDb();
@@ -14,6 +15,6 @@ export const updatePortfolio = async (user: ObjectId) => {
   try {
     await refreshPortfolio(await getDb(), user);
   } catch (error) {
-    console.error("Portfolio update failed", error);
+    reportError("Portfolio update failed", error);
   }
 };

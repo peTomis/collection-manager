@@ -1,5 +1,6 @@
 import { clearOfflineDownload } from "@/lib/offline-download";
 import OfflineSettings from "./offline-settings";
+import AccountSettings from "./account-settings";
 import { useReadOnly } from "@/lib/offline";
 // Libraries
 import { useEffect, useState } from "react";
@@ -116,6 +117,7 @@ const SettingsPanel = ({ open, onOpenChange, theme, onThemeChange }: SettingsPan
             </div>
 
             <OfflineSettings />
+            <AccountSettings signedIn={!profile.isDemo} />
 
             <div className="py-5">
               <div className="font-geist-mono font-medium text-[11px] md:text-xs tracking-[.08em] uppercase text-ink-muted mb-2.5 md:mb-3">Theme</div>

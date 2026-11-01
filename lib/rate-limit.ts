@@ -2,6 +2,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getDb } from "@/lib/mongodb";
 import { queryString } from "@/lib/validation";
+import { reportError } from "@/lib/monitoring";
 
 interface Window {
   _id: string;
@@ -17,7 +18,7 @@ export const rateLimit = async (key: string, limit: number, windowMs: number): P
   // MongoDB removes the windows once they expire
   indexed ??= windows.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }).catch((error) => {
     indexed = undefined;
-    console.error("Rate limit index failed", error);
+    reportError("Rate limit index failed", error);
   });
   const window = Math.floor(Date.now() / windowMs);
   const expiresAt = new Date((window + 1) * windowMs);

@@ -39,7 +39,7 @@ yarn build           # production build
   scraper's format changed: update the frontend types and their readers.
 - End-to-end (`e2e/`): `e2e/server.mjs` starts a throwaway MongoDB seeded from `e2e/catalog.mjs`
   and `next start`; `signIn` in `e2e/session.ts` mints a NextAuth session cookie with the test
-  secret, no Google. Every journey runs on a desktop and a phone layout: find buttons by role and
+  secret, no Google, after creating the user's `users` document (sessions without one are refused). Every journey runs on a desktop and a phone layout: find buttons by role and
   name, and use `filter({ visible: true })` where the two layouts render different controls.
 - CI (`.github/workflows/ci.yml`) runs typecheck, tests with coverage, the end-to-end journeys and
   `yarn audit`, which fails on any advisory, dev tools included. Keep it at 0: upgrade, or pin a
@@ -51,6 +51,10 @@ yarn build           # production build
 | ------------------------------ | --------------------------------------------------------------------------------- |
 | `pages/api/*.ts`               | API routes: method guard, session user, Joi validation, then a `lib/db/` call     |
 | `lib/auth.ts`                  | NextAuth options, `getUserId` (the only source of the current user)               |
+| `lib/db/account.ts`            | Account download and deletion (`/api/account`), `accountExists`                   |
+| `lib/monitoring.ts`            | Sentry options (what reports may carry), `reportError`                            |
+| `instrumentation*.ts`          | Sentry init on the server and in the browser; off without `NEXT_PUBLIC_SENTRY_DSN` |
+| `pages/privacy.tsx`            | The privacy policy: what is stored and sent, kept in step with the code           |
 | `lib/guards.ts`                | `allowMethods`, `requireJson`                                                     |
 | `lib/validation.ts`            | `queryString`, `parseObjectId`, `LIMITS` (from `lib/limits.ts`)                   |
 | `lib/db/`                      | Server-only queries on binders, wishlists, portfolios, sets                       |
@@ -84,6 +88,15 @@ yarn build           # production build
   binder = wanted in the wishlist). Moves between lists run in a transaction (`inTransaction`).
 - **Portfolio**: call `updatePortfolio(user)` after any change to binder contents; its failure only
   logs.
+- **Account deletion**: `deleteAccount` (`lib/db/account.ts`) deletes every user-owned collection in one transaction,
+  and `exportAccount` returns all of it. A new collection holding user data must be added to both, and to
+  `tests/db/account.test.ts`. `getUserId` returns null for a session whose user was deleted.
+- **Privacy**: `pages/privacy.tsx` lists the personal data, cookies, browser storage and providers. A change to any of
+  them (a new field, host, cookie or storage key) updates the page and its date.
+- **Monitoring**: errors that are caught and logged go through `reportError`, not `console.error`, on the server.
+  Sentry events never carry personal data: keep `sendDefaultPii: false` and the scrubbing in `beforeSend`, and don't
+  add tracing or session replay without updating the privacy policy. Browser events use the `/monitoring` tunnel, so
+  the CSP needs no Sentry host.
 - **Users**: one `users` document per Google account, enforced by a unique index on
   `{ provider, providerId }`; `upsertUser` retries once when a concurrent first sign-in wins.
 - **Demo and offline**: signed-out visitors (`DEMO_USER`) never reach the database. Demo mode

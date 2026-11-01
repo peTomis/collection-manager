@@ -69,6 +69,8 @@ Copy `.env.template` to `.env` and fill it in:
 | `GOOGLE_CLIENT_ID`     | Google OAuth client ID.                                                                           |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret.                                                                       |
 | `MONGODB_ADMIN_URI`    | Optional, only for `yarn db:setup --apply`: a user with `dbAdmin`, which the app's user lacks.     |
+| `NEXT_PUBLIC_SENTRY_DSN` | Optional: the Sentry project's DSN. Error reporting is off without it (see [Monitoring](#monitoring)). |
+| `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` | Optional, at build time: upload source maps to Sentry so its stack traces show the original code. |
 
 To create the Google OAuth client, in [Google Cloud Console](https://console.cloud.google.com/apis/credentials) create an **OAuth client ID** of type **Web application** with:
 
@@ -126,7 +128,7 @@ One-off maintenance scripts run directly with `node --env-file=.env scripts/<nam
 | Database | `tests/db/` | `lib/db/` and every API route against a one-node MongoDB replica set (`mongodb-memory-server`) with the production validators and indexes; sign-in; demo mode following the server's rules |
 | Contract | `tests/contract.test.ts` | The scraper's document types still match `types/mongodb.ts` (needs `../collection-manager-backend`, skipped without it) |
 | Offline | `tests/offline.test.cjs` | Offline snapshot reads, blocked writes, stream integrity, account isolation |
-| End-to-end | `e2e/` | Playwright on a production build, desktop and phone: creating a binder and adding cards, two users' isolation, the demo, offline browsing |
+| End-to-end | `e2e/` | Playwright on a production build, desktop and phone: creating a binder and adding cards, two users' isolation, the demo, offline browsing, downloading and deleting an account |
 
 `yarn test` runs the first four, `yarn test:e2e` the last (install its browser once with `npx playwright install chromium`). The first database run downloads a MongoDB binary. The end-to-end tests sign in by minting a session cookie with a test secret, so they need no Google account, and never touch the database in `.env`.
 
@@ -146,6 +148,22 @@ tests/          Unit, database, contract and offline tests
 e2e/            Playwright journeys, their server and catalog
 public/         Static assets, demo collection, offline service worker
 ```
+
+## Monitoring
+
+Errors are reported to [Sentry](https://sentry.io) when `NEXT_PUBLIC_SENTRY_DSN` is set, in production builds only (`lib/monitoring.ts`):
+
+- **Server**: errors thrown in API routes and pages (`instrumentation.ts`), and the ones the code recovers from but logs (`reportError`: portfolio updates, offline downloads).
+- **Browser**: uncaught errors and crashes (`instrumentation-client.ts`, `pages/_error.tsx`). They go to `/monitoring` on the app's own origin, which forwards them to Sentry, so the Content Security Policy stays `'self'` and ad blockers don't drop them.
+- **No personal data**: no tracing or session replay; reports carry the stack and the URL path, never cookies, request bodies, query strings or the user. In the Sentry project settings, also turn on **Prevent Storing of IP Addresses** and keep data retention at 90 days or less, as the privacy policy says.
+
+To set it up, create a Next.js project in Sentry and set `NEXT_PUBLIC_SENTRY_DSN` in the hosting environment. For readable stack traces, also set `SENTRY_ORG`, `SENTRY_PROJECT` and `SENTRY_AUTH_TOKEN` (an organization token with the `project:releases` scope) for the production build: the source maps are uploaded, then deleted from the build so they are never served. Add an alert rule for new issues to get an email when something breaks.
+
+## Privacy
+
+`/privacy` describes what the app stores and sends; it is linked from the home page footer and from Settings. Keep it in step with the code when that changes: a new kind of personal data, a new provider, a new cookie or storage key. Before going live, set its contact address (`CONTACT_EMAIL` in `pages/privacy.tsx`) to a mailbox you read.
+
+In **Settings → Your data**, a signed-in user can download everything stored about them (`GET /api/account`, 10 per hour) and delete their account (`DELETE /api/account` with `{ "confirm": true }`). Deletion removes the user, their binders, wishlists, items and portfolio in one transaction. A session cookie outlives its deleted account until it expires, so `getUserId` refuses sessions whose user no longer exists.
 
 ## Security
 

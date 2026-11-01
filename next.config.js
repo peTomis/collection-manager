@@ -1,5 +1,6 @@
 const { createHash } = require("node:crypto");
 const { THEME_SCRIPT } = require("./lib/theme-script");
+const { withSentryConfig } = require("@sentry/nextjs/config");
 
 const isDev = process.env.NODE_ENV !== "production";
 
@@ -23,7 +24,7 @@ const contentSecurityPolicy = [
   "frame-ancestors 'none'",
 ].join("; ");
 
-module.exports = {
+const nextConfig = {
   // yarn test:e2e builds into .next-e2e, so it never touches the .next of a running dev server
   distDir: process.env.NEXT_DIST_DIR || ".next",
   poweredByHeader: false,
@@ -43,3 +44,15 @@ module.exports = {
     ];
   },
 };
+
+// Error reporting (lib/monitoring.ts). Browser events go through /monitoring on this origin, so connect-src stays 'self'.
+// Source maps are uploaded, then deleted from the build, only when SENTRY_AUTH_TOKEN is set (CI or the hosting build).
+module.exports = withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+  tunnelRoute: "/monitoring",
+  telemetry: false,
+  silent: !process.env.CI,
+});

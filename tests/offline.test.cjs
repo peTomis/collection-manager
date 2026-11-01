@@ -218,6 +218,7 @@ async function runExportAPI(requestedUser, owner = "owner", limited = false) {
       },
     },
     "@/lib/validation": { queryString: (value) => (typeof value === "string" ? value : undefined) },
+    "@/lib/monitoring": { reportError: () => {} },
     "@/lib/db/sets": { fetchSets: async () => [{ _id: "set", name: "151" }] },
     "@/lib/db/binders": {
       fetchBindersWithCard: async (user) => {

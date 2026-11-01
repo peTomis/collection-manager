@@ -1,6 +1,7 @@
 // The end-to-end server: a throwaway MongoDB with the production rules and the test catalog, then the production build
 // (yarn test:e2e builds it into .next-e2e, so a running dev server's .next is left alone). Stops both on exit.
 import { spawn } from "node:child_process";
+import { writeFileSync } from "node:fs";
 import { MongoClient } from "mongodb";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { indexArgs, RULES, validatorOf } from "../scripts/collection-rules.mjs";
@@ -8,6 +9,7 @@ import { seed } from "./catalog.mjs";
 
 export const PORT = 5556;
 export const SECRET = "e2e-secret";
+const MONGO_URI_FILE = ".next-e2e/mongo-uri";
 
 const mongo = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: "wiredTiger" } });
 const uri = mongo.getUri();
@@ -19,6 +21,8 @@ for (const [name, rules] of Object.entries(RULES)) {
 }
 await seed(db);
 await client.close();
+// For signIn (e2e/session.ts), which creates the users documents the sessions belong to
+writeFileSync(MONGO_URI_FILE, uri);
 
 const next = spawn("npx", ["next", "start", "-p", String(PORT)], {
   stdio: "inherit",

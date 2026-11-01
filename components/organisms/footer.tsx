@@ -30,7 +30,12 @@ const Footer = () => (
       </div>
       <div className="flex flex-col gap-2 pt-6 text-xs border-t border-line">
         <p>Binderly is an unofficial fan project, not affiliated with Nintendo, The Pokémon Company or Cardmarket. Pokémon and its trademarks belong to their respective owners.</p>
-        <p>© {new Date().getFullYear()} Binderly</p>
+        <p>
+          © {new Date().getFullYear()} Binderly ·{" "}
+          <Link href="/privacy" className="transition-colors hover:text-ink">
+            Privacy policy
+          </Link>
+        </p>
       </div>
     </div>
   </footer>

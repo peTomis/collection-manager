@@ -58,9 +58,17 @@ describe("getUserId", () => {
   const res = {} as NextApiResponse;
 
   test("is the session's user, as an ObjectId", async () => {
-    const id = new ObjectId();
+    const id = new ObjectId((await signIn(googleId())).userId);
     vi.mocked(getServerSession).mockResolvedValueOnce({ user: { id: id.toHexString() }, expires: "" });
     expect(await getUserId(req, res)).toEqual(id);
+  });
+
+  // The session cookie stays valid until it expires (on another device, say): it must not write a collection nobody owns
+  test("is null once the account is deleted, though its session is still valid", async () => {
+    const id = new ObjectId((await signIn(googleId())).userId);
+    await (await getDb()).collection("users").deleteOne({ _id: id });
+    vi.mocked(getServerSession).mockResolvedValueOnce({ user: { id: id.toHexString() }, expires: "" });
+    expect(await getUserId(req, res)).toBeNull();
   });
 
   test("is null without a session, a user id, or with a malformed one", async () => {

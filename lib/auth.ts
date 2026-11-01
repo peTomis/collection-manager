@@ -3,6 +3,7 @@ import { getServerSession, NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
+import { accountExists } from "@/lib/db/account";
 
 const upsertUser = async (providerId: string, email?: string | null, name?: string | null, image?: string | null): Promise<string> => {
   const db = await getDb();
@@ -47,8 +48,11 @@ export const authOptions: NextAuthOptions = {
 
 // The user is always resolved from the session, never from the request.
 // Visitors without a session get null: their demo collection lives in the browser (lib/demo-collection.ts).
+// So does a session of a deleted account, which stays valid until it expires (on another device, say): it must not write a collection nobody owns.
 export const getUserId = async (req: NextApiRequest, res: NextApiResponse): Promise<ObjectId | null> => {
   const session = await getServerSession(req, res, authOptions);
   const id = session?.user?.id;
-  return id && ObjectId.isValid(id) ? new ObjectId(id) : null;
+  if (!id || !ObjectId.isValid(id)) return null;
+  const user = new ObjectId(id);
+  return (await accountExists(user)) ? user : null;
 };

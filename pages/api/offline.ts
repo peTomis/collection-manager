@@ -8,6 +8,7 @@ import { fetchSets } from "@/lib/db/sets";
 import { fetchBindersWithCard } from "@/lib/db/binders";
 import { fetchWishlistsWithCard } from "@/lib/db/wishlists";
 import { fetchPortfolio } from "@/lib/db/portfolios";
+import { reportError } from "@/lib/monitoring";
 
 export const config = { api: { responseLimit: false } };
 export const maxDuration = 300;
@@ -103,7 +104,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.end();
   } catch (error) {
     if (!controller.signal.aborted) {
-      console.error("Offline export failed", error);
+      reportError("Offline export failed", error);
       if (!res.headersSent) res.status(500).json({ message: "Offline download failed. Please try again." });
       else res.end(JSON.stringify({ type: "error", message: "Offline download was interrupted. Please try again." }) + "\n");
     }
