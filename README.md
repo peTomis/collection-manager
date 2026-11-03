@@ -31,7 +31,7 @@ Offline page loading requires HTTPS (or localhost) and service-worker support. V
 ```
 
 - A separate scraper (`collection-manager-backend`, a NestJS worker) runs every 3 hours and writes the catalog (sets, cards, sealed products), their prices and the Cardmarket listings (`offers`) to MongoDB. It is not part of this repository.
-- This app reads the catalog and prices, and owns the user data: `users`, `binders`, `binder-items`, `wishlists`, `wishlist-items`. `portfolios` is shared: the app recomputes the totals after every binder change, the scraper appends the history points. `rate-limits` holds the app's request counters. `offers` is not read by the app yet (its type is `Offer` in `types/mongodb.ts`).
+- This app reads the catalog and prices, and owns the user data: `users`, `binders`, `binder-items`, `wishlists`, `wishlist-items`. `portfolios` is shared: the app recomputes the totals after every binder change, the scraper appends the history points. `rate-limits` holds the app's request counters. `offers` is read by the Offers tab of a card's detail (`/api/offers`): the listings of its last scrape and those gone in the 30 days before it.
 - Users can only edit their own binders and wishlists. The catalog is read-only for them.
 - The demo collection is a static file, `public/demo-collection.json`. Visitors' edits are kept in their browser's localStorage and never reach the database.
 

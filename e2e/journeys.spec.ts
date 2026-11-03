@@ -111,6 +111,24 @@ test.describe("visitor", () => {
     await other.close();
   });
 
+  test("sees the Cardmarket offers of a card in its detail", async ({ page }) => {
+    await page.goto(`/database?set=${IDS.base}`);
+    await page.getByRole("button", { name: "View Charizard", exact: true }).click();
+    const detail = page.getByRole("dialog");
+    await expect(detail.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
+    await detail.getByRole("tab", { name: /^Offers/ }).click();
+    const offers = detail.getByRole("tabpanel", { name: "Offers" });
+    // Cheapest first, then the listing gone since the last scrape
+    await expect(offers.getByText(/PSA 9 Mint|Played, light crease|Near mint/)).toHaveText(["Played, light crease", "PSA 9 Mint", "Near mint"]);
+    await expect(offers.getByText("No longer listed")).toBeVisible();
+    // An edited comment keeps what the listing claimed before
+    await expect(offers.getByText("PSA 10 Gem Mint")).toBeVisible();
+
+    // The listings' photos get their own tab, empty for now
+    await detail.getByRole("tab", { name: "Photos" }).click();
+    await expect(detail.getByRole("tabpanel", { name: "Photos" })).toBeVisible();
+  });
+
   test("can't use the collection API", async ({ request }) => {
     expect((await request.get("/api/binders")).status()).toBe(401);
     expect((await request.post("/api/binders", { data: { binder: { name: "Sneaky" } } })).status()).toBe(401);

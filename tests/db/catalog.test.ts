@@ -1,4 +1,4 @@
-// The catalog routes visitors can reach without signing in: cards, sealed, sets, prices and historic prices
+// The catalog routes visitors can reach without signing in: cards, sealed, sets, prices, historic prices and offers
 import { beforeAll, describe, expect, test, vi } from "vitest";
 import { getDb } from "@/lib/mongodb";
 import { CardVariantType, ItemType, Language } from "@/types/mongodb";
@@ -8,6 +8,8 @@ import sealed from "@/pages/api/sealed";
 import sets from "@/pages/api/sets";
 import prices from "@/pages/api/prices";
 import historicPrices from "@/pages/api/historic-prices";
+import offers from "@/pages/api/offers";
+import { GONE_WINDOW, MAX_LISTED } from "@/lib/db/offers";
 import { seedCatalog } from "./fixtures";
 import { call, inOneWindow, visitor } from "./call";
 
@@ -36,7 +38,7 @@ describe("every catalog route", () => {
     expect((await call(cards, { query: { set: String(base) } })).status).toBe(200);
     expect((await call(sealed, { query: { set: String(base) } })).status).toBe(200);
     expect((await call(sets)).status).toBe(200);
-    for (const handler of [cards, sealed, sets, prices]) {
+    for (const handler of [cards, sealed, sets, prices, offers]) {
       const refused = await call(handler, { method: "POST", body: {} });
       expect(refused.status).toBe(405);
       expect(refused.headers.Allow).toBe("GET");
@@ -171,5 +173,100 @@ describe("/api/historic-prices", () => {
     expect(limited.headers["Cache-Control"]).toBe("no-store");
     // Another address isn't affected
     expect((await call(historicPrices, { method: "POST", body: { items: versions() }, headers: visitor() })).status).toBe(200);
+  });
+});
+
+describe("/api/offers", () => {
+  const charizard = () => ({ id: catalog.charizard.item, type: ItemType.CARD, language: Language.ENGLISH, variant: CardVariantType.REGULAR });
+  const DAY = 24 * 60 * 60 * 1000;
+  const LAST = 100 * DAY;
+
+  // A listing as the scraper writes it: one sighting per scrape that listed it
+  const listing = (article: string, price: number, seen: number[], version: object = { item: catalog.charizard.item, type: CardVariantType.REGULAR, language: Language.ENGLISH }) => ({
+    article,
+    seller: `seller-${article}`,
+    comment: `comment ${article}`,
+    image: `https://example-s3.cardmarket.com/${article}.jpg`,
+    price,
+    itemType: ItemType.CARD,
+    url: "https://www.cardmarket.com/en/Pokemon/Products/Singles/Base-Set/Charizard",
+    ...version,
+    firstSeenAt: seen[0],
+    lastSeenAt: seen[seen.length - 1],
+    seen: seen.map((timestamp, i) => ({ timestamp, price: price + (seen.length - 1 - i) * 10 })),
+  });
+
+  beforeAll(async () => {
+    const db = await getDb();
+    await db.collection("offers").insertMany([
+      // Listed at the last scrape: one repriced from €420 to €400, whose comment changed the day before
+      {
+        ...listing("1", 400, [LAST - 2 * DAY, LAST - DAY, LAST]),
+        comments: [
+          { timestamp: LAST - 2 * DAY, text: "PSA 9" },
+          { timestamp: LAST - DAY, text: "comment 1" },
+        ],
+      },
+      listing("2", 350, [LAST]),
+      // Gone before the last scrape: one within the window, one too old
+      listing("3", 380, [LAST - 5 * DAY]),
+      listing("4", 390, [LAST - GONE_WINDOW - DAY]),
+      // Another version and another card: never mixed in
+      listing("5", 100, [LAST], { item: catalog.charizard.item, type: CardVariantType.REGULAR, language: Language.ITALIAN }),
+      listing("6", 100, [LAST + DAY], { item: catalog.blastoise.item, type: CardVariantType.REGULAR, language: Language.ENGLISH }),
+    ]);
+  });
+
+  test("the listings of the last scrape, cheapest first, then those gone in the window before it, cached", async () => {
+    const result = await call(offers, { query: charizard(), headers: visitor() });
+    expect(result.status).toBe(200);
+    expect(result.headers["Cache-Control"]).toBe(CACHED);
+    expect(result.body.seenAt).toBe(LAST);
+    expect(result.body.listed.map((o: { article: string }) => o.article)).toEqual(["2", "1"]);
+    expect(result.body.gone.map((o: { article: string }) => o.article)).toEqual(["3"]);
+    const repriced = result.body.listed[1];
+    expect(repriced).toMatchObject({ price: 400, firstPrice: 420, firstSeenAt: LAST - 2 * DAY, lastSeenAt: LAST, seller: "seller-1", comment: "comment 1" });
+    // Every comment the listing had, so an edited claim is never lost
+    expect(repriced.comments).toEqual([
+      { timestamp: LAST - 2 * DAY, text: "PSA 9" },
+      { timestamp: LAST - DAY, text: "comment 1" },
+    ]);
+    // Neither the price history, the photo nor the database id leaves the server
+    expect(repriced).not.toHaveProperty("seen");
+    expect(repriced).not.toHaveProperty("image");
+    expect(repriced).not.toHaveProperty("_id");
+  });
+
+  test("nothing for a version without listings", async () => {
+    const box = await call(offers, { query: { id: catalog.box.item, type: ItemType.SEALED, language: Language.ENGLISH }, headers: visitor() });
+    expect(box.body).toEqual({ seenAt: null, listed: [], gone: [] });
+    const japanese = await call(offers, { query: { ...charizard(), language: Language.JAPANESE }, headers: visitor() });
+    expect(japanese.body).toEqual({ seenAt: null, listed: [], gone: [] });
+  });
+
+  test("bounds the answer", async () => {
+    const db = await getDb();
+    const many = Array.from({ length: MAX_LISTED + 5 }, (_, i) => listing(`scyther-${i}`, 10 + i, [LAST], { item: catalog.scyther.item, type: CardVariantType.REGULAR, language: Language.ENGLISH }));
+    await db.collection("offers").insertMany(many);
+    const result = await call(offers, { query: { ...charizard(), id: catalog.scyther.item }, headers: visitor() });
+    expect(result.body.listed).toHaveLength(MAX_LISTED);
+    expect(result.body.listed[0].price).toBe(10);
+  });
+
+  test("refuses anything but a well-formed version", async () => {
+    const headers = visitor();
+    for (const query of [{ ...charizard(), id: "nope" }, { ...charizard(), type: "bulk" }, { ...charizard(), language: "fr" }, { ...charizard(), variant: "holo" }, { id: catalog.charizard.item, type: ItemType.CARD }]) {
+      expect((await call(offers, { query, headers })).status).toBe(400);
+    }
+  });
+
+  test("limits each address, without caching the refusal", async () => {
+    inOneWindow();
+    const headers = visitor();
+    for (let i = 0; i < 120; i++) expect((await call(offers, { query: charizard(), headers })).status).toBe(200);
+    const limited = await call(offers, { query: charizard(), headers });
+    expect(limited.status).toBe(429);
+    expect(limited.headers["Cache-Control"]).toBe("no-store");
+    expect((await call(offers, { query: charizard(), headers: visitor() })).status).toBe(200);
   });
 });

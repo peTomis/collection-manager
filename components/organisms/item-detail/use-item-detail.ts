@@ -3,7 +3,7 @@ import { apiFetch } from "@/lib/api-fetch";
 import { useEffect, useState } from "react";
 
 // Types
-import { Card, CardHistoricPrice, HistoricPrice, ItemType, Price, Sealed, SealedHistoricPrice } from "@/types/mongodb";
+import { Card, CardHistoricPrice, HistoricPrice, ItemType, Price, Sealed, SealedHistoricPrice, VersionOffers } from "@/types/mongodb";
 import { historicPriceKey } from "@/containers/database/use-set-catalog";
 import { LIMITS } from "@/lib/limits";
 
@@ -33,6 +33,31 @@ export const useListings = (user: string | null, kind: ItemType, historicPrice: 
   }, [user, kind, id, language, variant]);
 
   return prices;
+};
+
+// Cardmarket listings of one version, for cards only (the scraper collects them for cards above €100).
+// "unavailable": the request failed, e.g. in offline mode, whose download doesn't include them.
+export const useOffers = (kind: ItemType, historicPrice: HistoricPrice | undefined) => {
+  const [offers, setOffers] = useState<VersionOffers | "unavailable" | null>(null);
+
+  const card = kind === ItemType.CARD ? (historicPrice as CardHistoricPrice | undefined) : undefined;
+  const id = card?.card;
+  const language = card?.language;
+  const variant = card?.type;
+
+  useEffect(() => {
+    setOffers(null);
+    if (!id || !language) return;
+    let current = true;
+    fetchJson(`/api/offers?id=${id}&type=${ItemType.CARD}&language=${language}${variant ? `&variant=${variant}` : ""}`)
+      .then((data: VersionOffers) => current && setOffers(Array.isArray(data?.listed) ? data : "unavailable"))
+      .catch(() => current && setOffers("unavailable"));
+    return () => {
+      current = false;
+    };
+  }, [id, language, variant]);
+
+  return offers;
 };
 
 // Prices of every version of an item, keyed by priceKey. The database already has them in its catalog (`known`).

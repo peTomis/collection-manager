@@ -161,6 +161,19 @@ export interface Offer {
   lastSeenAt: number;
   // One entry per scrape that listed the offer
   seen: { timestamp: number; price: number }[];
+  // Every comment the seller gave the listing, oldest first: a new entry only when it changes.
+  // Missing on listings not seen again since the history was added.
+  comments?: { timestamp: number; text: string }[];
+}
+
+// One listing as /api/offers returns it: its latest state and the price it was first listed at
+export type ListedOffer = Pick<Offer, "article" | "seller" | "comment" | "price" | "firstSeenAt" | "lastSeenAt" | "comments"> & { firstPrice: number };
+
+// The listings of one version: those of the last scrape that saw any (seenAt), and those gone shortly before it
+export interface VersionOffers {
+  seenAt: number | null;
+  listed: ListedOffer[];
+  gone: ListedOffer[];
 }
 
 declare global {

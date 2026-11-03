@@ -1,4 +1,4 @@
-import { useReadOnly } from "@/lib/offline";
+import { useOffline, useReadOnly } from "@/lib/offline";
 import EditButton from "@/components/atoms/edit-button";
 // Libraries
 import { useState } from "react";
@@ -21,7 +21,7 @@ import { useAcquire } from "@/components/organisms/use-acquire";
 import { useDispatch, useSelector } from "@/redux/store";
 import { changeBinderItemQuantity, deleteBinderItem, moveBinderItem } from "@/redux/slices/binders";
 import { deleteWishlistItem, setWishlistItemTarget } from "@/redux/slices/wishlists";
-import { BinderItem, Card, CardVariant, HistoricPrice, ItemType, Language, Sealed, SealedVariant, WishlistItem } from "@/types/mongodb";
+import { BinderItem, Card, CardVariant, HistoricPrice, ItemType, Language, ListedOffer, Sealed, SealedVariant, VersionOffers, WishlistItem } from "@/types/mongodb";
 import { Product, displayName, historicPriceKey, priceKey } from "@/containers/database/use-set-catalog";
 import type { Destination } from "@/containers/database/components/add-item-modal";
 import { getPastPrice, getPrice, PricePeriod } from "@/lib/prices";
@@ -30,7 +30,7 @@ import { useCardInfo, useSetImages } from "@/lib/tcgdex";
 import { fontVariables } from "@/lib/fonts";
 import { change, deltaColor, eur, pct, signedEur } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { useListings, useVersionPrices } from "./use-item-detail";
+import { useListings, useOffers, useVersionPrices } from "./use-item-detail";
 import { SwipeHandlers, useSwipeToClose } from "@/lib/use-swipe-to-close";
 
 // Where the detail was opened from decides its actions
@@ -60,6 +60,14 @@ const LANGUAGE_NAMES: Record<Language, string> = {
 };
 
 type Variant = CardVariant | SealedVariant;
+
+type Tab = "overview" | "offers" | "photos";
+
+const TABS: { value: Tab; label: string }[] = [
+  { value: "overview", label: "Overview" },
+  { value: "offers", label: "Offers" },
+  { value: "photos", label: "Photos" },
+];
 
 const targetKey = (t: ItemDetailTarget) => (t.context === "database" ? `database|${t.product.item._id}` : `${t.context}|${t.item._id}`);
 
@@ -104,6 +112,7 @@ const Detail = ({ target, onClose, onAdd, swipe }: { target: ItemDetailTarget; o
     target.context === "database" ? Math.max(0, variants.findIndex((v) => target.prices.has(keyOf(v)))) : 0
   );
   const [period, setPeriod] = useState<PricePeriod>("1m");
+  const [tab, setTab] = useState<Tab>("overview");
 
   const historicPrice: HistoricPrice | undefined =
     target.context === "database" ? (variants[variantIndex] ? versions.get(keyOf(variants[variantIndex])) : undefined) : target.item.historicPrice;
@@ -117,6 +126,7 @@ const Detail = ({ target, onClose, onAdd, swipe }: { target: ItemDetailTarget; o
   const image = number !== undefined ? images.get(number) : undefined;
   const info = useCardInfo(isCard ? set?.tcgdex || undefined : undefined, number);
   const listings = useListings(user, kind, historicPrice);
+  const offers = useOffers(kind, historicPrice);
 
   const name = displayName({ kind, item } as Product);
   const year = set?.releasedAt ? new Date(set.releasedAt).getFullYear() : undefined;
@@ -236,73 +246,110 @@ const Detail = ({ target, onClose, onAdd, swipe }: { target: ItemDetailTarget; o
         </div>
       </div>
 
+      {/* Cards only: the scraper collects listings for cards */}
+      {isCard && (
+        <div role="tablist" aria-label="Detail" className="flex flex-none gap-5 px-4 lg:px-7 border-b border-line">
+          {TABS.map(({ value: t, label }) => (
+            <button
+              key={t}
+              type="button"
+              role="tab"
+              aria-selected={tab === t}
+              onClick={() => setTab(t)}
+              className={cn(
+                "-mb-px py-2.5 border-b-2 text-[13px] font-medium cursor-pointer",
+                tab === t ? "border-ink text-ink" : "border-transparent text-ink-muted hover:text-ink",
+              )}
+            >
+              {label}
+              {t === "offers" && offers && offers !== "unavailable" && <span className="ml-1.5 font-geist-mono text-xs text-ink-muted">{offers.listed.length}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Body */}
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="lg:grid lg:grid-cols-[300px_minmax(0,1fr)]">
           <aside className="hidden p-7 border-r lg:block border-line bg-canvas">
-            {art("rounded-[10px] shadow-[0_12px_30px_-12px_rgba(29,27,24,.35)]")}
-            {chipList("mt-[18px]")}
-            {factList("mt-[22px]")}
+            {/* Stays in view while the tab beside it scrolls; the aside still stretches, so its border and background run the full height */}
+            <div className="sticky top-7">
+              {art("rounded-[10px] shadow-[0_12px_30px_-12px_rgba(29,27,24,.35)]")}
+              {chipList("mt-[18px]")}
+              {factList("mt-[22px]")}
+            </div>
           </aside>
 
-          <div className="min-w-0 px-4 pt-1 lg:px-7 lg:pt-[26px]">
-            {/* Mobile summary */}
-            <div className="grid grid-cols-[112px_minmax(0,1fr)] gap-3.5 lg:hidden">
-              {art("rounded-[7px] shadow-[0_8px_20px_-10px_rgba(29,27,24,.35)]")}
-              <div className="min-w-0">
-                <div className="text-xs text-ink-muted">{setLine}</div>
-                <div className="font-display font-semibold text-2xl leading-[1.1] tracking-[-0.02em] mt-1">{name}</div>
-                {chipList("mt-2")}
-                <div className="font-display font-medium text-[26px] leading-none tracking-[-0.02em] mt-3">{historicPrice ? eur(price) : "—"}</div>
-                {historicPrice && <div className="mt-1">{priceChange}</div>}
-              </div>
+          {tab === "offers" ? (
+            <div role="tabpanel" aria-label="Offers" className="min-w-0 px-4 pt-4 lg:px-7 lg:pt-[26px]">
+              <Offers offers={historicPrice ? offers : { seenAt: null, listed: [], gone: [] }} cardmarketUrl={cardmarketUrl} />
+              <div className="h-4 lg:h-6" />
             </div>
-
-            {/* Desktop summary */}
-            <div className="hidden lg:block">
-              <div className="flex items-center gap-2 text-[13px] text-ink-muted">
-                <span className={cn("w-2 h-2 rounded-full", isCard ? "bg-gold" : "bg-iris")} />
-                {setLine}
+          ) : tab === "photos" ? (
+            // The listings' photos: kept by the scraper, not shown here yet
+            <div role="tabpanel" aria-label="Photos" className="min-w-0 px-4 pt-4 lg:px-7 lg:pt-[26px]">
+              <div className="py-6 text-sm text-ink-muted">The photos of this card&apos;s listings will be shown here.</div>
+            </div>
+          ) : (
+            <div className="min-w-0 px-4 pt-1 lg:px-7 lg:pt-[26px]">
+              {/* Mobile summary */}
+              <div className="grid grid-cols-[112px_minmax(0,1fr)] gap-3.5 lg:hidden">
+                {art("rounded-[7px] shadow-[0_8px_20px_-10px_rgba(29,27,24,.35)]")}
+                <div className="min-w-0">
+                  <div className="text-xs text-ink-muted">{setLine}</div>
+                  <div className="font-display font-semibold text-2xl leading-[1.1] tracking-[-0.02em] mt-1">{name}</div>
+                  {chipList("mt-2")}
+                  <div className="font-display font-medium text-[26px] leading-none tracking-[-0.02em] mt-3">{historicPrice ? eur(price) : "—"}</div>
+                  {historicPrice && <div className="mt-1">{priceChange}</div>}
+                </div>
               </div>
-              <h3 className="mt-1.5 font-display font-semibold text-4xl leading-[1.05] tracking-[-0.03em]">{name}</h3>
-              <div className="flex items-end justify-between gap-5 mt-[18px]">
+
+              {/* Desktop summary */}
+              <div className="hidden lg:block">
+                <div className="flex items-center gap-2 text-[13px] text-ink-muted">
+                  <span className={cn("w-2 h-2 rounded-full", isCard ? "bg-gold" : "bg-iris")} />
+                  {setLine}
+                </div>
+                <h3 className="mt-1.5 font-display font-semibold text-4xl leading-[1.05] tracking-[-0.03em]">{name}</h3>
+                <div className="flex items-end justify-between gap-5 mt-[18px]">
+                  <div>
+                    <div className="text-xs font-medium text-ink-muted">Current price</div>
+                    <div className="flex items-baseline gap-3 mt-1">
+                      <span className="font-display font-medium text-[40px] leading-none tracking-[-0.03em]">{historicPrice ? eur(price) : "—"}</span>
+                      {historicPrice && priceChange}
+                    </div>
+                  </div>
+                  <Segmented mono options={PERIODS} value={period} onChange={setPeriod} />
+                </div>
+              </div>
+
+              <PriceChart points={points} gain={delta >= 0} />
+              <Segmented className="grid grid-cols-4 mt-2.5 lg:hidden" mono options={PERIODS} value={period} onChange={setPeriod} />
+
+              <div className="grid gap-4 lg:gap-7 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] mt-[18px] lg:mt-[22px] lg:pt-5 lg:border-t border-line">
+                <Listings prices={listings} />
                 <div>
-                  <div className="text-xs font-medium text-ink-muted">Current price</div>
-                  <div className="flex items-baseline gap-3 mt-1">
-                    <span className="font-display font-medium text-[40px] leading-none tracking-[-0.03em]">{historicPrice ? eur(price) : "—"}</span>
-                    {historicPrice && priceChange}
+                  <span className="font-geist-mono font-medium text-[11px] lg:text-xs tracking-[.08em] uppercase text-ink-muted">Other versions</span>
+                  <div className="mt-2">
+                    {versionRows.map((v) => {
+                      const vp = v.historicPrice ? getPrice(v.historicPrice) : 0;
+                      const v1m = v.historicPrice ? change(vp, getPastPrice(v.historicPrice, "1m")) : 0;
+                      return (
+                        <div key={v.key} className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-3.5 items-center py-[9px] border-t border-chip text-[13px]">
+                          <span className={cn("leading-[1.3]", v.key === currentKey && "font-semibold")}>{v.label}</span>
+                          <span className={cn("font-geist-mono text-xs", v.historicPrice ? deltaColor(v1m) : "text-ink-muted")}>{v.historicPrice ? `${pct(v1m)} 30d` : ""}</span>
+                          <span className="font-geist-mono font-medium text-right whitespace-nowrap">{v.historicPrice ? eur(vp) : "—"}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-                <Segmented mono options={PERIODS} value={period} onChange={setPeriod} />
               </div>
+
+              {factList("mt-3.5 lg:hidden")}
+              <div className="h-4 lg:h-6" />
             </div>
-
-            <PriceChart points={points} gain={delta >= 0} />
-            <Segmented className="grid grid-cols-4 mt-2.5 lg:hidden" mono options={PERIODS} value={period} onChange={setPeriod} />
-
-            <div className="grid gap-4 lg:gap-7 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] mt-[18px] lg:mt-[22px] lg:pt-5 lg:border-t border-line">
-              <Listings prices={listings} />
-              <div>
-                <span className="font-geist-mono font-medium text-[11px] lg:text-xs tracking-[.08em] uppercase text-ink-muted">Other versions</span>
-                <div className="mt-2">
-                  {versionRows.map((v) => {
-                    const vp = v.historicPrice ? getPrice(v.historicPrice) : 0;
-                    const v1m = v.historicPrice ? change(vp, getPastPrice(v.historicPrice, "1m")) : 0;
-                    return (
-                      <div key={v.key} className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-3.5 items-center py-[9px] border-t border-chip text-[13px]">
-                        <span className={cn("leading-[1.3]", v.key === currentKey && "font-semibold")}>{v.label}</span>
-                        <span className={cn("font-geist-mono text-xs", v.historicPrice ? deltaColor(v1m) : "text-ink-muted")}>{v.historicPrice ? `${pct(v1m)} 30d` : ""}</span>
-                        <span className="font-geist-mono font-medium text-right whitespace-nowrap">{v.historicPrice ? eur(vp) : "—"}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {factList("mt-3.5 lg:hidden")}
-            <div className="h-4 lg:h-6" />
-          </div>
+          )}
         </div>
       </div>
 
@@ -405,6 +452,99 @@ const Listings = ({ prices }: { prices: { items: number; timestamp: number }[] |
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+const day = (t: number) => new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+const sectionLabel = "font-geist-mono font-medium text-[11px] lg:text-xs tracking-[.08em] uppercase text-ink-muted";
+
+// The listings on Cardmarket at the last scrape, cheapest first, then those gone in the 30 days before it (most likely sold)
+const Offers = ({ offers, cardmarketUrl }: { offers: VersionOffers | "unavailable" | null; cardmarketUrl?: string }) => {
+  const offline = useOffline();
+  if (offers === null) return <div className="py-6 text-sm text-ink-muted">Loading…</div>;
+  if (offers === "unavailable") return <div className="py-6 text-sm text-ink-muted">{offline ? "Offers aren't available in offline mode" : "Couldn't load the offers"}</div>;
+  if (offers.seenAt === null) return <div className="py-6 text-sm text-ink-muted">No offers collected yet. Listings are recorded for cards priced above €100.</div>;
+
+  const lowest = offers.listed[0]?.price;
+  return (
+    <div>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <span className={sectionLabel}>On Cardmarket</span>
+        <span className="text-xs text-ink-muted">
+          as of {day(offers.seenAt)}, {new Date(offers.seenAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+          {cardmarketUrl && (
+            <>
+              {" · "}
+              <a href={cardmarketUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-ink">
+                Open on Cardmarket
+              </a>
+            </>
+          )}
+        </span>
+      </div>
+      <div className="flex gap-5 lg:gap-7 mt-2.5 lg:mt-3">
+        <div>
+          <div className="text-[11px] lg:text-xs text-ink-muted">Listed</div>
+          <div className="font-display font-medium text-[26px] lg:text-[30px] leading-[1.1] tracking-[-0.02em]">{offers.listed.length}</div>
+        </div>
+        {lowest !== undefined && (
+          <div>
+            <div className="text-[11px] lg:text-xs text-ink-muted">Lowest</div>
+            <div className="font-display font-medium text-[26px] lg:text-[30px] leading-[1.1] tracking-[-0.02em]">{eur(lowest)}</div>
+          </div>
+        )}
+        <div>
+          <div className="text-[11px] lg:text-xs text-ink-muted">Gone in 30 days</div>
+          <div className="font-display font-medium text-[26px] lg:text-[30px] leading-[1.1] tracking-[-0.02em] text-ink-muted">{offers.gone.length}</div>
+        </div>
+      </div>
+
+      <div className="mt-[18px] lg:mt-[22px]">
+        {offers.listed.length === 0 ? (
+          <div className="py-3 text-sm border-t text-ink-muted border-chip">No listings at the last scrape</div>
+        ) : (
+          offers.listed.map((o) => <OfferRow key={o.article} offer={o} when={`since ${day(o.firstSeenAt)}`} />)
+        )}
+      </div>
+
+      {offers.gone.length > 0 && (
+        <div className="mt-[18px] lg:mt-[22px]">
+          <span className={sectionLabel}>No longer listed</span>
+          <div className="mt-2">
+            {offers.gone.map((o) => (
+              <OfferRow key={o.article} offer={o} when={`last seen ${day(o.lastSeenAt)}`} muted />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const OfferRow = ({ offer, when, muted }: { offer: ListedOffer; when: string; muted?: boolean }) => {
+  const repriced = offer.firstPrice !== undefined && offer.firstPrice !== offer.price;
+  // What the listing claimed before: each earlier comment held until the next one replaced it
+  const history = offer.comments ?? [];
+  const earlier = history.slice(0, -1).map((c, i) => ({ text: c.text, until: history[i + 1].timestamp }));
+  return (
+    <div className="grid grid-cols-[88px_minmax(0,1fr)_auto] lg:grid-cols-[104px_minmax(0,1fr)_auto] gap-3.5 items-start py-[9px] border-t border-chip text-[13px]">
+      <div className={cn("font-geist-mono font-medium whitespace-nowrap", muted && "text-ink-muted")}>
+        {eur(offer.price)}
+        {repriced && <div className="font-normal text-[11px] text-ink-muted line-through">{eur(offer.firstPrice)}</div>}
+      </div>
+      <div className="min-w-0">
+        <div className={cn("leading-[1.3] break-words", !offer.comment && "text-ink-muted")}>{offer.comment || "No comment"}</div>
+        {earlier.map((c) => (
+          <div key={c.until} className="mt-0.5 text-xs leading-[1.3] break-words text-ink-muted">
+            <span className="line-through">{c.text || "No comment"}</span> · until {day(c.until)}
+          </div>
+        ))}
+        <div className="mt-0.5 text-xs truncate text-ink-muted">{offer.seller}</div>
+      </div>
+      <div className="flex flex-col items-end gap-0.5 font-geist-mono text-[11px] text-ink-muted whitespace-nowrap">
+        <span>{when}</span>
+      </div>
     </div>
   );
 };

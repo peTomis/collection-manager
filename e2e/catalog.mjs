@@ -20,6 +20,18 @@ export const seed = async (db) => {
   const cards = [card("charizard", "Charizard", 4, 300), card("blastoise", "Blastoise", 2, 100)];
   await db.collection("cards").insertMany(cards.map(([c]) => c));
   await db.collection("card-historic-prices").insertMany(cards.map(([, h]) => h));
+  // Charizard's listings at the last scrape, and one gone the day before
+  const now = Date.now();
+  const listing = (article, price, comment, seen) => ({
+    article, seller: `Seller${article}`, comment, price, item: IDS.charizard, itemType: "card", type: "regular", language: "en",
+    url: "https://www.cardmarket.com/en/Pokemon/Products/Singles/Base-Set/Charizard", firstSeenAt: seen[0], lastSeenAt: seen[seen.length - 1], seen: seen.map((timestamp) => ({ timestamp, price })),
+  });
+  await db.collection("offers").insertMany([
+    // Its seller first claimed a PSA 10
+    { ...listing("1001", 320, "PSA 9 Mint", [now - 3 * 86400000, now]), comments: [{ timestamp: now - 3 * 86400000, text: "PSA 10 Gem Mint" }, { timestamp: now, text: "PSA 9 Mint" }] },
+    listing("1002", 290, "Played, light crease", [now]),
+    listing("1003", 280, "Near mint", [now - 2 * 86400000, now - 86400000]),
+  ]);
   await db.collection("sealed").insertOne({ _id: id("box"), name: "Base Set Booster Box", set: IDS.base, type: "Booster Box", variants: [{ language: "en", url: "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Base-Set-Booster-Box" }] });
   await db.collection("sealed-historic-prices").insertOne({ sealed: IDS.box, set: IDS.base, language: "en", url: "https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Base-Set-Booster-Box", ...history(5000) });
 };

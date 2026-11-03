@@ -60,6 +60,7 @@ yarn build           # production build
 | `lib/db/`                      | Server-only queries on binders, wishlists, portfolios, sets                       |
 | `lib/mirror.ts`                | Keeps a binder and its linked wishlist in step                                    |
 | `lib/portfolio.ts`             | Recomputes a user's portfolio totals after binder changes                         |
+| `lib/db/offers.ts`             | The Offers tab: a version's listings (`/api/offers`), read from the scraper's `offers` |
 | `lib/rate-limit.ts`            | Fixed-window limits in `rate-limits`; `limitAddress` for public routes            |
 | `lib/demo-collection.ts`       | Demo mode for signed-out visitors, in localStorage only                           |
 | `lib/api-fetch.ts`, `offline*` | Client API boundary; serves reads from the IndexedDB snapshot in offline mode     |
@@ -75,7 +76,7 @@ yarn build           # production build
   query on `binders`, `wishlists`, `binder-items`, `wishlist-items` and `portfolios` filters by that
   `user`, items included (by their own `user`, not only through their list). The `?user=` query
   param the client sends to collection routes is not authentication: never use it to select data.
-  Catalog routes (`cards`, `sealed`, `sets`, `prices`, `historic-prices`, `search`) are public and
+  Catalog routes (`cards`, `sealed`, `sets`, `prices`, `historic-prices`, `offers`, `search`) are public and
   take no user: keep them cacheable and rate limit per address (`limitAddress`) what isn't.
 - **Input**: query params go through `queryString` / `parseObjectId` (arrays and objects rejected);
   bodies through a Joi schema; only validated fields reach a query, so no operators can be

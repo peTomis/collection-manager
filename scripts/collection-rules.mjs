@@ -45,6 +45,8 @@ export const RULES = {
   "sealed-prices": { indexes: [{ sealed: 1, language: 1, timestamp: 1 }] },
   "card-historic-prices": { indexes: [{ card: 1, language: 1, type: 1 }] },
   "sealed-historic-prices": { indexes: [{ sealed: 1, language: 1 }] },
+  // The detail's Offers tab reads one version's listings from its last scrape back
+  offers: { indexes: [{ item: 1, itemType: 1, language: 1, type: 1, lastSeenAt: -1 }] },
 };
 
 // createIndex's arguments for an index of RULES
