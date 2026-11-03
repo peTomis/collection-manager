@@ -464,7 +464,7 @@ const Offers = ({ offers, cardmarketUrl }: { offers: VersionOffers | "unavailabl
   const offline = useOffline();
   if (offers === null) return <div className="py-6 text-sm text-ink-muted">Loading…</div>;
   if (offers === "unavailable") return <div className="py-6 text-sm text-ink-muted">{offline ? "Offers aren't available in offline mode" : "Couldn't load the offers"}</div>;
-  if (offers.seenAt === null) return <div className="py-6 text-sm text-ink-muted">No offers collected yet. Listings are recorded for cards priced above €100.</div>;
+  if (offers.seenAt === null) return <div className="py-6 text-sm text-ink-muted">No offers collected yet for this card.</div>;
 
   const lowest = offers.listed[0]?.price;
   return (
