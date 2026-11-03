@@ -4,9 +4,11 @@ import { getOfflineMeta, useOffline, useReadOnly } from "@/lib/offline";
 import { disableOffline, downloadOffline } from "@/lib/offline-download";
 import { cn } from "@/lib/utils";
 import { DEMO_USER } from "@/types/constants";
+import { intlLocale, useT } from "@/lib/i18n";
 
 export default function OfflineSettings() {
   const user = useSelector((s) => s.user.user);
+  const t = useT();
   // Only a signed-in account can download; a demo snapshot saved earlier can still be turned off
   const signedIn = !!user && user !== DEMO_USER;
   const offline = useOffline();
@@ -28,7 +30,7 @@ export default function OfflineSettings() {
       await downloadOffline(user, setProgress, controller.current.signal);
       window.location.reload();
     } catch (error) {
-      if (!controller.current?.signal.aborted) setError(error instanceof Error ? error.message : "Download failed. Please try again.");
+      if (!controller.current?.signal.aborted) setError(error instanceof Error ? t.error(error.message) : t.offline.downloadFailed);
     } finally {
       controller.current = null;
       setProgress("");
@@ -49,19 +51,19 @@ export default function OfflineSettings() {
         className="flex items-center justify-between w-full gap-4 text-left cursor-pointer disabled:opacity-50 disabled:cursor-wait"
       >
         <span id="offline-heading" className="text-sm font-medium">
-          Offline mode
+          {t.offline.title}
         </span>
         <span className={cn("relative flex-none w-10 h-6 rounded-full transition-colors", offline ? "bg-gain" : "bg-[#D8D3C8] dark:bg-line")}>
           <span className={cn("absolute top-[3px] w-[18px] h-[18px] rounded-full bg-[#FBFAF7] transition-[left]", offline ? "left-[19px]" : "left-[3px]")} />
         </span>
       </button>
       <p id="offline-description" className="mt-1.5 text-xs text-ink-muted">
-        Download the database, prices, binders, wishlists and portfolio, without images. Offline mode locks collection edits until you turn it off.
+        {t.offline.description}
       </p>
-      {!offline && <p className="mt-1 text-xs text-ink-muted">{signedIn ? "Keep Settings open until it finishes." : "Sign in to use offline mode."}</p>}
+      {!offline && <p className="mt-1 text-xs text-ink-muted">{signedIn ? t.offline.keepOpen : t.offline.signIn}</p>}
       {meta && (
         <p className="mt-1 text-xs text-ink-muted">
-          Saved {new Date(meta.savedAt).toLocaleString()}. Prices reflect this download.
+          {t.offline.saved(new Date(meta.savedAt).toLocaleString(intlLocale()))}
         </p>
       )}
       {progress && (
@@ -70,7 +72,7 @@ export default function OfflineSettings() {
             {progress}
           </p>
           <button type="button" className="mt-2 underline" onClick={() => controller.current?.abort()}>
-            Cancel download
+            {t.offline.cancel}
           </button>
         </div>
       )}

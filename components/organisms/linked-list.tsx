@@ -17,6 +17,7 @@ import { isOwned, itemPrice } from "@/lib/items";
 import { LIMITS } from "@/lib/limits";
 import { eur } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 
 type Source = { kind: "binder"; list: BinderWithItems } | { kind: "wishlist"; list: WishlistWithItems };
 
@@ -51,6 +52,7 @@ const Linked = ({ source, other, name, id }: { source: Source; other: "binder" |
   const user = useSelector((state) => state.user.user) ?? "";
   const dispatch = useDispatch();
   const router = useRouter();
+  const t = useT();
 
   const binderId = source.kind === "binder" ? source.list._id : id;
 
@@ -74,16 +76,16 @@ const Linked = ({ source, other, name, id }: { source: Source; other: "binder" |
   return (
     <>
       <div className={chipClass}>
-        <button type="button" onClick={open} title={`Missing items stay in sync with ${name}`} className="flex items-center min-w-0 gap-1.5 h-full pl-2.5 pr-2 rounded-l-full cursor-pointer hover:bg-chip">
+        <button type="button" onClick={open} title={t.linked.inSync(name)} className="flex items-center min-w-0 gap-1.5 h-full pl-2.5 pr-2 rounded-l-full cursor-pointer hover:bg-chip">
           <span className="text-ink-muted">
             <SyncIcon />
           </span>
-          <span className="text-ink-muted">{other === "wishlist" ? "Wishlist" : "Binder"}</span>
+          <span className="text-ink-muted">{t.common.kind[other]}</span>
           <span className="truncate">{name}</span>
         </button>
         <EditButton
           type="button"
-          aria-label={`Manage the linked ${other}`}
+          aria-label={t.linked.manage(other)}
           onClick={() => setManaging(true)}
           className="grid h-full pl-1.5 pr-2.5 border-l rounded-r-full cursor-pointer place-items-center border-line text-ink-muted hover:text-ink hover:bg-chip"
         >
@@ -94,17 +96,13 @@ const Linked = ({ source, other, name, id }: { source: Source; other: "binder" |
       <Modal
         open={managing}
         onClose={close}
-        title={deleting ? `Delete ${name}?` : `Linked ${other}`}
-        description={
-          deleting
-            ? `${name} and this ${source.kind} are deleted, with everything in them. This can't be undone.`
-            : `${name} holds the missing items of this ${source.kind} and stays in sync with it. Unlink it to keep both lists as they are, without syncing.`
-        }
+        title={deleting ? t.linked.deleteName(name) : t.linked.title(other)}
+        description={deleting ? t.linked.deleteBothDescription(name, source.kind) : t.linked.description(name, source.kind)}
         footer={
           deleting ? (
             <>
               <button type="button" className={buttonClass("secondary")} onClick={() => setDeleting(false)}>
-                Back
+                {t.common.back}
               </button>
               <button
                 type="button"
@@ -114,16 +112,16 @@ const Linked = ({ source, other, name, id }: { source: Source; other: "binder" |
                   close();
                 }}
               >
-                Delete both
+                {t.linked.deleteBoth}
               </button>
             </>
           ) : (
             <>
               <button type="button" className={cn(buttonClass("secondary"), "mr-auto text-loss")} onClick={() => setDeleting(true)}>
-                Delete {other}
+                {t.linked.deleteOther(other)}
               </button>
               <button type="button" className={buttonClass("secondary")} onClick={close}>
-                Cancel
+                {t.common.cancel}
               </button>
               <button
                 type="button"
@@ -133,7 +131,7 @@ const Linked = ({ source, other, name, id }: { source: Source; other: "binder" |
                   close();
                 }}
               >
-                Unlink
+                {t.linked.unlink}
               </button>
             </>
           )
@@ -151,6 +149,7 @@ const CreateLinked = ({ source, other }: { source: Source; other: "binder" | "wi
   const [failed, setFailed] = useState(false);
   const user = useSelector((state) => state.user.user) ?? "";
   const dispatch = useDispatch();
+  const t = useT();
 
   // What the new list gets: the binder's missing items, or every item of the wishlist
   const items = source.kind === "binder" ? source.list.items.filter((i) => !isOwned(i) && i.historicPrice) : source.list.items.filter((i) => i.historicPrice);
@@ -191,15 +190,15 @@ const CreateLinked = ({ source, other }: { source: Source; other: "binder" | "wi
     setOpen(false);
   };
 
-  const count = items.length === 1 ? "1 item" : `${items.length} items`;
+  const count = t.common.itemsCount(items.length);
   const description =
     source.kind === "binder"
       ? items.length
-        ? `It starts with this binder's ${count} missing, about ${eur(total)}, and stays in sync: mark one owned and it leaves the wishlist.`
-        : "Nothing is missing yet: it fills up as items are marked missing here, and stays in sync."
+        ? t.linked.fromBinder(count, eur(total))
+        : t.linked.fromEmptyBinder
       : items.length
-        ? `It tracks this wishlist's ${count} as missing and stays in sync: mark one owned there and it leaves this wishlist.`
-        : "It starts empty and stays in sync: items added here become missing slots there.";
+        ? t.linked.fromWishlist(count)
+        : t.linked.fromEmptyWishlist;
 
   return (
     <>
@@ -209,40 +208,40 @@ const CreateLinked = ({ source, other }: { source: Source; other: "binder" | "wi
         className={cn(chipClass, "gap-1.5 px-2.5 border-dashed text-ink-muted cursor-pointer hover:text-ink hover:border-ink-muted")}
       >
         <SyncIcon unlinked />
-        Create linked {other}
+        {t.linked.createLinked(other)}
       </EditButton>
 
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title={`New linked ${other}`}
+        title={t.linked.newLinked(other)}
         description={description}
         footer={
           <>
             <button type="button" className={buttonClass("secondary")} onClick={() => setOpen(false)}>
-              Cancel
+              {t.common.cancel}
             </button>
             <EditButton type="button" className={buttonClass("primary")} disabled={!valid || saving} onClick={create}>
-              {saving ? "Creating…" : `Create ${other}`}
+              {saving ? t.common.creating : t.linked.create(other)}
             </EditButton>
           </>
         }
       >
         <label className="block mb-1.5 text-xs font-medium text-ink-muted" htmlFor="linked-name">
-          Name
+          {t.common.name}
         </label>
         <input id="linked-name" autoFocus value={name} maxLength={LIMITS.NAME_LENGTH} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && create()} className={inputClass} />
         {source.kind === "binder" && items.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 mt-4 text-[13px] text-ink-muted">
-            <span className="text-xs font-medium">Targets</span>
+            <span className="text-xs font-medium">{t.linked.targets}</span>
             <span className="flex items-center h-[34px] px-3 border rounded-lg border-line bg-canvas font-geist-mono font-medium text-ink focus-within:border-ink-muted">
               −
-              <input aria-label="Target discount" inputMode="decimal" value={targetPercent} onChange={(e) => setTargetPercent(e.target.value)} className="w-6 text-right bg-transparent outline-none" />%
+              <input aria-label={t.linked.targetDiscount} inputMode="decimal" value={targetPercent} onChange={(e) => setTargetPercent(e.target.value)} className="w-6 text-right bg-transparent outline-none" />%
             </span>
-            below current price
+            {t.linked.belowCurrent}
           </div>
         )}
-        {failed && <p className="mt-3 text-xs text-loss">Couldn&apos;t create the {other}. Try again in a moment.</p>}
+        {failed && <p className="mt-3 text-xs text-loss">{t.linked.createFailed(other)}</p>}
       </Modal>
     </>
   );

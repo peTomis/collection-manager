@@ -15,12 +15,13 @@ import { getSets } from "@/redux/slices/sets";
 import { getBinders, setBinder } from "@/redux/slices/binders";
 import { getWishlists, setWishlist } from "@/redux/slices/wishlists";
 import { BinderWithItems, Card, HistoricPrice, ItemType, Sealed, Set, WishlistWithItems } from "@/types/mongodb";
-import { cardNumberLabel, summarizeBinder, summarizeWishlist } from "@/lib/items";
+import { cardNumberLabel, sealedTypeName, summarizeBinder, summarizeWishlist } from "@/lib/items";
 import { Product, historicPriceKey } from "@/containers/database/use-set-catalog";
 import { LIMITS } from "@/lib/limits";
 import { setEra } from "@/lib/sets";
 import { fontVariables } from "@/lib/fonts";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 
 interface Results {
   sets: Pick<Set, "_id" | "name" | "code" | "releasedAt">[];
@@ -75,6 +76,7 @@ const SearchPalette = ({ open, onOpenChange }: { open: boolean; onOpenChange: (o
   const { wishlists, loaded: wishlistsLoaded } = useSelector((state) => state.wishlists);
   const dispatch = useDispatch();
   const router = useRouter();
+  const t = useT();
 
   // Set names and logos for the results, the user's lists to search, and where "+ Binder" and "+ Wishlist" can add
   useEffect(() => {
@@ -162,13 +164,13 @@ const SearchPalette = ({ open, onOpenChange }: { open: boolean; onOpenChange: (o
           key: `sealed-${s._id}`,
           group: "Sealed" as const,
           name: s.name,
-          sub: [setName(s.set), s.type].filter(Boolean).join(" · "),
+          sub: [setName(s.set), s.type && sealedTypeName(s.type)].filter(Boolean).join(" · "),
           set: byId.get(s.set),
           target: { set: s.set, item: s._id, kind: ItemType.SEALED },
         })),
     ];
     return list;
-  }, [results, sets, binders, wishlists, q]);
+  }, [results, sets, binders, wishlists, q, t]);
 
   useEffect(() => setActive(0), [items]);
 
@@ -264,7 +266,7 @@ const SearchPalette = ({ open, onOpenChange }: { open: boolean; onOpenChange: (o
               "data-[state=open]:animate-in data-[state=open]:fade-in-0 md:data-[state=open]:zoom-in-95",
             )}
           >
-            <DialogPrimitive.Title className="sr-only">Search the Database</DialogPrimitive.Title>
+            <DialogPrimitive.Title className="sr-only">{t.search.title}</DialogPrimitive.Title>
             <div className="flex items-center flex-none gap-2.5 h-[60px] md:h-14 pl-4 pr-2 md:px-4 border-b border-line">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden className="flex-none text-ink-muted">
                 <circle cx="7" cy="7" r="5" />
@@ -272,26 +274,26 @@ const SearchPalette = ({ open, onOpenChange }: { open: boolean; onOpenChange: (o
               </svg>
               <input
                 autoFocus
-                aria-label="Search cards, sets, sealed"
+                aria-label={t.search.label}
                 enterKeyHint="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search cards, sets, sealed…"
+                placeholder={t.topbar.searchPlaceholder}
                 className="flex-1 min-w-0 text-base bg-transparent outline-none md:text-[15px] text-ink placeholder:text-ink-muted"
               />
               <span className="hidden md:inline font-geist-mono font-medium text-[11px] px-1.5 py-0.5 border border-line rounded-[5px] text-ink-muted">esc</span>
-              <DialogPrimitive.Close className="h-11 px-2.5 text-sm font-medium cursor-pointer md:hidden">Cancel</DialogPrimitive.Close>
+              <DialogPrimitive.Close className="h-11 px-2.5 text-sm font-medium cursor-pointer md:hidden">{t.common.cancel}</DialogPrimitive.Close>
             </div>
 
             <div className="flex-1 min-h-0 p-2 overflow-y-auto overscroll-contain" onTouchMove={dismissKeyboard}>
               {q.length < 2 ? (
-                <p className="px-3 py-8 text-sm text-center text-ink-muted">Type a card, set or product name.</p>
+                <p className="px-3 py-8 text-sm text-center text-ink-muted">{t.search.hint}</p>
               ) : items.length === 0 ? (
-                <p className="px-3 py-8 text-sm text-center text-ink-muted">{loading ? "Searching…" : `Nothing matches “${q}”`}</p>
+                <p className="px-3 py-8 text-sm text-center text-ink-muted">{loading ? t.search.searching : t.common.noMatch(q)}</p>
               ) : (
                 items.map((r, i) => (
                   <div key={r.key}>
-                    {r.group !== items[i - 1]?.group && <div className="px-2.5 pt-3 pb-1.5 font-geist-mono font-medium text-[11px] tracking-[.08em] uppercase text-ink-muted">{r.group}</div>}
+                    {r.group !== items[i - 1]?.group && <div className="px-2.5 pt-3 pb-1.5 font-geist-mono font-medium text-[11px] tracking-[.08em] uppercase text-ink-muted">{t.search.groups[r.group]}</div>}
                     <button
                       id={`search-${r.key}`}
                       type="button"
@@ -315,7 +317,7 @@ const SearchPalette = ({ open, onOpenChange }: { open: boolean; onOpenChange: (o
                         <span className="block truncate text-[15px] md:text-sm font-medium">{r.name}</span>
                         <span className="block text-xs truncate text-ink-muted">{r.sub}</span>
                       </span>
-                      <span className={cn("hidden md:inline text-xs text-ink-muted", i !== active && "invisible")}>{r.group === "Sets" ? "Open set ↵" : r.target.list ? "Open ↵" : "View ↵"}</span>
+                      <span className={cn("hidden md:inline text-xs text-ink-muted", i !== active && "invisible")}>{r.group === "Sets" ? t.search.openSet : r.target.list ? t.search.open : t.search.view}</span>
                     </button>
                   </div>
                 ))

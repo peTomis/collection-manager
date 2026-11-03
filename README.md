@@ -11,6 +11,7 @@ Live at [binderly.petomis.com](https://binderly.petomis.com).
 - **Wishlists**: keep track of the items you want and what they cost today.
 - **Database**: browse sets, cards and sealed products (by set or by product type), with price history per language and variant (English, Italian, Japanese; regular, 1st edition, shadowless, …).
 - **Demo mode**: visitors can try the app without signing in, on a sample collection. Their changes are saved in their browser only. Signing in with Google starts an empty collection of your own.
+- **English and Italian**: the app follows the browser's language; Settings → Language switches it. Prices and dates are formatted for the language.
 - **Offline mode**: Settings → Offline mode (before Theme) downloads the catalog, daily prices and price histories, binders, wishlists, portfolio, and available product images. It locks collection edits and supports browsing and reopening the app without a connection.
 
 ### Preparing for a convention

@@ -14,6 +14,7 @@ import { fontVariables } from "@/lib/fonts";
 import { eur } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useIsomorphicLayoutEffect } from "@/lib/use-isomorphic-layout-effect";
+import { useT } from "@/lib/i18n";
 
 interface AlertsMenuProps {
   open: boolean;
@@ -28,6 +29,7 @@ const AlertsMenu = ({ open, onClose, anchor, hits }: AlertsMenuProps) => {
   const [position, setPosition] = useState<{ top: number; right: number } | null>(null);
   const { sets } = useSelector((state) => state.sets);
   const router = useRouter();
+  const t = useT();
 
   useIsomorphicLayoutEffect(() => {
     if (!open) return;
@@ -62,8 +64,8 @@ const AlertsMenu = ({ open, onClose, anchor, hits }: AlertsMenuProps) => {
           )}
         >
           <div className="flex-none px-4 pt-3.5 pb-3 border-b border-line">
-            <DialogPrimitive.Title className="text-sm font-semibold">Alerts</DialogPrimitive.Title>
-            <p className="mt-0.5 text-xs text-ink-muted">{hits.length === 1 ? "1 item is" : `${hits.length} items are`} at or below your target price</p>
+            <DialogPrimitive.Title className="text-sm font-semibold">{t.alerts.title}</DialogPrimitive.Title>
+            <p className="mt-0.5 text-xs text-ink-muted">{t.alerts.atOrBelow(hits.length)}</p>
           </div>
           {/* Seven rows (52px each, plus padding), then it scrolls */}
           <div className="flex-1 min-h-0 max-h-[376px] p-1.5 overflow-y-auto">
@@ -84,7 +86,7 @@ const AlertsMenu = ({ open, onClose, anchor, hits }: AlertsMenuProps) => {
                   </span>
                   <span className="text-right">
                     <span className="block text-sm font-medium font-geist-mono text-gain">{eur(itemPrice(item))}</span>
-                    <span className="block font-geist-mono text-[11px] text-ink-muted">target {eur(item.target ?? 0)}</span>
+                    <span className="block font-geist-mono text-[11px] text-ink-muted">{t.alerts.target(eur(item.target ?? 0))}</span>
                   </span>
                 </button>
               );

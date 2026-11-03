@@ -3,6 +3,7 @@ import "../styles/tailwind.css";
 import type { AppProps } from "next/app";
 import { SessionProvider } from "next-auth/react";
 import { Providers } from "@/redux/provider";
+import { I18nProvider } from "@/lib/i18n";
 import { fontVariables } from "@/lib/fonts";
 import { useHomeScreenIcons } from "@/lib/home-screen";
 
@@ -11,11 +12,13 @@ function CustomApp({ Component, pageProps: { session, ...pageProps } }: AppProps
   return (
     <SessionProvider session={session}>
       <Providers>
-        <OfflineGate>
-          <div className={fontVariables}>
-            <Component {...pageProps} />
-          </div>
-        </OfflineGate>
+        <I18nProvider>
+          <OfflineGate>
+            <div className={fontVariables}>
+              <Component {...pageProps} />
+            </div>
+          </OfflineGate>
+        </I18nProvider>
       </Providers>
     </SessionProvider>
   );

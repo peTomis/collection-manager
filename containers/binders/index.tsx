@@ -8,6 +8,7 @@ import { deleteBinder, getBinders, setBinder } from "@/redux/slices/binders";
 import { getSets } from "@/redux/slices/sets";
 import { getWishlists } from "@/redux/slices/wishlists";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 
 // Components
 import Topbar from "@/components/organisms/topbar";
@@ -27,6 +28,7 @@ const BindersContainer = () => {
   const linkedWishlist = useSelector((state) => state.wishlists.wishlists.find((w) => !!binder?.wishlist && w._id === binder.wishlist));
 
   const dispatch = useDispatch();
+  const t = useT();
 
   useEffect(() => {
     if (!user) return;
@@ -57,10 +59,10 @@ const BindersContainer = () => {
           ) : (
             loaded && (
               <div className="flex flex-col items-center gap-3 py-24 text-center">
-                <h1 className="font-display font-semibold text-[30px] tracking-[-0.03em]">No binders yet</h1>
-                <p className="text-sm text-ink-muted">Group the cards you own into binders to track their value.</p>
+                <h1 className="font-display font-semibold text-[30px] tracking-[-0.03em]">{t.binders.emptyTitle}</h1>
+                <p className="text-sm text-ink-muted">{t.binders.emptyText}</p>
                 <EditButton type="button" onClick={() => setCreating(true)} className={cn(buttonClass("primary"), "mt-2")}>
-                  + New binder
+                  {t.binders.newBinder}
                 </EditButton>
               </div>
             )
@@ -73,9 +75,9 @@ const BindersContainer = () => {
         open={deleting}
         onClose={() => setDeleting(false)}
         onConfirm={() => user && binder && dispatch(deleteBinder(user, binder._id))}
-        title="Delete binder"
-        description={`Delete ${binder?.name ?? "this binder"} and everything in it?${linkedWishlist ? ` Its linked wishlist ${linkedWishlist.name} is deleted too.` : ""} This can't be undone.`}
-        confirmLabel="Delete"
+        title={t.binders.deleteBinder}
+        description={t.binders.deleteDescription(binder?.name, linkedWishlist?.name)}
+        confirmLabel={t.common.delete}
       />
     </main>
   );

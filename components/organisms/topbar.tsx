@@ -10,6 +10,7 @@ import SettingsPanel, { Avatar } from "@/components/organisms/settings-panel";
 import SearchPalette from "@/components/organisms/search-palette";
 import AlertsMenu from "@/components/organisms/alerts-menu";
 import { useTheme } from "@/lib/theme";
+import { Messages, useT } from "@/lib/i18n";
 
 // State
 import { useDispatch, useSelector } from "@/redux/store";
@@ -41,11 +42,11 @@ const TAB_ICONS: Record<string, React.ReactNode> = {
   ),
 };
 
-const NAV = [
-  { href: "/", label: "Home" },
-  { href: "/binders", label: "Binders" },
-  { href: "/wishlists", label: "Wishlist" },
-  { href: "/database", label: "Database" },
+const NAV: { href: string; label: (t: Messages) => string }[] = [
+  { href: "/", label: (t) => t.nav.home },
+  { href: "/binders", label: (t) => t.nav.binders },
+  { href: "/wishlists", label: (t) => t.nav.wishlist },
+  { href: "/database", label: (t) => t.nav.database },
 ];
 
 const isActive = (pathname: string, href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
@@ -57,6 +58,7 @@ const Topbar = () => {
   const [searching, setSearching] = React.useState(false);
   const { pathname } = useRouter();
   const [theme, setTheme] = useTheme();
+  const t = useT();
 
   // ⌘K / Ctrl+K opens the search from anywhere
   React.useEffect(() => {
@@ -93,17 +95,18 @@ const Topbar = () => {
     if (alertsOpen && user && !setsLoaded) dispatch(getSets());
   }, [alertsOpen]);
 
-  const title = NAV.find((n) => isActive(pathname, n.href))?.label ?? "";
+  const current = NAV.find((n) => isActive(pathname, n.href));
+  const title = current ? current.label(t) : "";
 
   const account = (
-    <button type="button" title="Settings" onClick={() => setOpen(true)} className="grid rounded-full cursor-pointer shadow-[0_0_0_2px_rgb(var(--cm-bar)),0_0_0_3px_rgb(var(--cm-line))]">
+    <button type="button" title={t.topbar.settings} onClick={() => setOpen(true)} className="grid rounded-full cursor-pointer shadow-[0_0_0_2px_rgb(var(--cm-bar)),0_0_0_3px_rgb(var(--cm-line))]">
       <Avatar className="w-[38px] h-[38px] text-[13px]" />
     </button>
   );
 
   return (
     <header className={cn(fontVariables, "sticky top-0 z-40 flex-none font-geist bg-bar border-b border-line text-ink")}>
-      {readOnly && <div role="status" className="px-4 py-1 text-xs text-center border-b bg-chip border-line">{offline ? "Offline snapshot · Collection is read-only" : "Downloading offline data · Collection edits are paused"}</div>}
+      {readOnly && <div role="status" className="px-4 py-1 text-xs text-center border-b bg-chip border-line">{offline ? t.topbar.offlineSnapshot : t.topbar.downloading}</div>}
       {/* Desktop */}
       <div className="items-center hidden h-16 px-8 md:flex gap-7">
         <Link href="/" className="flex items-center">
@@ -114,7 +117,7 @@ const Topbar = () => {
             const active = isActive(pathname, n.href);
             return (
               <Link key={n.href} href={n.href} className={cn("px-3.5 py-2 rounded-lg text-sm font-medium", active ? "bg-chip text-bar-on" : "text-ink-muted hover:text-ink")}>
-                {n.label}
+                {n.label(t)}
               </Link>
             );
           })}
@@ -125,7 +128,7 @@ const Topbar = () => {
           className="flex-1 max-w-[420px] flex items-center gap-2.5 h-[38px] px-3 border border-line rounded-[9px] bg-canvas text-ink-muted text-sm text-left cursor-pointer hover:border-ink-muted"
         >
           <SearchIcon size={15} />
-          <span className="flex-1">Search cards, sets, sealed…</span>
+          <span className="flex-1">{t.topbar.searchPlaceholder}</span>
           <span className="font-geist-mono font-medium text-[11px] px-1.5 py-0.5 border border-line rounded-[5px] bg-paper">⌘K</span>
         </button>
         <div className="flex items-center gap-2.5 ml-auto">
@@ -134,11 +137,11 @@ const Topbar = () => {
               ref={alertsButton}
               type="button"
               onClick={() => setAlertsOpen(true)}
-              title="Wishlist items at or below your target price"
+              title={t.topbar.alertsTitle}
               className="flex items-center gap-2 h-[38px] px-3 border border-line rounded-[9px] text-[13px] font-medium cursor-pointer hover:bg-chip"
             >
               <span className="w-2 h-2 rounded-full bg-gain" />
-              {alerts === 1 ? "1 alert" : `${alerts} alerts`}
+              {t.topbar.alerts(alerts)}
             </button>
           )}
           {account}
@@ -156,7 +159,7 @@ const Topbar = () => {
             type="button"
             onClick={() => setSearching(true)}
             className="grid bg-transparent border-0 cursor-pointer w-11 h-11 place-items-center text-ink"
-            aria-label="Search"
+            aria-label={t.topbar.search}
           >
             <SearchIcon size={18} />
           </button>
@@ -188,7 +191,7 @@ const Topbar = () => {
               >
                 {TAB_ICONS[n.href]}
               </svg>
-              <span>{n.label}</span>
+              <span>{n.label(t)}</span>
             </Link>
           );
         })}

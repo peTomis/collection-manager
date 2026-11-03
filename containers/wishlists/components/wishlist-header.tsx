@@ -8,6 +8,7 @@ import { WishlistWithItems } from "@/types/mongodb";
 import { summarizeWishlist } from "@/lib/items";
 import { eur } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 
 interface WishlistHeaderProps {
   wishlist: WishlistWithItems;
@@ -15,20 +16,23 @@ interface WishlistHeaderProps {
 }
 
 const WishlistHeader = ({ wishlist, onDelete }: WishlistHeaderProps) => {
+  const t = useT();
   const summary = summarizeWishlist(wishlist);
 
   const stats = [
-    { label: "Cost to complete", value: eur(summary.value) },
-    { label: "At your targets", value: eur(summary.targetValue), muted: true },
-    { label: "Items", value: String(summary.count) },
+    { label: t.wishlists.costToComplete, value: eur(summary.value) },
+    { label: t.wishlists.atTargets, value: eur(summary.targetValue), muted: true },
+    { label: t.common.items, value: String(summary.count) },
   ];
 
   return (
     <div className="flex-none">
       <div className="items-center justify-between hidden lg:flex text-[13px] text-ink-muted">
-        <span className="min-w-0 truncate">Wishlist / {wishlist.name}</span>
+        <span className="min-w-0 truncate">
+          {t.nav.wishlist} / {wishlist.name}
+        </span>
         <EditButton type="button" onClick={onDelete} className="flex-none ml-4 font-medium cursor-pointer hover:text-loss">
-          Delete wishlist
+          {t.wishlists.deleteWishlist}
         </EditButton>
       </div>
 
@@ -37,7 +41,7 @@ const WishlistHeader = ({ wishlist, onDelete }: WishlistHeaderProps) => {
           <div className="flex items-start justify-between min-w-0 gap-3">
             <ListName key={wishlist._id} kind="wishlist" list={wishlist} />
             <EditButton type="button" onClick={onDelete} className="flex-none mt-2 text-[13px] font-medium text-ink-muted lg:hidden">
-              Delete
+              {t.common.delete}
             </EditButton>
           </div>
           <LinkedList kind="wishlist" list={wishlist} />
@@ -46,13 +50,13 @@ const WishlistHeader = ({ wishlist, onDelete }: WishlistHeaderProps) => {
         {/* Mobile: one card with the cost to complete */}
         <div className="flex items-end justify-between p-3.5 border lg:hidden border-line rounded-xl bg-paper">
           <div>
-            <div className="text-xs font-medium text-ink-muted">Cost to complete</div>
+            <div className="text-xs font-medium text-ink-muted">{t.wishlists.costToComplete}</div>
             <div className="font-display font-medium text-[26px] tracking-[-0.02em] mt-[3px]">{eur(summary.value)}</div>
           </div>
           <div className="text-xs text-right text-ink-muted">
             {summary.label}
             <br />
-            targets {eur(summary.targetValue)}
+            {t.wishlists.targets(eur(summary.targetValue))}
           </div>
         </div>
 

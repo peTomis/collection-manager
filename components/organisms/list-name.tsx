@@ -13,6 +13,7 @@ import { renameWishlist } from "@/redux/slices/wishlists";
 import { BinderWithItems, WishlistWithItems } from "@/types/mongodb";
 import { LIMITS } from "@/lib/limits";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 
 type ListNameProps = { kind: "binder"; list: BinderWithItems } | { kind: "wishlist"; list: WishlistWithItems };
 
@@ -29,6 +30,7 @@ const ListName = ({ kind, list }: ListNameProps) => {
   const { wishlists } = useSelector((state) => state.wishlists);
   const user = useSelector((state) => state.user.user) ?? "";
   const dispatch = useDispatch();
+  const t = useT();
 
   const linked = kind === "binder" ? wishlists.find((w) => w._id === list.wishlist) : binders.find((b) => b._id === list.binder);
   const other = kind === "binder" ? "wishlist" : "binder";
@@ -48,13 +50,11 @@ const ListName = ({ kind, list }: ListNameProps) => {
     setEditing(false);
   };
 
-  const label = kind === "binder" ? "Binder" : "Wishlist";
-
   return (
     <>
       <h1
         className="font-display font-semibold text-[30px] lg:text-[40px] leading-[1.05] tracking-[-0.03em] truncate cursor-pointer rounded-md hover:bg-chip/60"
-        title={readOnly ? list.name : `${list.name} · click to rename`}
+        title={readOnly ? list.name : t.listName.clickToRename(list.name)}
         onClick={readOnly ? undefined : start}
       >
         {list.name}
@@ -64,20 +64,20 @@ const ListName = ({ kind, list }: ListNameProps) => {
         sheet
         open={editing}
         onClose={() => setEditing(false)}
-        title={`Rename ${kind}`}
+        title={t.listName.rename(kind)}
         footer={
           <>
             <button type="button" className={buttonClass("secondary")} onClick={() => setEditing(false)}>
-              Cancel
+              {t.common.cancel}
             </button>
             <button type="button" className={buttonClass("primary")} disabled={!trimmed} onClick={save}>
-              Save
+              {t.common.save}
             </button>
           </>
         }
       >
         <label className="block mb-1.5 text-xs font-medium text-ink-muted" htmlFor="list-name">
-          {label} name
+          {t.listName.label(kind)}
         </label>
         <input
           id="list-name"
@@ -95,7 +95,7 @@ const ListName = ({ kind, list }: ListNameProps) => {
               {both && "✓"}
             </span>
             <span>
-              Also rename the linked {other} <span className="text-ink-muted">({linked.name})</span>
+              {t.listName.alsoRename(other)} <span className="text-ink-muted">({linked.name})</span>
             </span>
           </button>
         )}

@@ -9,6 +9,7 @@ import { BinderWithItems } from "@/types/mongodb";
 import { setCompletion, summarizeBinder } from "@/lib/items";
 import { deltaColor, eur, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 
 interface BinderHeaderProps {
   binder: BinderWithItems;
@@ -17,22 +18,25 @@ interface BinderHeaderProps {
 
 const BinderHeader = ({ binder, onDelete }: BinderHeaderProps) => {
   const { sets } = useSelector((state) => state.sets);
+  const t = useT();
   const summary = summarizeBinder(binder);
   const completion = setCompletion(binder, sets);
 
   const stats = [
-    { label: "Value", value: eur(summary.value) },
-    { label: "Items", value: String(summary.cards + summary.sealed) },
-    { label: "7 days", value: pct(summary.change1w), color: deltaColor(summary.change1w) },
-    { label: "30 days", value: pct(summary.change1m), color: deltaColor(summary.change1m) },
+    { label: t.common.value, value: eur(summary.value) },
+    { label: t.common.items, value: String(summary.cards + summary.sealed) },
+    { label: t.binders.days7, value: pct(summary.change1w), color: deltaColor(summary.change1w) },
+    { label: t.binders.days30, value: pct(summary.change1m), color: deltaColor(summary.change1m) },
   ];
 
   return (
     <div className="flex-none">
       <div className="items-center justify-between hidden lg:flex text-[13px] text-ink-muted">
-        <span className="min-w-0 truncate">Binders / {binder.name}</span>
+        <span className="min-w-0 truncate">
+          {t.nav.binders} / {binder.name}
+        </span>
         <EditButton type="button" onClick={onDelete} className="flex-none ml-4 font-medium cursor-pointer hover:text-loss">
-          Delete binder
+          {t.binders.deleteBinder}
         </EditButton>
       </div>
 
@@ -41,14 +45,14 @@ const BinderHeader = ({ binder, onDelete }: BinderHeaderProps) => {
           <div className="flex items-start justify-between min-w-0 gap-3">
             <ListName key={binder._id} kind="binder" list={binder} />
             <EditButton type="button" onClick={onDelete} className="flex-none mt-2 text-[13px] font-medium text-ink-muted lg:hidden">
-              Delete
+              {t.common.delete}
             </EditButton>
           </div>
           <div className="flex items-center gap-2.5 lg:gap-3 mt-2 lg:mt-2.5 text-[13px] lg:text-sm text-ink-muted">
             {completion ? (
               <>
                 <span>
-                  {completion.owned} of {completion.total} <span className="hidden lg:inline">{completion.set} cards</span>
+                  {t.binders.completion(completion.owned, completion.total)} <span className="hidden lg:inline">{t.binders.setCards(completion.set)}</span>
                 </span>
                 <div className="flex-1 lg:flex-none lg:w-[140px] h-1 rounded-sm bg-line overflow-hidden">
                   <div className="h-full bg-ink" style={{ width: `${completion.percent}%` }} />

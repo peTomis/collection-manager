@@ -13,6 +13,7 @@ import { DEMO_USER } from "@/types/constants";
 import { resetDemoCollection } from "@/lib/demo-collection";
 import { fontVariables } from "@/lib/fonts";
 import { Theme } from "@/lib/theme";
+import { LOCALES, useI18n, useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 export const initials = (name?: string | null) =>
@@ -27,14 +28,15 @@ export const initials = (name?: string | null) =>
 export const useProfile = () => {
   const { user } = useSelector((state) => state.user);
   const { data: session } = useSession();
+  const t = useT();
   const isDemo = user === DEMO_USER;
 
   return {
     isDemo,
     initials: !user ? "" : isDemo ? "DE" : initials(session?.user?.name),
     image: !user || isDemo ? undefined : session?.user?.image ?? undefined,
-    name: isDemo ? "Demo collection" : session?.user?.name ?? "",
-    sub: isDemo ? "Saved in this browser only" : session?.user?.email ?? "",
+    name: isDemo ? t.settings.demoName : session?.user?.name ?? "",
+    sub: isDemo ? t.settings.demoSub : session?.user?.email ?? "",
   };
 };
 
@@ -56,12 +58,29 @@ export const Avatar = ({ className }: { className?: string }) => {
   );
 };
 
-const THEMES: { value: Theme; label: string }[] = [
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
-  { value: "system", label: "System" },
-  { value: "pokemon", label: "Pokémon" },
-];
+const THEMES: Theme[] = ["light", "dark", "system", "pokemon"];
+
+// The segmented switch of the theme and the language
+const Choice = <T extends string>({ label, options, value, onChange }: { label: string; options: { value: T; label: string }[]; value: T; onChange: (value: T) => void }) => (
+  <div className="py-5">
+    <div className="font-geist-mono font-medium text-[11px] md:text-xs tracking-[.08em] uppercase text-ink-muted mb-2.5 md:mb-3">{label}</div>
+    <div className="grid grid-flow-col auto-cols-fr gap-0.5 p-[3px] border border-line rounded-[10px] bg-canvas">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => onChange(o.value)}
+          className={cn(
+            "h-10 md:h-[34px] rounded-[7px] text-sm md:text-[13px] font-medium cursor-pointer",
+            value === o.value ? "bg-fill text-on-fill" : "bg-transparent text-ink-muted hover:text-ink"
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  </div>
+);
 
 interface SettingsPanelProps {
   open: boolean;
@@ -74,6 +93,7 @@ interface SettingsPanelProps {
 const SettingsPanel = ({ open, onOpenChange, theme, onThemeChange }: SettingsPanelProps) => {
   const profile = useProfile();
   const readOnly = useReadOnly();
+  const { t, locale, setLocale } = useI18n();
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
@@ -87,15 +107,15 @@ const SettingsPanel = ({ open, onOpenChange, theme, onThemeChange }: SettingsPan
           )}
         >
           <div className="flex items-center justify-between h-[60px] md:h-auto pl-4 pr-2 md:px-6 md:py-5 border-b border-line">
-            <DialogPrimitive.Title className="font-display font-semibold text-xl tracking-[-0.02em]">Settings</DialogPrimitive.Title>
+            <DialogPrimitive.Title className="font-display font-semibold text-xl tracking-[-0.02em]">{t.settings.title}</DialogPrimitive.Title>
             <DialogPrimitive.Close
-              aria-label="Close"
+              aria-label={t.common.close}
               className="grid w-11 h-11 md:w-9 md:h-9 place-items-center text-[22px] md:text-lg md:border md:border-line rounded-lg cursor-pointer hover:bg-chip"
             >
               ×
             </DialogPrimitive.Close>
           </div>
-          <DialogPrimitive.Description className="sr-only">Profile and account</DialogPrimitive.Description>
+          <DialogPrimitive.Description className="sr-only">{t.settings.description}</DialogPrimitive.Description>
 
           <div className="flex-1 px-4 overflow-y-auto md:px-6">
             <div className="flex items-center gap-3 md:gap-3.5 py-[18px] md:py-[22px] border-b border-line">
@@ -111,7 +131,7 @@ const SettingsPanel = ({ open, onOpenChange, theme, onThemeChange }: SettingsPan
                   onClick={() => signIn("google")}
                   className="flex-none h-[34px] px-3 border border-line rounded-lg bg-transparent text-[13px] font-medium cursor-pointer hover:bg-chip"
                 >
-                  Sign in
+                  {t.settings.signIn}
                 </button>
               )}
             </div>
@@ -119,23 +139,9 @@ const SettingsPanel = ({ open, onOpenChange, theme, onThemeChange }: SettingsPan
             <OfflineSettings />
             <AccountSettings signedIn={!profile.isDemo} />
 
-            <div className="py-5">
-              <div className="font-geist-mono font-medium text-[11px] md:text-xs tracking-[.08em] uppercase text-ink-muted mb-2.5 md:mb-3">Theme</div>
-              <div className="grid grid-cols-4 gap-0.5 p-[3px] border border-line rounded-[10px] bg-canvas">
-                {THEMES.map((t) => (
-                  <button
-                    key={t.value}
-                    type="button"
-                    onClick={() => onThemeChange(t.value)}
-                    className={cn(
-                      "h-10 md:h-[34px] rounded-[7px] text-sm md:text-[13px] font-medium cursor-pointer",
-                      theme === t.value ? "bg-fill text-on-fill" : "bg-transparent text-ink-muted hover:text-ink"
-                    )}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
+            <Choice label={t.settings.theme} options={THEMES.map((value) => ({ value, label: t.settings.themes[value] }))} value={theme} onChange={onThemeChange} />
+            <div className="border-t border-line">
+              <Choice label={t.settings.language} options={LOCALES} value={locale} onChange={setLocale} />
             </div>
           </div>
 
@@ -150,7 +156,7 @@ const SettingsPanel = ({ open, onOpenChange, theme, onThemeChange }: SettingsPan
                 }}
                 className="w-full md:w-auto h-12 md:h-[38px] px-3.5 border border-line md:border-0 rounded-[10px] bg-transparent text-ink-muted hover:text-ink font-medium text-[15px] md:text-sm cursor-pointer"
               >
-                Reset demo
+                {t.settings.resetDemo}
               </button>
             ) : (
               <button
@@ -159,7 +165,7 @@ const SettingsPanel = ({ open, onOpenChange, theme, onThemeChange }: SettingsPan
                 onClick={async () => { await clearOfflineDownload(); await signOut({ callbackUrl: "/" }); }}
                 className="w-full md:w-auto h-12 md:h-[38px] px-3.5 border border-line md:border-0 rounded-[10px] bg-transparent text-[oklch(0.5_0.16_27)] dark:text-[oklch(0.7_0.15_27)] font-medium text-[15px] md:text-sm cursor-pointer"
               >
-                Sign out
+                {t.settings.signOut}
               </button>
             )}
           </div>

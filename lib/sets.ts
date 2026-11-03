@@ -1,4 +1,5 @@
 import { Set } from "@/types/mongodb";
+import { messages } from "@/lib/i18n/core";
 
 // Eras of the (English) Pokémon TCG, each starting with the release of its first set, oldest first.
 // Wizards of the Coast published every set until Skyridge (12 May 2003); EX Ruby & Sapphire (18 June 2003) was the first one after Nintendo took over.
@@ -18,10 +19,12 @@ export const SET_ERAS: { name: string; from: string }[] = [
 
 const ERA_STARTS = SET_ERAS.map((era) => ({ ...era, start: Date.parse(era.from) }));
 
-// Era of a set from its release date; sets without one are grouped as "Other"
+// Era of a set from its release date, in the current language; sets without one are grouped as "Other"
 export const setEra = (set: Set) => {
-  if (!set.releasedAt) return "Other";
-  return [...ERA_STARTS].reverse().find((era) => set.releasedAt >= era.start)?.name ?? SET_ERAS[0].name;
+  const t = messages().items;
+  if (!set.releasedAt) return t.otherEra;
+  const name = [...ERA_STARTS].reverse().find((era) => set.releasedAt >= era.start)?.name ?? SET_ERAS[0].name;
+  return t.eras[name] ?? name;
 };
 
 // Consecutive runs of sets from the same era, keeping the order of `sets`

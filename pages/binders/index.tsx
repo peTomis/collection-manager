@@ -1,11 +1,13 @@
 // Components
 import Metadata from "@/components/metadata";
+import { useT } from "@/lib/i18n";
 import BindersContainer from "@/containers/binders";
 
 export default function BindersPage() {
+  const t = useT();
   return (
     <>
-      <Metadata title="Binders" description="Your binders: the cards and sealed products you own, with quantities, value and price trends." path="/binders" />
+      <Metadata title={t.metadata.binders.title} description={t.metadata.binders.description} path="/binders" />
       <BindersContainer />
     </>
   );

@@ -7,6 +7,7 @@ import { useSwipeToClose } from "@/lib/use-swipe-to-close";
 import { fontVariables } from "@/lib/fonts";
 import { cn } from "@/lib/utils";
 import { buttonClass } from "@/components/atoms/button";
+import { useT } from "@/lib/i18n";
 
 interface ModalProps {
   open: boolean;
@@ -65,30 +66,33 @@ interface ConfirmModalProps {
   confirmLabel: string;
 }
 
-export const ConfirmModal = ({ open, onClose, onConfirm, title, description, confirmLabel }: ConfirmModalProps) => (
-  <Modal
-    open={open}
-    onClose={onClose}
-    title={title}
-    description={description}
-    footer={
-      <>
-        <button type="button" className={buttonClass("secondary")} onClick={onClose}>
-          Cancel
-        </button>
-        <button
-          type="button"
-          className={buttonClass("danger")}
-          onClick={() => {
-            onConfirm();
-            onClose();
-          }}
-        >
-          {confirmLabel}
-        </button>
-      </>
-    }
-  />
-);
+export const ConfirmModal = ({ open, onClose, onConfirm, title, description, confirmLabel }: ConfirmModalProps) => {
+  const t = useT();
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={title}
+      description={description}
+      footer={
+        <>
+          <button type="button" className={buttonClass("secondary")} onClick={onClose}>
+            {t.common.cancel}
+          </button>
+          <button
+            type="button"
+            className={buttonClass("danger")}
+            onClick={() => {
+              onConfirm();
+              onClose();
+            }}
+          >
+            {confirmLabel}
+          </button>
+        </>
+      }
+    />
+  );
+};
 
 export default Modal;

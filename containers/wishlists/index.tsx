@@ -9,6 +9,7 @@ import { deleteWishlist, getWishlists, setWishlist } from "@/redux/slices/wishli
 import { getBinders } from "@/redux/slices/binders";
 import { getSets } from "@/redux/slices/sets";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 
 // Components
 import Topbar from "@/components/organisms/topbar";
@@ -28,6 +29,7 @@ const WishlistsContainer = () => {
   const linkedBinder = useSelector((state) => state.binders.binders.find((b) => !!wishlist?.binder && b._id === wishlist.binder));
 
   const dispatch = useDispatch();
+  const t = useT();
 
   useEffect(() => {
     if (!user) return;
@@ -71,10 +73,10 @@ const WishlistsContainer = () => {
           ) : (
             loaded && (
               <div className="flex flex-col items-center gap-3 py-24 text-center">
-                <h1 className="font-display font-semibold text-[30px] tracking-[-0.03em]">No wishlists yet</h1>
-                <p className="text-sm text-ink-muted">List the cards you want and set a target price for each.</p>
+                <h1 className="font-display font-semibold text-[30px] tracking-[-0.03em]">{t.wishlists.emptyTitle}</h1>
+                <p className="text-sm text-ink-muted">{t.wishlists.emptyText}</p>
                 <EditButton type="button" onClick={() => setCreating(true)} className={cn(buttonClass("primary"), "mt-2")}>
-                  + New wishlist
+                  {t.wishlists.newWishlist}
                 </EditButton>
               </div>
             )
@@ -87,9 +89,9 @@ const WishlistsContainer = () => {
         open={deleting}
         onClose={() => setDeleting(false)}
         onConfirm={() => user && wishlist && dispatch(deleteWishlist(user, wishlist._id))}
-        title="Delete wishlist"
-        description={`Delete ${wishlist?.name ?? "this wishlist"} and everything in it?${linkedBinder ? ` Its linked binder ${linkedBinder.name} is deleted too.` : ""} This can't be undone.`}
-        confirmLabel="Delete"
+        title={t.wishlists.deleteWishlist}
+        description={t.wishlists.deleteDescription(wishlist?.name, linkedBinder?.name)}
+        confirmLabel={t.common.delete}
       />
     </main>
   );

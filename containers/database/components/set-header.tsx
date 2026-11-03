@@ -8,9 +8,10 @@ import SetIcon from "./set-icon";
 import { CardVariantType, Language, Set } from "@/types/mongodb";
 import { setSize } from "./set-rail";
 import { Catalog, priceKey } from "../use-set-catalog";
-import { VARIANT_LABELS } from "@/lib/items";
+import { variantName } from "@/lib/items";
 import { eur } from "@/lib/format";
 import { getPrice } from "@/lib/prices";
+import { intlLocale, useT } from "@/lib/i18n";
 
 interface SetHeaderProps {
   set: Set;
@@ -39,14 +40,14 @@ const setVersions = (catalog: Catalog) => {
   return [...versions.values()].sort((a, b) => b.value - a.value);
 };
 
-const releaseDate = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" });
-
 const SetHeader = ({ set, catalog }: SetHeaderProps) => {
+  const t = useT();
   const size = setSize(set);
   const versions = useMemo(() => (catalog ? setVersions(catalog) : []), [catalog]);
   const released = set.releasedAt ? new Date(set.releasedAt) : null;
   const { cards, sealed } = set;
-  const counts = [cards && `${cards} cards`, sealed && `${sealed} sealed`];
+  const counts = [cards && t.common.cardsCount(cards), sealed && t.common.sealedCount(sealed)];
+  const releaseDate = (date: Date) => date.toLocaleDateString(intlLocale(), { day: "numeric", month: "short", year: "numeric" });
 
   return (
     <div className="flex items-center flex-none gap-5">
@@ -58,15 +59,15 @@ const SetHeader = ({ set, catalog }: SetHeaderProps) => {
         <div className="mt-1 lg:mt-1.5 text-[13px] lg:text-sm text-ink-muted">
           <span className="lg:hidden">{[released?.getFullYear(), ...counts].filter(Boolean).join(" · ")}</span>
           <span className="hidden lg:inline">
-            {[released && `Released ${releaseDate.format(released)}`, cards && `${cards} cards`, sealed && `${sealed} sealed products`].filter(Boolean).join(" · ")}
+            {[released && t.database.released(releaseDate(released)), cards && t.common.cardsCount(cards), sealed && t.database.sealedProducts(sealed)].filter(Boolean).join(" · ")}
           </span>
         </div>
         {versions.length > 0 && (
-          <dl className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[13px] lg:text-sm" aria-label="Set value by version">
+          <dl className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[13px] lg:text-sm" aria-label={t.database.valueByVersion}>
             {versions.map((v) => (
               <div key={`${v.type}|${v.language}`} className="flex items-baseline gap-1.5 whitespace-nowrap">
                 <dt className="text-ink-muted">
-                  {VARIANT_LABELS[v.type] ?? v.type} {v.language.toUpperCase()}
+                  {variantName(v.type) ?? v.type} {v.language.toUpperCase()}
                 </dt>
                 <dd className="font-geist-mono font-medium">{eur(v.value)}</dd>
                 {/* Not every card has a price in every version */}
@@ -82,9 +83,9 @@ const SetHeader = ({ set, catalog }: SetHeaderProps) => {
       </div>
       {size > 0 && (
         <div className="hidden ml-auto text-right lg:block">
-          <div className="text-xs font-medium text-ink-muted">In this set</div>
+          <div className="text-xs font-medium text-ink-muted">{t.database.inThisSet}</div>
           <div className="font-display font-medium text-[22px] tracking-[-0.02em] mt-1 whitespace-nowrap">
-            {size} {size === 1 ? "item" : "items"}
+            {t.database.setSize(size)}
           </div>
         </div>
       )}

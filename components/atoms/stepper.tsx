@@ -3,6 +3,7 @@ import EditButton from "@/components/atoms/edit-button";
 
 import { LIMITS } from "@/lib/limits";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 
 interface StepperProps {
   value: number;
@@ -32,13 +33,14 @@ const STYLES = {
 // − quantity +, within min and max. Read-only in offline mode, like every collection edit.
 const Stepper = ({ value, onChange, min = 1, max = LIMITS.QUANTITY, size = "lg", disabled, className }: StepperProps) => {
   const style = STYLES[size];
+  const t = useT();
   return (
     <div className={cn("flex items-center", style.box, disabled && "opacity-40 pointer-events-none", className)}>
-      <EditButton type="button" aria-label="Decrease quantity" className={style.button} disabled={disabled || value <= min} onClick={() => onChange(value - 1)}>
+      <EditButton type="button" aria-label={t.common.decreaseQuantity} className={style.button} disabled={disabled || value <= min} onClick={() => onChange(value - 1)}>
         −
       </EditButton>
       <span className={style.value}>{value}</span>
-      <EditButton type="button" aria-label="Increase quantity" className={style.button} disabled={disabled || value >= max} onClick={() => onChange(value + 1)}>
+      <EditButton type="button" aria-label={t.common.increaseQuantity} className={style.button} disabled={disabled || value >= max} onClick={() => onChange(value + 1)}>
         +
       </EditButton>
     </div>

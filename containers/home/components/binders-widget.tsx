@@ -10,13 +10,15 @@ import { deltaColor, eur, pct } from "@/lib/format";
 import { binderChange, isOwned, summarizeBinder } from "@/lib/items";
 import { cn } from "@/lib/utils";
 import { Period, PERIODS } from "./net-worth";
+import { useT } from "@/lib/i18n";
 
 const BindersWidget = ({ period }: { period: Period }) => {
   const { binders } = useSelector((state) => state.binders);
   const dispatch = useDispatch();
+  const t = useT();
 
   const price = PERIODS.find((p) => p.value === period)!.price;
-  const summarize = (binder: BinderWithItems) => ({ binder, ...summarizeBinder(binder), change: binderChange(binder, price.period) });
+  const summarize = (binder: BinderWithItems) => ({ binder, ...summarizeBinder(binder), change: binderChange(binder, price) });
   const rows = binders.map(summarize).sort((a, b) => b.value - a.value);
   const total = rows.reduce((acc, r) => acc + r.value, 0);
   const items = rows.reduce((acc, r) => acc + r.cards + r.sealed, 0);
@@ -31,9 +33,9 @@ const BindersWidget = ({ period }: { period: Period }) => {
   return (
     <section className="flex flex-col bg-paper border border-line rounded-xl lg:rounded-[14px] px-4 pt-[18px] pb-1 lg:px-6 lg:pt-6 lg:pb-4 lg:absolute lg:inset-0">
       <div className="flex items-baseline justify-between">
-        <h3 className="font-display font-semibold text-xl lg:text-[22px] tracking-[-0.02em]">Binders</h3>
+        <h3 className="font-display font-semibold text-xl lg:text-[22px] tracking-[-0.02em]">{t.nav.binders}</h3>
         <Link href="/binders" className="text-[13px] font-medium text-ink hover:text-gain">
-          View all →
+          {t.home.viewAll}
         </Link>
       </div>
 
@@ -44,16 +46,16 @@ const BindersWidget = ({ period }: { period: Period }) => {
         </div>
         <div className="flex justify-between mt-2 text-xs text-ink-muted">
           <span>
-            Cards <span className="font-geist-mono text-ink">{eur(cardsValue)}</span>
+            {t.common.cards} <span className="font-geist-mono text-ink">{eur(cardsValue)}</span>
           </span>
           <span>
-            Sealed <span className="font-geist-mono text-ink">{eur(total - cardsValue)}</span>
+            {t.home.sealed} <span className="font-geist-mono text-ink">{eur(total - cardsValue)}</span>
           </span>
         </div>
       </div>
 
       <div className="flex-1 min-h-0 px-2 mt-4 -mx-2 lg:overflow-y-auto">
-        {rows.length === 0 && <div className="py-6 text-sm text-center border-t border-line text-ink-muted">No binders yet</div>}
+        {rows.length === 0 && <div className="py-6 text-sm text-center border-t border-line text-ink-muted">{t.home.noBinders}</div>}
         {rows.map((r) => (
           <Link
             key={r.binder._id}
@@ -71,7 +73,7 @@ const BindersWidget = ({ period }: { period: Period }) => {
             <div className="text-right">
               <div className="font-geist-mono font-medium text-sm lg:text-[15px]">{eur(r.value)}</div>
               <div className={cn("font-geist-mono text-[11px] lg:text-xs lg:mt-1", deltaColor(r.change))}>
-                {pct(r.change)} <span className="text-ink-muted">{price.label}</span>
+                {pct(r.change)} <span className="text-ink-muted">{t.detail.periods[price]}</span>
               </div>
             </div>
           </Link>
@@ -80,7 +82,7 @@ const BindersWidget = ({ period }: { period: Period }) => {
 
       <div className="hidden lg:flex justify-between pt-3.5 border-t border-line text-[13px] text-ink-muted">
         <span>
-          {rows.length} binders · {items} items
+          {t.home.bindersTotal(rows.length, items)}
         </span>
         <span className="font-geist-mono text-ink">{eur(total)}</span>
       </div>

@@ -9,6 +9,7 @@ import { getWishlists } from "@/redux/slices/wishlists";
 import { getSets, setSet } from "@/redux/slices/sets";
 import { useSetCatalog } from "./use-set-catalog";
 import { isOwned } from "@/lib/items";
+import { useT } from "@/lib/i18n";
 
 // Components
 import Topbar from "@/components/organisms/topbar";
@@ -27,6 +28,7 @@ const DatabaseContainer = () => {
 
   const dispatch = useDispatch();
   const router = useRouter();
+  const t = useT();
   // From the top bar search: the set to open, and a card or sealed product to show in it
   const querySet = typeof router.query.set === "string" ? router.query.set : undefined;
   const queryItem = typeof router.query.item === "string" ? router.query.item : undefined;
@@ -80,7 +82,7 @@ const DatabaseContainer = () => {
               />
             </>
           ) : (
-            loaded && <div className="py-24 text-sm text-center text-ink-muted">No sets in the database yet.</div>
+            loaded && <div className="py-24 text-sm text-center text-ink-muted">{t.database.noSets}</div>
           )}
         </section>
       </div>

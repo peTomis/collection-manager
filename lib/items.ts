@@ -1,16 +1,16 @@
-import { Binder, BinderWithItems, Card, CardHistoricPrice, CardVariantType, ItemType, ItemWithJoin, Sealed, Set, WishlistItem, WishlistWithItems } from "@/types/mongodb";
+import { Binder, BinderWithItems, Card, CardHistoricPrice, CardVariantType, ItemType, Language, ItemWithJoin, Sealed, Set, WishlistItem, WishlistWithItems } from "@/types/mongodb";
 import { getPastPrice, getPrice, PricePeriod } from "@/lib/prices";
 import { change } from "@/lib/format";
 import { LIMITS } from "@/lib/limits";
+import { messages } from "@/lib/i18n/core";
 
-export const VARIANT_LABELS: Record<CardVariantType, string> = {
-  [CardVariantType.FIRST_EDITION]: "1st Edition",
-  [CardVariantType.ONE_STAR]: "One Star",
-  [CardVariantType.REGULAR]: "Regular",
-  [CardVariantType.REVERSE_HOLO]: "Reverse Holo",
-  [CardVariantType.SHADOWLESS]: "Shadowless",
-  [CardVariantType.TWO_STAR]: "Two Star",
-};
+// "1st Edition", in the current language
+export const variantName = (type: CardVariantType): string | undefined => messages().items.variants[type];
+
+// A sealed product type as the scraper stores it ("Booster Box"), in the current language
+export const sealedTypeName = (type: string) => messages().items.sealedTypes[type] ?? type;
+
+export const languageName = (language: Language) => messages().items.languages[language] ?? language.toUpperCase();
 
 export const isSealed = (item: ItemWithJoin) => item.type === ItemType.SEALED;
 
@@ -26,7 +26,7 @@ export const cardNumberLabel = (number: number, total?: number) => (number > 100
 
 // "1st Edition" for cards, the product type ("Booster Box") for sealed
 export const variantLabel = (item: ItemWithJoin) =>
-  isSealed(item) ? (item.item as Sealed).type ?? "Sealed" : VARIANT_LABELS[(item.historicPrice as CardHistoricPrice)?.type] ?? "";
+  isSealed(item) ? sealedTypeName((item.item as Sealed).type ?? "Sealed") : variantName((item.historicPrice as CardHistoricPrice)?.type) ?? "";
 
 // Local image of a sealed product, if it has one
 export const sealedPath = (item: ItemWithJoin) => (isSealed(item) ? (item.item as Sealed).path : undefined);
@@ -64,7 +64,8 @@ export const summarizeBinder = (binder: BinderWithItems) => {
     if (item.type === ItemType.SEALED) sealed += item.quantity;
     else cards += item.quantity;
   }
-  const count = [cards && `${cards} cards`, sealed && `${sealed} sealed`, missing && `${missing} missing`].filter(Boolean).join(" · ") || "Empty";
+  const t = messages();
+  const count = [cards && t.common.cardsCount(cards), sealed && t.common.sealedCount(sealed), missing && t.items.missingCount(missing)].filter(Boolean).join(" · ") || t.items.empty;
   return { value, cards, sealed, missing, count, change1w: change(value, value1w), change1m: change(value, value1m) };
 };
 
@@ -76,8 +77,10 @@ export const mergeMovedItem = (moved: { quantity: number; owned: boolean }, exis
 };
 
 // Why an item couldn't go into a binder, as the move and "got it" actions report it
-export const intoBinderError = (result: "wrong-set" | "full" | "error", binder: string) =>
-  result === "full" ? `${binder} is full.` : result === "wrong-set" ? `${binder} doesn't take this item.` : "Couldn't move the item. Try again in a moment.";
+export const intoBinderError = (result: "wrong-set" | "full" | "error", binder: string) => {
+  const t = messages().items;
+  return result === "full" ? t.full(binder) : result === "wrong-set" ? t.wrongSet(binder) : t.moveFailed;
+};
 
 // Change of the binder's owned items over a price period, against each item's oldest known price in it
 export const binderChange = (binder: BinderWithItems, period: PricePeriod) => {
@@ -124,5 +127,5 @@ export const summarizeWishlist = (wishlist: WishlistWithItems) => {
     if (isSealed(item)) sealed++;
   }
   const count = wishlist.items.length;
-  return { value, targetValue, count, sealed, cards: count - sealed, hits: wishlist.items.filter(targetHit), label: count === 1 ? "1 item" : `${count} items` };
+  return { value, targetValue, count, sealed, cards: count - sealed, hits: wishlist.items.filter(targetHit), label: messages().common.itemsCount(count) };
 };

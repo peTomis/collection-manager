@@ -20,6 +20,7 @@ import { cardNumber, cardNumberLabel, isSealed, itemPrice, languageLabel, sealed
 import { useSetsImages } from "@/lib/tcgdex";
 import { eur } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 
 interface Row {
   item: WishlistItem;
@@ -59,6 +60,7 @@ const WishlistItems = ({ wishlist, openItem, onOpened }: WishlistItemsProps) => 
   const { binders } = useSelector((state) => state.binders);
   const user = useSelector((state) => state.user.user) ?? "";
   const dispatch = useDispatch();
+  const t = useT();
   const summary = summarizeWishlist(wishlist);
 
   // Got it: straight into the linked binder when it can take the item, otherwise ask which binder
@@ -80,7 +82,7 @@ const WishlistItems = ({ wishlist, openItem, onOpened }: WishlistItemsProps) => 
       const number = cardNumber(item);
       return {
         item,
-        set: [set?.name, isSealed(item) ? "Sealed" : number !== undefined && cardNumberLabel(number, set?.cards)].filter(Boolean).join(" · "),
+        set: [set?.name, isSealed(item) ? t.common.sealed : number !== undefined && cardNumberLabel(number, set?.cards)].filter(Boolean).join(" · "),
         details: [variantLabel(item), languageLabel(item)].filter(Boolean).join(" · "),
         price: itemPrice(item),
         hit: targetHit(item),
@@ -96,7 +98,7 @@ const WishlistItems = ({ wishlist, openItem, onOpened }: WishlistItemsProps) => 
         (setIndex.get(a.item.item?.set) ?? 0) - (setIndex.get(b.item.item?.set) ?? 0) ||
         (cardNumber(a.item) ?? 0) - (cardNumber(b.item) ?? 0)
     );
-  }, [wishlist, sets, images]);
+  }, [wishlist, sets, images, t]);
 
   return (
     <div className="flex flex-col lg:flex-1 lg:min-h-0">
@@ -104,7 +106,8 @@ const WishlistItems = ({ wishlist, openItem, onOpened }: WishlistItemsProps) => 
         <div className={cn("flex flex-none items-center gap-2.5 lg:gap-3 mt-2.5 lg:mt-6 px-3.5 lg:px-4 py-3 lg:py-3.5 rounded-[10px] text-gain text-[13px] lg:text-sm font-medium", gainSoft)}>
           <span className="flex-none w-2 h-2 rotate-45 lg:w-[9px] lg:h-[9px] bg-gain" />
           <span>
-            {summary.hits.length === 1 ? "1 item is" : `${summary.hits.length} items are`} at or below your target price: {summary.hits.map((i) => i.item?.name).join(", ")}
+            {t.alerts.atOrBelow(summary.hits.length)}
+            {t.wishlists.hits(summary.hits.map((i) => i.item?.name).join(", "))}
           </span>
         </div>
       )}
@@ -112,9 +115,9 @@ const WishlistItems = ({ wishlist, openItem, onOpened }: WishlistItemsProps) => 
       <div className={cn("pt-3 pb-5 lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:pb-10", summary.hits.length ? "lg:pt-5" : "lg:mt-6 lg:pt-6 lg:border-t border-line")}>
         {wishlist.items.length === 0 ? (
           <div className="py-16 text-sm text-center border border-dashed rounded-xl border-line text-ink-muted">
-            This wishlist is empty.{" "}
+            {t.wishlists.empty}{" "}
             <Link href="/database" className="font-medium underline text-ink">
-              Add cards from the database
+              {t.binders.addFromDatabase}
             </Link>
           </div>
         ) : (
@@ -134,8 +137,9 @@ const WishlistItems = ({ wishlist, openItem, onOpened }: WishlistItemsProps) => 
 };
 
 const WishlistCard = ({ row: r, onView, onEdit, onAcquire }: { row: Row; onView: () => void; onEdit: () => void; onAcquire: () => void }) => {
+  const t = useT();
   const target = r.item.target;
-  const gap = target !== undefined ? (r.hit ? `${eur(target - r.price)} below target` : `${eur(r.price - target)} above target`) : "No target set";
+  const gap = target !== undefined ? (r.hit ? t.wishlists.belowTarget(eur(target - r.price)) : t.wishlists.aboveTarget(eur(r.price - target))) : t.wishlists.noTargetSet;
   const gapClass = cn("font-geist-mono font-medium text-xs", r.hit ? "text-gain" : "text-ink-muted");
   const acquireClass = cn("rounded-lg font-medium cursor-pointer", r.hit ? "bg-fill text-on-fill" : "bg-chip text-ink hover:bg-line");
 
@@ -151,11 +155,11 @@ const WishlistCard = ({ row: r, onView, onEdit, onAcquire }: { row: Row; onView:
     >
       <button
         type="button"
-        aria-label={`View ${r.item.item?.name ?? "item"}`}
+        aria-label={t.common.view(r.item.item?.name ?? t.common.item)}
         onClick={onView}
         className={cn("relative aspect-[63/88] rounded-[5px] lg:rounded-md grid place-items-center self-start overflow-hidden cursor-pointer", stripes)}
       >
-        <span className="hidden lg:block font-geist-mono text-[10px] text-ink-muted">{isSealed(r.item) ? "product shot" : "card art"}</span>
+        <span className="hidden lg:block font-geist-mono text-[10px] text-ink-muted">{isSealed(r.item) ? t.common.productShot : t.common.cardArt}</span>
         {r.image && <CardArt image={r.image} alt={r.item.item?.name ?? ""} />}
         {sealedPath(r.item) && <SealedArt path={sealedPath(r.item)!} alt={r.item.item?.name ?? ""} />}
       </button>
@@ -174,10 +178,10 @@ const WishlistCard = ({ row: r, onView, onEdit, onAcquire }: { row: Row; onView:
           <span className={gapClass}>{gap}</span>
           <div className="flex flex-none gap-1.5">
             <EditButton type="button" onClick={onEdit} className="h-9 px-2.5 border border-line rounded-lg text-xs font-medium cursor-pointer">
-              Edit
+              {t.common.edit}
             </EditButton>
             <EditButton type="button" onClick={onAcquire} className={cn(acquireClass, "h-9 px-3 text-xs")}>
-              Got it
+              {t.common.gotIt}
             </EditButton>
           </div>
         </div>
@@ -189,27 +193,27 @@ const WishlistCard = ({ row: r, onView, onEdit, onAcquire }: { row: Row; onView:
           <button type="button" onClick={onView} className="text-base font-medium text-left cursor-pointer hover:underline">
             {r.item.item?.name}
           </button>
-          {r.hit && <span className="flex-none font-geist-mono font-medium text-[11px] px-[7px] py-[3px] rounded bg-gain text-paper">TARGET HIT</span>}
+          {r.hit && <span className="flex-none font-geist-mono font-medium text-[11px] px-[7px] py-[3px] rounded bg-gain text-paper">{t.wishlists.targetHit}</span>}
         </div>
         <div className="text-[13px] text-ink-muted mt-[3px] truncate">{r.set}</div>
         <div className="text-xs text-ink-muted mt-0.5 truncate">{r.details}</div>
         <div className="grid grid-cols-2 gap-2 mt-3.5">
           <div>
-            <div className="text-[11px] text-ink-muted">Price</div>
+            <div className="text-[11px] text-ink-muted">{t.common.price}</div>
             <div className="font-geist-mono font-medium text-base mt-0.5">{eur(r.price)}</div>
           </div>
           <div>
-            <div className="text-[11px] text-ink-muted">Target</div>
+            <div className="text-[11px] text-ink-muted">{t.common.target}</div>
             <div className="font-geist-mono font-medium text-base mt-0.5 text-ink-muted">{target !== undefined ? eur(target) : "—"}</div>
           </div>
         </div>
         <div className={cn(gapClass, "mt-2")}>{gap}</div>
         <div className="flex justify-end gap-1.5 mt-auto pt-3.5">
           <EditButton type="button" onClick={onEdit} className="h-[34px] px-2.5 border border-line rounded-lg bg-transparent text-[13px] font-medium cursor-pointer hover:bg-chip">
-            Edit
+            {t.common.edit}
           </EditButton>
           <EditButton type="button" onClick={onAcquire} className={cn(acquireClass, "flex-1 max-w-[100px] h-[34px] text-[13px]")}>
-            Got it
+            {t.common.gotIt}
           </EditButton>
         </div>
       </div>
@@ -225,6 +229,7 @@ const EditTargetModal = ({ item, onClose }: { item: WishlistItem | null; onClose
   const [shownFor, setShownFor] = useState<string | null>(null);
   const user = useSelector((state) => state.user.user) ?? "";
   const dispatch = useDispatch();
+  const t = useT();
 
   // Prefill with the current target each time the modal opens for an item
   if (item && item._id !== shownFor) {
@@ -256,24 +261,24 @@ const EditTargetModal = ({ item, onClose }: { item: WishlistItem | null; onClose
     <Modal
       open={!!item}
       onClose={close}
-      title={item?.item?.name ?? "Edit item"}
-      description={item ? `Current price ${eur(itemPrice(item))}. You'll see an alert when it drops to your target.` : undefined}
+      title={item?.item?.name ?? t.wishlists.editItem}
+      description={item ? t.wishlists.editDescription(eur(itemPrice(item))) : undefined}
       footer={
         <>
           <EditButton type="button" className={cn(buttonClass("secondary"), "mr-auto text-loss")} onClick={remove}>
-            Remove
+            {t.common.remove}
           </EditButton>
           <button type="button" className={buttonClass("secondary")} onClick={close}>
-            Cancel
+            {t.common.cancel}
           </button>
           <EditButton type="button" className={buttonClass("primary")} disabled={!valid} onClick={save}>
-            Save
+            {t.common.save}
           </EditButton>
         </>
       }
     >
       <label className="block mb-1.5 text-xs font-medium text-ink-muted" htmlFor="wishlist-target">
-        Target price (€)
+        {t.wishlists.targetPrice}
       </label>
       <input
         id="wishlist-target"
@@ -282,7 +287,7 @@ const EditTargetModal = ({ item, onClose }: { item: WishlistItem | null; onClose
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && save()}
-        placeholder="No target"
+        placeholder={t.wishlists.noTarget}
         className={cn(inputClass, "font-geist-mono")}
       />
       <TargetSuggestions className="mt-3" historicPrice={item?.historicPrice} value={value} onPick={(v) => setValue(String(v))} />
@@ -294,6 +299,7 @@ const EditTargetModal = ({ item, onClose }: { item: WishlistItem | null; onClose
 const GotItModal = ({ item, notice, onClose }: { item: WishlistItem | null; notice?: string; onClose: () => void }) => {
   const { choices, selected, setBinderId, acquire, moving, error, reset, modal } = useAcquire(item);
   const outsideSet = !!item && !!selected && !binderAccepts(selected, item.type, item.item);
+  const t = useT();
 
   const close = () => {
     reset();
@@ -307,23 +313,21 @@ const GotItModal = ({ item, notice, onClose }: { item: WishlistItem | null; noti
     <Modal
       open={!!item}
       onClose={close}
-      title="Got it"
-      description={
-        selected ? `Move ${item?.item?.name ?? "this item"} into a binder. It will be removed from this wishlist.` : "Create a binder first to move this item into your collection."
-      }
+      title={t.common.gotIt}
+      description={selected ? t.wishlists.moveDescription(item?.item?.name) : t.wishlists.createBinderFirst}
       footer={
         selected ? (
           <>
             <button type="button" className={buttonClass("secondary")} onClick={close}>
-              Cancel
+              {t.common.cancel}
             </button>
             <EditButton type="button" className={buttonClass("primary")} disabled={moving} onClick={confirm}>
-              {moving ? "Moving…" : "Move to binder"}
+              {moving ? t.common.moving : t.wishlists.moveToBinder}
             </EditButton>
           </>
         ) : (
           <Link href="/binders" className={cn(buttonClass("primary"), "inline-flex items-center")}>
-            Go to binders
+            {t.wishlists.goToBinders}
           </Link>
         )
       }
@@ -331,7 +335,7 @@ const GotItModal = ({ item, notice, onClose }: { item: WishlistItem | null; noti
       {selected && (
         <>
           <label className="block mb-1.5 text-xs font-medium text-ink-muted" htmlFor="wishlist-binder">
-            Binder
+            {t.common.kind.binder}
           </label>
           <select id="wishlist-binder" value={selected._id} onChange={(e) => setBinderId(e.target.value)} className={cn(inputClass, "cursor-pointer")}>
             {choices.map((b) => (
@@ -340,7 +344,7 @@ const GotItModal = ({ item, notice, onClose }: { item: WishlistItem | null; noti
               </option>
             ))}
           </select>
-          {outsideSet && <p className="mt-1.5 text-xs text-ink-muted">{selected.name} is a set binder. Moving this removes its set link.</p>}
+          {outsideSet && <p className="mt-1.5 text-xs text-ink-muted">{t.wishlists.setBinderOnMove(selected.name)}</p>}
           {(error ?? notice) && <p className="mt-1.5 text-xs text-loss">{error ?? notice}</p>}
         </>
       )}

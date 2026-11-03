@@ -7,6 +7,7 @@ import { getPrice } from "@/lib/prices";
 import { isOwned } from "@/lib/items";
 import { eur } from "@/lib/format";
 import { LIMITS } from "@/lib/limits";
+import { messages } from "@/lib/i18n/core";
 
 export type ListType = "binder" | "wishlist";
 export type Scope = "cards" | "sealed" | "both";
@@ -109,22 +110,22 @@ export const listItems = (toAdd: Candidate[], options: ListOptions) => {
 // A set binder only takes cards of its set, so a set with sealed products becomes an ordinary binder
 export const setBinderOf = (setId: string, scope: Scope) => (scope === "cards" ? setId : undefined);
 
-const itemsLabel = (n: number) => (n === 1 ? "1 item" : `${n} items`);
-
 // The line under the form: what creating the list will do, or why it can't yet
 export const newListSummary = (
   options: Omit<ListOptions, "discount"> & { set?: { name: string }; loading: boolean; toAdd: number; total: number; withoutPrice: number }
 ): string => {
   const { type, missing, linked, set, loading, toAdd, total, withoutPrice } = options;
-  if (!set) return linked ? "Both start empty. Missing items stay in sync." : "Starts empty. Add items from the Database.";
-  if (loading) return `Loading ${set.name}…`;
-  if (toAdd > LIMITS.ITEMS_PER_LIST) return `${toAdd} items: a ${type} holds up to ${LIMITS.ITEMS_PER_LIST}`;
-  if (toAdd === 0) return "Nothing to add with these options.";
+  const t = messages().newListSummary;
+  const items = messages().common.itemsCount(toAdd);
+  if (!set) return linked ? t.bothEmpty : t.startsEmpty(type);
+  if (loading) return t.loading(set.name);
+  if (toAdd > LIMITS.ITEMS_PER_LIST) return t.tooMany(toAdd, type, LIMITS.ITEMS_PER_LIST);
+  if (toAdd === 0) return t.nothingToAdd;
   const isBinder = type === "binder";
   return [
-    missing ? `${toAdd} slots added as missing, completion tracked` : isBinder ? `${itemsLabel(toAdd)} added as owned` : `${itemsLabel(toAdd)} · about ${eur(total)} to complete`,
-    linked && (isBinder ? (missing ? "same in a linked wishlist" : "linked wishlist starts empty") : "tracked as missing in a linked binder"),
-    withoutPrice && `${withoutPrice} without a price left out`,
+    missing ? t.slotsMissing(toAdd) : isBinder ? t.addedOwned(items) : t.toComplete(items, eur(total)),
+    linked && (isBinder ? (missing ? t.sameInLinkedWishlist : t.linkedWishlistEmpty) : t.trackedInLinkedBinder),
+    withoutPrice && t.withoutPrice(withoutPrice),
   ]
     .filter(Boolean)
     .join(" · ");

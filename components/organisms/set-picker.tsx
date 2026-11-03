@@ -13,6 +13,7 @@ import { useSwipeToClose } from "@/lib/use-swipe-to-close";
 import { fontVariables } from "@/lib/fonts";
 import { cn } from "@/lib/utils";
 import { useIsomorphicLayoutEffect } from "@/lib/use-isomorphic-layout-effect";
+import { useT } from "@/lib/i18n";
 
 interface SetPickerProps {
   open: boolean;
@@ -35,6 +36,7 @@ const SetPicker = ({ open, onClose, anchor, sets, selected, owned, onSelect }: S
   const [query, setQuery] = useState("");
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
   const { sheet, handlers } = useSwipeToClose(onClose);
+  const t = useT();
 
   // Follow the button on desktop (the modal can scroll or the window resize while open)
   useIsomorphicLayoutEffect(() => {
@@ -82,7 +84,7 @@ const SetPicker = ({ open, onClose, anchor, sets, selected, owned, onSelect }: S
               <span className="w-10 h-[5px] rounded-full bg-line" />
             </div>
             <div className="flex items-center h-11 px-4">
-              <DialogPrimitive.Title className="font-display font-semibold text-xl tracking-[-0.02em]">Choose a set</DialogPrimitive.Title>
+              <DialogPrimitive.Title className="font-display font-semibold text-xl tracking-[-0.02em]">{t.setPicker.title}</DialogPrimitive.Title>
             </div>
           </div>
 
@@ -94,10 +96,10 @@ const SetPicker = ({ open, onClose, anchor, sets, selected, owned, onSelect }: S
               </svg>
               <input
                 autoFocus
-                aria-label="Search sets"
+                aria-label={t.setPicker.search}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search sets or codes"
+                placeholder={t.setPicker.placeholder}
                 className="flex-1 min-w-0 text-base bg-transparent outline-none lg:text-sm text-ink placeholder:text-ink-muted"
               />
             </label>
@@ -127,11 +129,11 @@ const SetPicker = ({ open, onClose, anchor, sets, selected, owned, onSelect }: S
                       <span className="min-w-0">
                         <span className="block truncate text-[15px] lg:text-sm font-medium">{s.name}</span>
                         <span className="block text-xs text-ink-muted lg:mt-px">
-                          {[year(s), `${setCardCount(s)} cards`, `${setSealedCount(s)} sealed`].filter(Boolean).join(" · ")}
+                          {[year(s), t.common.cardsCount(setCardCount(s)), t.common.sealedCount(setSealedCount(s))].filter(Boolean).join(" · ")}
                         </span>
                       </span>
                       <span className="flex items-center gap-2.5">
-                        {count ? <span className="hidden lg:inline font-geist-mono text-xs text-ink-muted">{count} owned</span> : null}
+                        {count ? <span className="hidden lg:inline font-geist-mono text-xs text-ink-muted">{t.setPicker.owned(count)}</span> : null}
                         <span className="w-5 lg:w-4 text-center font-semibold text-base lg:text-sm">{active ? "✓" : ""}</span>
                       </span>
                     </button>
@@ -139,7 +141,7 @@ const SetPicker = ({ open, onClose, anchor, sets, selected, owned, onSelect }: S
                 })}
               </div>
             ))}
-            {matches.length === 0 && <div className="px-3 py-8 lg:py-7 text-sm lg:text-[13px] text-center text-ink-muted">No sets match “{query}”</div>}
+            {matches.length === 0 && <div className="px-3 py-8 lg:py-7 text-sm lg:text-[13px] text-center text-ink-muted">{t.setPicker.noMatch(query)}</div>}
           </div>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>

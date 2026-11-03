@@ -2,6 +2,7 @@ import { DEMO_USER } from "@/types/constants";
 import { getOfflineMeta, setOfflineMeta, setOfflineBusy } from "./offline";
 import { deleteSnapshot, offlineStore } from "./offline-store";
 import { readOfflineExport } from "./offline-export";
+import { messages } from "./i18n/core";
 
 const ROUTES = ["/", "/database", "/binders", "/wishlists"];
 export async function prepareWorker() {
@@ -76,21 +77,22 @@ export async function downloadOffline(user: string, progress: (text: string) => 
   const previous = getOfflineMeta();
   setOfflineBusy(true);
   try {
-    progress("Preparing offline pages…");
+    const t = messages().offline;
+    progress(t.preparingPages);
     await prepareWorker();
     await navigator.storage?.persist?.();
     const cache = await caches.open(`cm-offline-${id}`);
     await saveShell(cache, signal);
-    progress("Downloading the complete database and collection…");
+    progress(t.downloadingAll);
     // Exactly one API operation, including private collection data. Images are left out: they would make the download far larger.
     const response = await fetch(`/api/offline?user=${encodeURIComponent(user)}`, { signal, cache: "no-store" });
     let downloadedSets = 0;
     const index = await readOfflineExport(response, user, async (set, catalog) => {
       signal.throwIfAborted();
       await offlineStore(`${id}:set:${set}`, catalog);
-      progress(`Downloading database… ${++downloadedSets} sets saved`);
+      progress(t.setsSaved(++downloadedSets));
     });
-    progress("Saving binders, wishlists and portfolio…");
+    progress(t.savingCollection);
     signal.throwIfAborted();
     await offlineStore(`${id}:index`, index);
     signal.throwIfAborted();

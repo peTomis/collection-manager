@@ -129,6 +129,29 @@ test.describe("visitor", () => {
     await expect(detail.getByRole("tabpanel", { name: "Photos" })).toBeVisible();
   });
 
+  test("switches to Italian in Settings, and keeps it after a reload", async ({ page }) => {
+    await page.goto("/binders");
+    await expect(page.getByRole("heading", { name: "Vintage favourites" })).toBeVisible();
+    await page.getByTitle("Settings").filter({ visible: true }).click();
+    await page.getByRole("button", { name: "Italiano" }).click();
+    await expect(page.getByRole("dialog", { name: "Impostazioni" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByPlaceholder("Filtra questo binder")).toBeVisible();
+
+    // Saved in this browser: still Italian after a reload, on the page's language too
+    await page.reload();
+    await expect(page.getByPlaceholder("Filtra questo binder")).toBeVisible();
+    await expect(page.locator("html")).toHaveAttribute("lang", "it");
+  });
+
+  test("opens in Italian on an Italian browser", async ({ browser }) => {
+    const context = await browser.newContext({ locale: "it-IT" });
+    const page = await context.newPage();
+    await page.goto("/");
+    await expect(page.getByText("Valore totale")).toBeVisible();
+    await context.close();
+  });
+
   test("can't use the collection API", async ({ request }) => {
     expect((await request.get("/api/binders")).status()).toBe(401);
     expect((await request.post("/api/binders", { data: { binder: { name: "Sneaky" } } })).status()).toBe(401);

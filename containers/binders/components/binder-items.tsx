@@ -21,16 +21,12 @@ import { useSetsImages } from "@/lib/tcgdex";
 import { LIMITS } from "@/lib/limits";
 import { change, deltaColor, eur, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 
 type View = "grid" | "list";
 type Sort = "number" | "value" | "name" | "change";
 
-const SORTS: { value: Sort; label: string }[] = [
-  { value: "number", label: "Set number" },
-  { value: "value", label: "Value" },
-  { value: "name", label: "Name" },
-  { value: "change", label: "30d change" },
-];
+const SORTS: Sort[] = ["number", "value", "name", "change"];
 
 const PAGE_SIZE = 9;
 
@@ -64,6 +60,7 @@ const BinderItems = ({ binder }: { binder: BinderWithItems }) => {
   const { sets } = useSelector((state) => state.sets);
   const user = useSelector((state) => state.user.user) ?? "";
   const dispatch = useDispatch();
+  const t = useT();
 
   const tcgdexIds = new Map(sets.map((s) => [s._id, s.tcgdex]));
   const images = useSetsImages(binder.items.filter((i) => !isSealed(i)).map((i) => tcgdexIds.get(i.item?.set) ?? ""));
@@ -146,8 +143,8 @@ const BinderItems = ({ binder }: { binder: BinderWithItems }) => {
         <Segmented
           className="grid flex-1 grid-cols-2 bg-paper lg:flex-none lg:w-44"
           options={[
-            { value: "grid", label: "Binder" },
-            { value: "list", label: "List" },
+            { value: "grid", label: t.binders.views.grid },
+            { value: "list", label: t.binders.views.list },
           ]}
           value={view}
           onChange={setView}
@@ -160,52 +157,52 @@ const BinderItems = ({ binder }: { binder: BinderWithItems }) => {
           <input
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            placeholder="Filter this binder"
+            placeholder={t.binders.filter}
             className="flex-1 min-w-0 bg-transparent outline-none text-ink placeholder:text-ink-muted"
           />
         </label>
         <label className="hidden lg:flex items-center gap-1.5 h-[38px] pl-3 pr-2 border border-line rounded-[9px] bg-paper text-[13px]">
-          <span className="text-ink-muted">Sort</span>
+          <span className="text-ink-muted">{t.common.sort}</span>
           <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="bg-transparent outline-none cursor-pointer text-ink">
             {SORTS.map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.label}
+              <option key={s} value={s}>
+                {t.binders.sorts[s]}
               </option>
             ))}
           </select>
         </label>
         <Link href="/database" className="hidden lg:flex items-center ml-auto h-10 px-4 rounded-[10px] bg-fill text-on-fill text-sm font-medium">
-          + Add cards
+          {t.binders.addCards}
         </Link>
-        <Link href="/database" aria-label="Add cards" className="grid w-10 h-10 rounded-[10px] bg-fill text-on-fill text-[22px] place-items-center lg:hidden">
+        <Link href="/database" aria-label={t.binders.addCardsLabel} className="grid w-10 h-10 rounded-[10px] bg-fill text-on-fill text-[22px] place-items-center lg:hidden">
           +
         </Link>
       </div>
 
       {binder.items.length === 0 ? (
         <div className="py-16 text-sm text-center border border-dashed rounded-xl border-line text-ink-muted">
-          This binder is empty.{" "}
+          {t.binders.empty}{" "}
           <Link href="/database" className="font-medium underline text-ink">
-            Add cards from the database
+            {t.binders.addFromDatabase}
           </Link>
         </div>
       ) : rows.length === 0 ? (
-        <div className="py-16 text-sm text-center text-ink-muted">Nothing matches “{filter}”</div>
+        <div className="py-16 text-sm text-center text-ink-muted">{t.common.noMatch(filter)}</div>
       ) : view === "grid" ? (
         <BinderGrid rows={rows} page={page} setPage={setPage} onView={setViewing} />
       ) : (
         <>
           {selectedIds.length > 0 && (
             <div className="flex flex-none items-center gap-1 lg:gap-2 h-11 lg:h-[42px] mb-2.5 lg:mb-3 pl-3.5 pr-1.5 rounded-[10px] bg-fill text-on-fill text-[13px] font-medium">
-              <span className="mr-auto">{selectedIds.length} selected</span>
+              <span className="mr-auto">{t.binders.selected(selectedIds.length)}</span>
               <button type="button" onClick={toggleAll} className="h-8 px-2.5 rounded-lg cursor-pointer hover:bg-paper/10">
-                {rows.every((r) => selected.has(r.item._id)) ? "Unselect all" : `Select all (${rows.length})`}
+                {rows.every((r) => selected.has(r.item._id)) ? t.binders.unselectAll : t.binders.selectAllCount(rows.length)}
               </button>
               <button type="button" onClick={() => setSelected(new globalThis.Set())} className="h-8 px-2.5 rounded-lg cursor-pointer hover:bg-paper/10">
-                Clear
+                {t.binders.clear}
               </button>
               <EditButton type="button" onClick={() => setRemoving(true)} className="h-8 px-3 text-white rounded-lg cursor-pointer bg-loss">
-                Delete
+                {t.common.delete}
               </EditButton>
             </div>
           )}
@@ -231,9 +228,12 @@ const BinderItems = ({ binder }: { binder: BinderWithItems }) => {
           dispatch(deleteBinderItems(user, binder._id, selectedIds));
           setSelected(new globalThis.Set());
         }}
-        title={selectedIds.length === 1 ? "Delete item" : `Delete ${selectedIds.length} items`}
-        description={`Delete ${selectedIds.length === 1 ? (binder.items.find((i) => i._id === selectedIds[0])?.item?.name ?? "this item") : `${selectedIds.length} items`} from ${binder.name}? This can't be undone.`}
-        confirmLabel="Delete"
+        title={t.binders.deleteItems(selectedIds.length)}
+        description={t.binders.deleteItemsDescription(
+          selectedIds.length === 1 ? (binder.items.find((i) => i._id === selectedIds[0])?.item?.name ?? t.common.thisItem) : t.common.itemsCount(selectedIds.length),
+          binder.name
+        )}
+        confirmLabel={t.common.delete}
       />
     </div>
   );
@@ -242,6 +242,7 @@ const BinderItems = ({ binder }: { binder: BinderWithItems }) => {
 // Binder pages of 9 pockets: a two-page spread on desktop, one page on mobile.
 // The pockets are sized to fit the available space (see .binder-fit in styles/tailwind.css).
 const BinderGrid = ({ rows, page, setPage, onView }: { rows: Row[]; page: number; setPage: (p: number) => void; onView: (item: BinderItem) => void }) => {
+  const t = useT();
   const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const pageRows = (p: number) => rows.slice(p * PAGE_SIZE, (p + 1) * PAGE_SIZE);
   const spread = page - (page % 2);
@@ -273,13 +274,13 @@ const BinderGrid = ({ rows, page, setPage, onView }: { rows: Row[]; page: number
       <div ref={pagers}>
         <Pager
           className="lg:hidden"
-          label={`Page ${page + 1} of ${pages}`}
+          label={t.binders.page(page + 1, pages)}
           prev={page > 0 ? () => go(page - 1) : undefined}
           next={page < pages - 1 ? () => go(page + 1) : undefined}
         />
         <Pager
           className="hidden lg:flex"
-          label={spread + 1 < pages ? `Pages ${spread + 1}–${spread + 2} of ${pages}` : `Page ${spread + 1} of ${pages}`}
+          label={spread + 1 < pages ? t.binders.pages(spread + 1, spread + 2, pages) : t.binders.page(spread + 1, pages)}
           prev={spread > 0 ? () => go(spread - 2) : undefined}
           next={spread + 2 < pages ? () => go(spread + 2) : undefined}
         />
@@ -291,65 +292,69 @@ const BinderGrid = ({ rows, page, setPage, onView }: { rows: Row[]; page: number
 // Label under each pocket: two 14px lines on mobile, one 16px line on desktop (keep in sync with .binder-fit)
 const LABEL_HEIGHT = "h-7 lg:h-4";
 
-const Page = ({ rows, onView, className }: { rows: Row[]; onView: (item: BinderItem) => void; className?: string }) => (
-  <div className={cn("grid grid-cols-[repeat(3,var(--pocket))] gap-2 lg:gap-3 p-2.5 lg:p-3.5 rounded-[7px] lg:rounded-lg bg-binder-page content-start", className)}>
-    {Array.from({ length: PAGE_SIZE }, (_, i) => rows[i]).map((r, i) =>
-      r ? (
-        <div key={r.item._id} className="flex flex-col gap-[5px] lg:gap-[7px] min-w-0">
-          <button
-            type="button"
-            aria-label={`View ${r.item.item?.name ?? "item"}`}
-            onClick={() => onView(r.item)}
-            className={cn(
-              "relative aspect-[63/88] rounded-[5px] lg:rounded-md grid place-items-center overflow-hidden cursor-pointer shadow-[0_1px_2px_rgba(29,27,24,.12),inset_0_0_0_1px_rgba(29,27,24,.06)]",
-              stripes,
-            )}
-          >
-            <span className="hidden px-1 text-center lg:block font-geist-mono text-[10px] text-ink-muted">{variantLabel(r.item)}</span>
-            {/* Before the badges so they stay on top of the art */}
-            {r.image && <CardArt image={r.image} alt={r.item.item?.name ?? ""} className={artClass(r.item)} />}
-            {sealedPath(r.item) && <SealedArt path={sealedPath(r.item)!} alt={r.item.item?.name ?? ""} className={artClass(r.item)} />}
-            {(r.number !== undefined || isSealed(r.item)) && (
-              <span className="absolute top-1 left-1 lg:top-1.5 lg:left-1.5 font-geist-mono font-medium text-[9px] lg:text-[10px] bg-paper text-ink px-1 lg:px-[5px] py-px lg:py-0.5 rounded-[3px]">
-                {r.number !== undefined ? cardNumberLabel(r.number) : "Sealed"}
-              </span>
-            )}
-            {!isOwned(r.item) ? (
-              <span className="absolute top-1 right-1 lg:top-1.5 lg:right-1.5 font-geist-mono font-medium text-[9px] lg:text-[10px] bg-paper text-ink px-1 lg:px-[5px] py-px lg:py-0.5 rounded-[3px]">
-                Missing
-              </span>
-            ) : r.item.quantity > 1 && (
-              <span className="absolute top-1 right-1 lg:top-1.5 lg:right-1.5 font-geist-mono font-medium text-[9px] lg:text-[10px] bg-fill text-on-fill px-1 lg:px-[5px] py-px lg:py-0.5 rounded-[3px]">
-                ×{r.item.quantity}
-              </span>
-            )}
-          </button>
-          <div className={cn("lg:flex lg:justify-between lg:gap-1.5 text-[11px] lg:text-xs leading-[14px] lg:leading-4 font-medium overflow-hidden", LABEL_HEIGHT)}>
-            <span className="block truncate">{r.item.item?.name}</span>
-            <span className="block font-normal lg:font-medium font-geist-mono text-ink-muted lg:text-ink">{eur(r.price)}</span>
+const Page = ({ rows, onView, className }: { rows: Row[]; onView: (item: BinderItem) => void; className?: string }) => {
+  const t = useT();
+  return (
+    <div className={cn("grid grid-cols-[repeat(3,var(--pocket))] gap-2 lg:gap-3 p-2.5 lg:p-3.5 rounded-[7px] lg:rounded-lg bg-binder-page content-start", className)}>
+      {Array.from({ length: PAGE_SIZE }, (_, i) => rows[i]).map((r, i) =>
+        r ? (
+          <div key={r.item._id} className="flex flex-col gap-[5px] lg:gap-[7px] min-w-0">
+            <button
+              type="button"
+              aria-label={t.common.view(r.item.item?.name ?? t.common.item)}
+              onClick={() => onView(r.item)}
+              className={cn(
+                "relative aspect-[63/88] rounded-[5px] lg:rounded-md grid place-items-center overflow-hidden cursor-pointer shadow-[0_1px_2px_rgba(29,27,24,.12),inset_0_0_0_1px_rgba(29,27,24,.06)]",
+                stripes,
+              )}
+            >
+              <span className="hidden px-1 text-center lg:block font-geist-mono text-[10px] text-ink-muted">{variantLabel(r.item)}</span>
+              {/* Before the badges so they stay on top of the art */}
+              {r.image && <CardArt image={r.image} alt={r.item.item?.name ?? ""} className={artClass(r.item)} />}
+              {sealedPath(r.item) && <SealedArt path={sealedPath(r.item)!} alt={r.item.item?.name ?? ""} className={artClass(r.item)} />}
+              {(r.number !== undefined || isSealed(r.item)) && (
+                <span className="absolute top-1 left-1 lg:top-1.5 lg:left-1.5 font-geist-mono font-medium text-[9px] lg:text-[10px] bg-paper text-ink px-1 lg:px-[5px] py-px lg:py-0.5 rounded-[3px]">
+                  {r.number !== undefined ? cardNumberLabel(r.number) : t.common.sealed}
+                </span>
+              )}
+              {!isOwned(r.item) ? (
+                <span className="absolute top-1 right-1 lg:top-1.5 lg:right-1.5 font-geist-mono font-medium text-[9px] lg:text-[10px] bg-paper text-ink px-1 lg:px-[5px] py-px lg:py-0.5 rounded-[3px]">
+                  {t.common.missing}
+                </span>
+              ) : r.item.quantity > 1 && (
+                <span className="absolute top-1 right-1 lg:top-1.5 lg:right-1.5 font-geist-mono font-medium text-[9px] lg:text-[10px] bg-fill text-on-fill px-1 lg:px-[5px] py-px lg:py-0.5 rounded-[3px]">
+                  ×{r.item.quantity}
+                </span>
+              )}
+            </button>
+            <div className={cn("lg:flex lg:justify-between lg:gap-1.5 text-[11px] lg:text-xs leading-[14px] lg:leading-4 font-medium overflow-hidden", LABEL_HEIGHT)}>
+              <span className="block truncate">{r.item.item?.name}</span>
+              <span className="block font-normal lg:font-medium font-geist-mono text-ink-muted lg:text-ink">{eur(r.price)}</span>
+            </div>
           </div>
-        </div>
-      ) : (
-        <div key={`empty-${i}`} className="flex flex-col gap-[5px] lg:gap-[7px]">
-          <div className="aspect-[63/88] rounded-[5px] lg:rounded-md border-[1.5px] border-dashed border-ink-muted/30" />
-          <div className={LABEL_HEIGHT} />
-        </div>
-      ),
-    )}
-  </div>
-);
+        ) : (
+          <div key={`empty-${i}`} className="flex flex-col gap-[5px] lg:gap-[7px]">
+            <div className="aspect-[63/88] rounded-[5px] lg:rounded-md border-[1.5px] border-dashed border-ink-muted/30" />
+            <div className={LABEL_HEIGHT} />
+          </div>
+        ),
+      )}
+    </div>
+  );
+};
 
 const Pager = ({ label, prev, next, className }: { label: string; prev?: () => void; next?: () => void; className?: string }) => {
+  const t = useT();
   const button =
     "w-11 h-11 lg:w-9 lg:h-9 rounded-[10px] lg:rounded-lg border border-line bg-paper cursor-pointer aria-disabled:text-ink-muted aria-disabled:opacity-60 aria-disabled:cursor-default";
   return (
     <div className={cn("flex flex-none items-center justify-center gap-3.5 lg:gap-4 mt-3 mb-4 lg:mt-4 lg:mb-6 font-geist-mono font-medium text-[13px]", className)}>
       {/* aria-disabled rather than disabled: Safari drops focus from a button that gets disabled under the finger, and scrolls */}
-      <button type="button" aria-label="Previous page" className={button} aria-disabled={!prev} onClick={prev}>
+      <button type="button" aria-label={t.binders.previousPage} className={button} aria-disabled={!prev} onClick={prev}>
         ‹
       </button>
       <span>{label}</span>
-      <button type="button" aria-label="Next page" className={button} aria-disabled={!next} onClick={next}>
+      <button type="button" aria-label={t.binders.nextPage} className={button} aria-disabled={!next} onClick={next}>
         ›
       </button>
     </div>
@@ -374,22 +379,23 @@ interface BinderListProps {
 }
 
 const BinderList = ({ rows, numbered, setQuantity, markOwned, onView, selected, onSelect, onSelectAll }: BinderListProps) => {
+  const t = useT();
   const columns = numbered ? LIST_COLUMNS.numbered : LIST_COLUMNS.plain;
   const allSelected = rows.every((r) => selected.has(r.item._id));
   const someSelected = !allSelected && rows.some((r) => selected.has(r.item._id));
   return (
     <div className="mb-4 border lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:mb-6 bg-paper border-line rounded-xl">
       <div className={cn("hidden lg:grid sticky top-0 z-10 bg-paper gap-3.5 px-[18px] py-3 text-xs font-medium text-ink-muted border-b border-line", columns)}>
-        <Checkbox label="Select all" checked={allSelected} mixed={someSelected} onChange={onSelectAll} />
+        <Checkbox label={t.binders.selectAll} checked={allSelected} mixed={someSelected} onChange={onSelectAll} />
         {numbered && <span>#</span>}
         <span />
-        <span>Card</span>
-        <span>Variant</span>
-        <span>Lang</span>
-        <span className="text-center">Qty</span>
-        <span className="text-right">Value</span>
-        <span className="text-right">Total</span>
-        <span className="text-right">30d</span>
+        <span>{t.binders.columns.card}</span>
+        <span>{t.binders.columns.variant}</span>
+        <span>{t.binders.columns.lang}</span>
+        <span className="text-center">{t.binders.columns.qty}</span>
+        <span className="text-right">{t.common.value}</span>
+        <span className="text-right">{t.binders.columns.total}</span>
+        <span className="text-right">{t.binders.columns.change}</span>
       </div>
       {rows.map((r, i) => (
         <div
@@ -401,11 +407,11 @@ const BinderList = ({ rows, numbered, setQuantity, markOwned, onView, selected, 
             columns,
           )}
         >
-          <Checkbox label={`Select ${r.item.item?.name ?? "item"}`} checked={selected.has(r.item._id)} onChange={() => onSelect(r.item._id)} />
+          <Checkbox label={t.binders.select(r.item.item?.name ?? t.common.item)} checked={selected.has(r.item._id)} onChange={() => onSelect(r.item._id)} />
           {numbered && <span className="hidden font-geist-mono text-[13px] text-ink-muted lg:block">{r.number !== undefined ? formatCardNumber(r.number).padStart(3, "0") : "—"}</span>}
           <button
             type="button"
-            aria-label={`View ${r.item.item?.name ?? "item"}`}
+            aria-label={t.common.view(r.item.item?.name ?? t.common.item)}
             onClick={() => onView(r.item)}
             className={cn("relative w-[34px] h-[47px] rounded-[3px] overflow-hidden cursor-pointer", stripes)}
           >
@@ -439,7 +445,7 @@ const BinderList = ({ rows, numbered, setQuantity, markOwned, onView, selected, 
           )}
           <span className="hidden text-right lg:block font-geist-mono text-ink-muted">{eur(r.price)}</span>
           <div className="text-right">
-            <div className={cn("font-medium font-geist-mono", !isOwned(r.item) && "text-ink-muted")}>{isOwned(r.item) ? eur(r.total) : "Missing"}</div>
+            <div className={cn("font-medium font-geist-mono", !isOwned(r.item) && "text-ink-muted")}>{isOwned(r.item) ? eur(r.total) : t.common.missing}</div>
             <div className={cn("lg:hidden font-geist-mono text-[11px]", deltaColor(r.change1m))}>{pct(r.change1m)}</div>
           </div>
           <span className={cn("hidden lg:block text-right font-geist-mono font-medium text-[13px]", deltaColor(r.change1m))}>{pct(r.change1m)}</span>
@@ -466,10 +472,13 @@ const Checkbox = ({ label, checked, mixed, onChange }: { label: string; checked:
 );
 
 // Missing slots have no quantity yet: one tap marks them owned
-const MarkOwned = ({ onClick, className }: { onClick: () => void; className?: string }) => (
-  <EditButton type="button" onClick={onClick} className={cn("items-center h-[30px] px-2.5 w-fit border border-dashed border-line rounded-lg text-xs font-medium text-ink-muted hover:text-ink hover:border-ink-muted cursor-pointer", className)}>
-    + Got it
-  </EditButton>
-);
+const MarkOwned = ({ onClick, className }: { onClick: () => void; className?: string }) => {
+  const t = useT();
+  return (
+    <EditButton type="button" onClick={onClick} className={cn("items-center h-[30px] px-2.5 w-fit border border-dashed border-line rounded-lg text-xs font-medium text-ink-muted hover:text-ink hover:border-ink-muted cursor-pointer", className)}>
+      {t.binders.markOwned}
+    </EditButton>
+  );
+};
 
 export default BinderItems;

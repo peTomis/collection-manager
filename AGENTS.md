@@ -53,6 +53,7 @@ yarn build           # production build
 | `lib/auth.ts`                  | NextAuth options, `getUserId` (the only source of the current user)               |
 | `lib/db/account.ts`            | Account download and deletion (`/api/account`), `accountExists`                   |
 | `lib/monitoring.ts`            | Sentry options (what reports may carry), `reportError`                            |
+| `lib/i18n/`                    | Texts in English (`en.ts`) and Italian (`it.ts`), `useT`, the language switch     |
 | `instrumentation*.ts`          | Sentry init on the server and in the browser; off without `NEXT_PUBLIC_SENTRY_DSN` |
 | `pages/privacy.tsx`            | The privacy policy: what is stored and sent, kept in step with the code           |
 | `lib/guards.ts`                | `allowMethods`, `requireJson`                                                     |
@@ -118,6 +119,11 @@ yarn build           # production build
 - Prettier (`.vscode/settings.json`): double quotes, print width 180.
 - Short comments that explain why, above the code they describe; same density as the surrounding
   files. Server-only modules start with a `// Server only: ...` line.
-- API errors: `res.status(4xx).json({ message })` with a user-readable message.
+- API errors: `res.status(4xx).json({ message })` with a user-readable message, in English: the client translates
+  the ones it shows through `t.error` (the `ERRORS` of `lib/i18n/it.ts`), so a new one shown to users goes there too.
+- UI texts live in `lib/i18n/en.ts` and `lib/i18n/it.ts`, never inline: components read them with `useT()`, `lib/`
+  code with `messages()`. A text added to `en.ts` must be added to `it.ts` (the typecheck and `tests/i18n.test.ts`
+  fail otherwise). Prices and dates go through `eur`/`pct` and `intlLocale()`, not a fixed locale. The server
+  renders English; the language picked in Settings (localStorage `locale`) or the browser's applies on hydration.
 - Commits: conventional style (`feat:`, `fix(db):`, `refactor(atoms):`, `test:`), with no
   co-author trailers.

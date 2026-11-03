@@ -21,17 +21,18 @@ import { useAcquire } from "@/components/organisms/use-acquire";
 import { useDispatch, useSelector } from "@/redux/store";
 import { changeBinderItemQuantity, deleteBinderItem, moveBinderItem } from "@/redux/slices/binders";
 import { deleteWishlistItem, setWishlistItemTarget } from "@/redux/slices/wishlists";
-import { BinderItem, Card, CardVariant, HistoricPrice, ItemType, Language, ListedOffer, Sealed, SealedVariant, VersionOffers, WishlistItem } from "@/types/mongodb";
+import { BinderItem, Card, CardVariant, HistoricPrice, ItemType, ListedOffer, Sealed, SealedVariant, VersionOffers, WishlistItem } from "@/types/mongodb";
 import { Product, displayName, historicPriceKey, priceKey } from "@/containers/database/use-set-catalog";
 import type { Destination } from "@/containers/database/components/add-item-modal";
 import { getPastPrice, getPrice, PricePeriod } from "@/lib/prices";
-import { VARIANT_LABELS, cardNumberLabel, intoBinderError, isOwned, parseTarget } from "@/lib/items";
+import { cardNumberLabel, intoBinderError, isOwned, languageName, parseTarget, sealedTypeName, variantName as versionName } from "@/lib/items";
 import { useCardInfo, useSetImages } from "@/lib/tcgdex";
 import { fontVariables } from "@/lib/fonts";
 import { change, deltaColor, eur, pct, signedEur } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useListings, useOffers, useVersionPrices } from "./use-item-detail";
 import { SwipeHandlers, useSwipeToClose } from "@/lib/use-swipe-to-close";
+import { intlLocale, useT } from "@/lib/i18n";
 
 // Where the detail was opened from decides its actions
 export type ItemDetailTarget =
@@ -46,28 +47,13 @@ interface ItemDetailProps {
   onAdd?: (destination: Destination, variantIndex: number) => void;
 }
 
-const PERIODS: { value: PricePeriod; label: string; text: string }[] = [
-  { value: "1d", label: "24h", text: "24h" },
-  { value: "1w", label: "7d", text: "7d" },
-  { value: "1m", label: "30d", text: "30d" },
-  { value: "1y", label: "1y", text: "1y" },
-];
-
-const LANGUAGE_NAMES: Record<Language, string> = {
-  [Language.ENGLISH]: "English",
-  [Language.ITALIAN]: "Italian",
-  [Language.JAPANESE]: "Japanese",
-};
+const PERIODS: PricePeriod[] = ["1d", "1w", "1m", "1y"];
 
 type Variant = CardVariant | SealedVariant;
 
 type Tab = "overview" | "offers" | "photos";
 
-const TABS: { value: Tab; label: string }[] = [
-  { value: "overview", label: "Overview" },
-  { value: "offers", label: "Offers" },
-  { value: "photos", label: "Photos" },
-];
+const TABS: Tab[] = ["overview", "offers", "photos"];
 
 const targetKey = (t: ItemDetailTarget) => (t.context === "database" ? `database|${t.product.item._id}` : `${t.context}|${t.item._id}`);
 
@@ -105,6 +91,8 @@ const Detail = ({ target, onClose, onAdd, swipe }: { target: ItemDetailTarget; o
 
   const user = useSelector((state) => state.user.user);
   const { sets } = useSelector((state) => state.sets);
+  const t = useT();
+  const periods = PERIODS.map((p) => ({ value: p, label: t.detail.periods[p] }));
   const versions = useVersionPrices(user, kind, item, target.context === "database" ? target.prices : undefined);
 
   // The database lets the user pick a version (starting from the first one with a price), binders and wishlists hold one
@@ -133,9 +121,10 @@ const Detail = ({ target, onClose, onAdd, swipe }: { target: ItemDetailTarget; o
   const numberLabel = number !== undefined ? cardNumberLabel(number, set?.cards) : undefined;
   const setLine = [set?.name, numberLabel, year].filter(Boolean).join(" · ");
 
-  const variantName = (v: Variant) => ("type" in v ? VARIANT_LABELS[v.type] : (item as Sealed).type ?? "Sealed");
+  const sealedType = sealedTypeName((item as Sealed).type ?? "Sealed");
+  const variantName = (v: Variant) => ("type" in v ? versionName(v.type) : sealedType);
   const versionLabel = (v: Variant) => `${variantName(v)} · ${v.language.toUpperCase()}`;
-  const chips = [currentVariant && variantName(currentVariant), currentVariant && LANGUAGE_NAMES[currentVariant.language], !isCard && "Sealed"].filter(Boolean) as string[];
+  const chips = [currentVariant && variantName(currentVariant), currentVariant && languageName(currentVariant.language), !isCard && t.common.sealed].filter(Boolean) as string[];
 
   // Price and its move over the selected period
   const price = historicPrice ? getPrice(historicPrice) : 0;
@@ -145,16 +134,16 @@ const Detail = ({ target, onClose, onAdd, swipe }: { target: ItemDetailTarget; o
   const points = history.length ? [...history.slice(0, -1), price] : [];
 
   const facts: { k: string; v: string }[] = [
-    { k: "Set", v: set?.name ?? "—" },
+    { k: t.detail.facts.set, v: set?.name ?? "—" },
     ...(isCard
       ? [
-          { k: "Number", v: numberLabel ?? "—" },
-          ...(info.rarity ? [{ k: "Rarity", v: info.rarity }] : []),
-          ...(info.illustrator ? [{ k: "Illustrator", v: info.illustrator }] : []),
+          { k: t.detail.facts.number, v: numberLabel ?? "—" },
+          ...(info.rarity ? [{ k: t.detail.facts.rarity, v: info.rarity }] : []),
+          ...(info.illustrator ? [{ k: t.detail.facts.illustrator, v: info.illustrator }] : []),
         ]
-      : [{ k: "Product", v: (item as Sealed).type ?? "Sealed" }]),
-    ...(set?.releasedAt ? [{ k: "Released", v: new Date(set.releasedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) }] : []),
-    ...(target.context === "binder" ? [{ k: "Value", v: isOwned(target.item) ? `${eur(price * target.item.quantity)} · ×${target.item.quantity}` : "Missing" }] : []),
+      : [{ k: t.detail.facts.product, v: sealedType }]),
+    ...(set?.releasedAt ? [{ k: t.detail.facts.released, v: new Date(set.releasedAt).toLocaleDateString(intlLocale(), { day: "numeric", month: "short", year: "numeric" }) }] : []),
+    ...(target.context === "binder" ? [{ k: t.common.value, v: isOwned(target.item) ? `${eur(price * target.item.quantity)} · ×${target.item.quantity}` : t.common.missing }] : []),
   ];
 
   // Current version first, then the others in the item's order
@@ -166,10 +155,10 @@ const Detail = ({ target, onClose, onAdd, swipe }: { target: ItemDetailTarget; o
   const { wishlists } = useSelector((state) => state.wishlists);
   const crumb =
     target.context === "binder"
-      ? ["Binders", binders.find((b) => b._id === target.item.binder)?.name, number !== undefined && cardNumberLabel(number)].filter(Boolean).join(" / ")
+      ? [t.nav.binders, binders.find((b) => b._id === target.item.binder)?.name, number !== undefined && cardNumberLabel(number)].filter(Boolean).join(" / ")
       : target.context === "wishlist"
-        ? ["Wishlists", wishlists.find((w) => w._id === target.item.wishlist)?.name].filter(Boolean).join(" / ")
-        : ["Database", set?.name].filter(Boolean).join(" / ");
+        ? [t.nav.wishlists, wishlists.find((w) => w._id === target.item.wishlist)?.name].filter(Boolean).join(" / ")
+        : [t.nav.database, set?.name].filter(Boolean).join(" / ");
 
   // The art opens the shown version on Cardmarket
   const cardmarketUrl = [historicPrice?.url, currentVariant?.url].find((u) => u?.startsWith("https://"));
@@ -178,13 +167,13 @@ const Detail = ({ target, onClose, onAdd, swipe }: { target: ItemDetailTarget; o
     const artClass = cn("relative aspect-[63/88] grid place-items-center overflow-hidden bg-[repeating-linear-gradient(135deg,var(--cm-pocket-a)_0_7px,var(--cm-pocket-b)_7px_14px)]", className);
     const content = (
       <>
-        <span className="font-geist-mono text-[11px] text-ink-muted">{isCard ? "card art" : "product shot"}</span>
+        <span className="font-geist-mono text-[11px] text-ink-muted">{isCard ? t.common.cardArt : t.common.productShot}</span>
         {image && <CardArt image={image} alt={name} />}
         {!isCard && (item as Sealed).path && <SealedArt path={(item as Sealed).path!} alt={name} />}
       </>
     );
     return cardmarketUrl ? (
-      <a href={cardmarketUrl} target="_blank" rel="noopener noreferrer" title="Open on Cardmarket" className={cn(artClass, "cursor-pointer transition-opacity hover:opacity-90")}>
+      <a href={cardmarketUrl} target="_blank" rel="noopener noreferrer" title={t.detail.openOnCardmarket} className={cn(artClass, "cursor-pointer transition-opacity hover:opacity-90")}>
         {content}
       </a>
     ) : (
@@ -215,7 +204,7 @@ const Detail = ({ target, onClose, onAdd, swipe }: { target: ItemDetailTarget; o
 
   const priceChange = (
     <span className={cn("font-geist-mono font-medium whitespace-nowrap text-xs lg:text-sm", deltaColor(delta))}>
-      {signedEur(delta)} · {pct(change(price, past))} {PERIODS.find((p) => p.value === period)!.text}
+      {signedEur(delta)} · {pct(change(price, past))} {t.detail.periods[period]}
     </span>
   );
 
@@ -234,13 +223,13 @@ const Detail = ({ target, onClose, onAdd, swipe }: { target: ItemDetailTarget; o
             (isOwned(target.item) ? (
               <span className="hidden lg:flex items-center gap-1.5 h-[26px] px-2.5 rounded-full bg-[color-mix(in_oklch,var(--cm-gain)_12%,transparent)] text-gain text-xs font-medium">
                 <span className="w-[7px] h-[7px] rotate-45 bg-current" />
-                In binder ×{target.item.quantity}
+                {t.detail.inBinder(target.item.quantity)}
               </span>
             ) : (
-              <span className="hidden lg:flex items-center h-[26px] px-2.5 rounded-full border border-dashed border-line text-ink-muted text-xs font-medium">Missing</span>
+              <span className="hidden lg:flex items-center h-[26px] px-2.5 rounded-full border border-dashed border-line text-ink-muted text-xs font-medium">{t.common.missing}</span>
             ))}
           {/* Desktop only: the mobile sheet is dragged down to close */}
-          <DialogPrimitive.Close aria-label="Close" className="hidden lg:grid w-9 h-9 ml-auto place-items-center border border-line rounded-lg text-lg cursor-pointer hover:bg-chip">
+          <DialogPrimitive.Close aria-label={t.common.close} className="hidden lg:grid w-9 h-9 ml-auto place-items-center border border-line rounded-lg text-lg cursor-pointer hover:bg-chip">
             ×
           </DialogPrimitive.Close>
         </div>
@@ -248,21 +237,21 @@ const Detail = ({ target, onClose, onAdd, swipe }: { target: ItemDetailTarget; o
 
       {/* Cards only: the scraper collects listings for cards */}
       {isCard && (
-        <div role="tablist" aria-label="Detail" className="flex flex-none gap-5 px-4 lg:px-7 border-b border-line">
-          {TABS.map(({ value: t, label }) => (
+        <div role="tablist" aria-label={t.detail.tabList} className="flex flex-none gap-5 px-4 lg:px-7 border-b border-line">
+          {TABS.map((value) => (
             <button
-              key={t}
+              key={value}
               type="button"
               role="tab"
-              aria-selected={tab === t}
-              onClick={() => setTab(t)}
+              aria-selected={tab === value}
+              onClick={() => setTab(value)}
               className={cn(
                 "-mb-px py-2.5 border-b-2 text-[13px] font-medium cursor-pointer",
-                tab === t ? "border-ink text-ink" : "border-transparent text-ink-muted hover:text-ink",
+                tab === value ? "border-ink text-ink" : "border-transparent text-ink-muted hover:text-ink",
               )}
             >
-              {label}
-              {t === "offers" && offers && offers !== "unavailable" && <span className="ml-1.5 font-geist-mono text-xs text-ink-muted">{offers.listed.length}</span>}
+              {t.detail.tabs[value]}
+              {value === "offers" && offers && offers !== "unavailable" && <span className="ml-1.5 font-geist-mono text-xs text-ink-muted">{offers.listed.length}</span>}
             </button>
           ))}
         </div>
@@ -281,14 +270,14 @@ const Detail = ({ target, onClose, onAdd, swipe }: { target: ItemDetailTarget; o
           </aside>
 
           {tab === "offers" ? (
-            <div role="tabpanel" aria-label="Offers" className="min-w-0 px-4 pt-4 lg:px-7 lg:pt-[26px]">
+            <div role="tabpanel" aria-label={t.detail.tabs.offers} className="min-w-0 px-4 pt-4 lg:px-7 lg:pt-[26px]">
               <Offers offers={historicPrice ? offers : { seenAt: null, listed: [], gone: [] }} cardmarketUrl={cardmarketUrl} />
               <div className="h-4 lg:h-6" />
             </div>
           ) : tab === "photos" ? (
             // The listings' photos: kept by the scraper, not shown here yet
-            <div role="tabpanel" aria-label="Photos" className="min-w-0 px-4 pt-4 lg:px-7 lg:pt-[26px]">
-              <div className="py-6 text-sm text-ink-muted">The photos of this card&apos;s listings will be shown here.</div>
+            <div role="tabpanel" aria-label={t.detail.tabs.photos} className="min-w-0 px-4 pt-4 lg:px-7 lg:pt-[26px]">
+              <div className="py-6 text-sm text-ink-muted">{t.detail.photosSoon}</div>
             </div>
           ) : (
             <div className="min-w-0 px-4 pt-1 lg:px-7 lg:pt-[26px]">
@@ -313,23 +302,23 @@ const Detail = ({ target, onClose, onAdd, swipe }: { target: ItemDetailTarget; o
                 <h3 className="mt-1.5 font-display font-semibold text-4xl leading-[1.05] tracking-[-0.03em]">{name}</h3>
                 <div className="flex items-end justify-between gap-5 mt-[18px]">
                   <div>
-                    <div className="text-xs font-medium text-ink-muted">Current price</div>
+                    <div className="text-xs font-medium text-ink-muted">{t.detail.currentPrice}</div>
                     <div className="flex items-baseline gap-3 mt-1">
                       <span className="font-display font-medium text-[40px] leading-none tracking-[-0.03em]">{historicPrice ? eur(price) : "—"}</span>
                       {historicPrice && priceChange}
                     </div>
                   </div>
-                  <Segmented mono options={PERIODS} value={period} onChange={setPeriod} />
+                  <Segmented mono options={periods} value={period} onChange={setPeriod} />
                 </div>
               </div>
 
               <PriceChart points={points} gain={delta >= 0} />
-              <Segmented className="grid grid-cols-4 mt-2.5 lg:hidden" mono options={PERIODS} value={period} onChange={setPeriod} />
+              <Segmented className="grid grid-cols-4 mt-2.5 lg:hidden" mono options={periods} value={period} onChange={setPeriod} />
 
               <div className="grid gap-4 lg:gap-7 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] mt-[18px] lg:mt-[22px] lg:pt-5 lg:border-t border-line">
                 <Listings prices={listings} />
                 <div>
-                  <span className="font-geist-mono font-medium text-[11px] lg:text-xs tracking-[.08em] uppercase text-ink-muted">Other versions</span>
+                  <span className="font-geist-mono font-medium text-[11px] lg:text-xs tracking-[.08em] uppercase text-ink-muted">{t.detail.otherVersions}</span>
                   <div className="mt-2">
                     {versionRows.map((v) => {
                       const vp = v.historicPrice ? getPrice(v.historicPrice) : 0;
@@ -337,7 +326,7 @@ const Detail = ({ target, onClose, onAdd, swipe }: { target: ItemDetailTarget; o
                       return (
                         <div key={v.key} className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-3.5 items-center py-[9px] border-t border-chip text-[13px]">
                           <span className={cn("leading-[1.3]", v.key === currentKey && "font-semibold")}>{v.label}</span>
-                          <span className={cn("font-geist-mono text-xs", v.historicPrice ? deltaColor(v1m) : "text-ink-muted")}>{v.historicPrice ? `${pct(v1m)} 30d` : ""}</span>
+                          <span className={cn("font-geist-mono text-xs", v.historicPrice ? deltaColor(v1m) : "text-ink-muted")}>{v.historicPrice ? t.detail.change30d(pct(v1m)) : ""}</span>
                           <span className="font-geist-mono font-medium text-right whitespace-nowrap">{v.historicPrice ? eur(vp) : "—"}</span>
                         </div>
                       );
@@ -366,8 +355,9 @@ const Detail = ({ target, onClose, onAdd, swipe }: { target: ItemDetailTarget; o
 };
 
 const PriceChart = ({ points, gain }: { points: number[]; gain: boolean }) => {
+  const t = useT();
   if (points.length < 2) {
-    return <div className="grid h-[130px] lg:h-[190px] mt-4 lg:mt-[18px] place-items-center text-sm text-ink-muted">Not enough history yet</div>;
+    return <div className="grid h-[130px] lg:h-[190px] mt-4 lg:mt-[18px] place-items-center text-sm text-ink-muted">{t.common.notEnoughHistory}</div>;
   }
 
   const min = Math.min(...points);
@@ -387,7 +377,7 @@ const PriceChart = ({ points, gain }: { points: number[]; gain: boolean }) => {
       </svg>
       <div className="absolute right-[-5px] w-2.5 h-2.5 -mt-[5px] rounded-full bg-chart hidden lg:block" style={{ top: `${endTop}%` }} />
       <div className="absolute top-0 left-0 hidden lg:block font-geist-mono text-[11px] text-ink-muted">
-        High {eur(max)} · Low {eur(min)}
+        {t.detail.highLow(eur(max), eur(min))}
       </div>
     </div>
   );
@@ -395,6 +385,7 @@ const PriceChart = ({ points, gain }: { points: number[]; gain: boolean }) => {
 
 // Listings available on the last 7 days with a price record
 const Listings = ({ prices }: { prices: { items: number; timestamp: number }[] | null }) => {
+  const t = useT();
   const days = (prices ?? []).slice(-7);
   const today = days[days.length - 1]?.items;
   const yesterday = days[days.length - 2]?.items;
@@ -404,30 +395,30 @@ const Listings = ({ prices }: { prices: { items: number; timestamp: number }[] |
   return (
     <div className="p-3.5 border lg:p-0 border-line rounded-xl lg:border-0 lg:rounded-none">
       <div className="flex items-baseline justify-between">
-        <span className="font-geist-mono font-medium text-[11px] lg:text-xs tracking-[.08em] uppercase text-ink-muted">Listings available</span>
-        <span className="text-xs text-ink-muted">last 7 days</span>
+        <span className="font-geist-mono font-medium text-[11px] lg:text-xs tracking-[.08em] uppercase text-ink-muted">{t.detail.listings}</span>
+        <span className="text-xs text-ink-muted">{t.detail.last7Days}</span>
       </div>
       {prices === null ? (
-        <div className="py-6 text-sm text-ink-muted">Loading…</div>
+        <div className="py-6 text-sm text-ink-muted">{t.common.loading}</div>
       ) : days.length === 0 ? (
-        <div className="py-6 text-sm text-ink-muted">No listing data yet</div>
+        <div className="py-6 text-sm text-ink-muted">{t.detail.noListings}</div>
       ) : (
         <div className="flex items-end gap-5 lg:block">
           <div className="flex gap-5 lg:gap-7 mt-2.5 lg:mt-3">
             <div>
-              <div className="text-[11px] lg:text-xs text-ink-muted">Today</div>
+              <div className="text-[11px] lg:text-xs text-ink-muted">{t.common.today}</div>
               <div className="font-display font-medium text-[26px] lg:text-[30px] leading-[1.1] tracking-[-0.02em]">{today}</div>
             </div>
             {yesterday !== undefined && (
               <div>
-                <div className="text-[11px] lg:text-xs text-ink-muted">Yesterday</div>
+                <div className="text-[11px] lg:text-xs text-ink-muted">{t.detail.yesterday}</div>
                 <div className="font-display font-medium text-[26px] lg:text-[30px] leading-[1.1] tracking-[-0.02em] text-ink-muted">{yesterday}</div>
               </div>
             )}
             {diff !== undefined && (
               <div className="self-end hidden lg:block pb-1 font-geist-mono font-medium text-[13px] text-ink-muted">
                 {diff >= 0 ? "+" : "−"}
-                {Math.abs(diff)} vs yesterday
+                {Math.abs(diff)} {t.detail.vsYesterday}
               </div>
             )}
           </div>
@@ -436,7 +427,7 @@ const Listings = ({ prices }: { prices: { items: number; timestamp: number }[] |
               {days.map((d, i) => (
                 <div
                   key={d.timestamp}
-                  title={`${d.items} listed`}
+                  title={t.detail.listedCount(d.items)}
                   className={cn("rounded-t-[2px] lg:rounded-t-[3px]", i === days.length - 1 ? "bg-chart" : "bg-line")}
                   style={{ height: `${Math.max(4, Math.round((d.items / max) * 100))}%` }}
                 />
@@ -445,7 +436,7 @@ const Listings = ({ prices }: { prices: { items: number; timestamp: number }[] |
             <div className="hidden lg:grid grid-cols-7 gap-1.5 mt-1.5">
               {days.map((d) => (
                 <span key={d.timestamp} className="font-geist-mono text-[10px] text-ink-muted text-center">
-                  {new Date(d.timestamp).toLocaleDateString("en-GB", { weekday: "short" })}
+                  {new Date(d.timestamp).toLocaleDateString(intlLocale(), { weekday: "short" })}
                 </span>
               ))}
             </div>
@@ -456,28 +447,29 @@ const Listings = ({ prices }: { prices: { items: number; timestamp: number }[] |
   );
 };
 
-const day = (t: number) => new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+const day = (time: number) => new Date(time).toLocaleDateString(intlLocale(), { day: "numeric", month: "short" });
 const sectionLabel = "font-geist-mono font-medium text-[11px] lg:text-xs tracking-[.08em] uppercase text-ink-muted";
 
 // The listings on Cardmarket at the last scrape, cheapest first, then those gone in the 30 days before it (most likely sold)
 const Offers = ({ offers, cardmarketUrl }: { offers: VersionOffers | "unavailable" | null; cardmarketUrl?: string }) => {
   const offline = useOffline();
-  if (offers === null) return <div className="py-6 text-sm text-ink-muted">Loading…</div>;
-  if (offers === "unavailable") return <div className="py-6 text-sm text-ink-muted">{offline ? "Offers aren't available in offline mode" : "Couldn't load the offers"}</div>;
-  if (offers.seenAt === null) return <div className="py-6 text-sm text-ink-muted">No offers collected yet for this card.</div>;
+  const t = useT();
+  if (offers === null) return <div className="py-6 text-sm text-ink-muted">{t.common.loading}</div>;
+  if (offers === "unavailable") return <div className="py-6 text-sm text-ink-muted">{offline ? t.detail.offersOffline : t.detail.offersFailed}</div>;
+  if (offers.seenAt === null) return <div className="py-6 text-sm text-ink-muted">{t.detail.noOffers}</div>;
 
   const lowest = offers.listed[0]?.price;
   return (
     <div>
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <span className={sectionLabel}>On Cardmarket</span>
+        <span className={sectionLabel}>{t.detail.onCardmarket}</span>
         <span className="text-xs text-ink-muted">
-          as of {day(offers.seenAt)}, {new Date(offers.seenAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+          {t.detail.asOf(day(offers.seenAt), new Date(offers.seenAt).toLocaleTimeString(intlLocale(), { hour: "2-digit", minute: "2-digit" }))}
           {cardmarketUrl && (
             <>
               {" · "}
               <a href={cardmarketUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-ink">
-                Open on Cardmarket
+                {t.detail.openOnCardmarket}
               </a>
             </>
           )}
@@ -485,35 +477,35 @@ const Offers = ({ offers, cardmarketUrl }: { offers: VersionOffers | "unavailabl
       </div>
       <div className="flex gap-5 lg:gap-7 mt-2.5 lg:mt-3">
         <div>
-          <div className="text-[11px] lg:text-xs text-ink-muted">Listed</div>
+          <div className="text-[11px] lg:text-xs text-ink-muted">{t.detail.listed}</div>
           <div className="font-display font-medium text-[26px] lg:text-[30px] leading-[1.1] tracking-[-0.02em]">{offers.listed.length}</div>
         </div>
         {lowest !== undefined && (
           <div>
-            <div className="text-[11px] lg:text-xs text-ink-muted">Lowest</div>
+            <div className="text-[11px] lg:text-xs text-ink-muted">{t.detail.lowest}</div>
             <div className="font-display font-medium text-[26px] lg:text-[30px] leading-[1.1] tracking-[-0.02em]">{eur(lowest)}</div>
           </div>
         )}
         <div>
-          <div className="text-[11px] lg:text-xs text-ink-muted">Gone in 30 days</div>
+          <div className="text-[11px] lg:text-xs text-ink-muted">{t.detail.gone}</div>
           <div className="font-display font-medium text-[26px] lg:text-[30px] leading-[1.1] tracking-[-0.02em] text-ink-muted">{offers.gone.length}</div>
         </div>
       </div>
 
       <div className="mt-[18px] lg:mt-[22px]">
         {offers.listed.length === 0 ? (
-          <div className="py-3 text-sm border-t text-ink-muted border-chip">No listings at the last scrape</div>
+          <div className="py-3 text-sm border-t text-ink-muted border-chip">{t.detail.noneListed}</div>
         ) : (
-          offers.listed.map((o) => <OfferRow key={o.article} offer={o} when={`since ${day(o.firstSeenAt)}`} />)
+          offers.listed.map((o) => <OfferRow key={o.article} offer={o} when={t.detail.since(day(o.firstSeenAt))} />)
         )}
       </div>
 
       {offers.gone.length > 0 && (
         <div className="mt-[18px] lg:mt-[22px]">
-          <span className={sectionLabel}>No longer listed</span>
+          <span className={sectionLabel}>{t.detail.noLongerListed}</span>
           <div className="mt-2">
             {offers.gone.map((o) => (
-              <OfferRow key={o.article} offer={o} when={`last seen ${day(o.lastSeenAt)}`} muted />
+              <OfferRow key={o.article} offer={o} when={t.detail.lastSeen(day(o.lastSeenAt))} muted />
             ))}
           </div>
         </div>
@@ -523,6 +515,7 @@ const Offers = ({ offers, cardmarketUrl }: { offers: VersionOffers | "unavailabl
 };
 
 const OfferRow = ({ offer, when, muted }: { offer: ListedOffer; when: string; muted?: boolean }) => {
+  const t = useT();
   const repriced = offer.firstPrice !== undefined && offer.firstPrice !== offer.price;
   // What the listing claimed before: each earlier comment held until the next one replaced it
   const history = offer.comments ?? [];
@@ -534,10 +527,10 @@ const OfferRow = ({ offer, when, muted }: { offer: ListedOffer; when: string; mu
         {repriced && <div className="font-normal text-[11px] text-ink-muted line-through">{eur(offer.firstPrice)}</div>}
       </div>
       <div className="min-w-0">
-        <div className={cn("leading-[1.3] break-words", !offer.comment && "text-ink-muted")}>{offer.comment || "No comment"}</div>
+        <div className={cn("leading-[1.3] break-words", !offer.comment && "text-ink-muted")}>{offer.comment || t.detail.noComment}</div>
         {earlier.map((c) => (
           <div key={c.until} className="mt-0.5 text-xs leading-[1.3] break-words text-ink-muted">
-            <span className="line-through">{c.text || "No comment"}</span> · until {day(c.until)}
+            <span className="line-through">{c.text || t.detail.noComment}</span> · {t.detail.until(day(c.until))}
           </div>
         ))}
         <div className="mt-0.5 text-xs truncate text-ink-muted">{offer.seller}</div>
@@ -563,6 +556,7 @@ const BinderActions = ({ item, onClose }: { item: BinderItem; onClose: () => voi
   const user = useSelector((state) => state.user.user) ?? "";
   const dispatch = useDispatch();
   const setUnlink = useSetUnlink();
+  const t = useT();
 
   const binder = binders.find((b) => b._id === item.binder);
   const destinations = binders.filter((b) => b._id !== item.binder);
@@ -593,7 +587,7 @@ const BinderActions = ({ item, onClose }: { item: BinderItem; onClose: () => voi
     setUnlink.guard(destination, item.type, item.item, send);
   };
 
-  if (readOnly) return <p className="text-sm text-ink-muted">Offline mode · Collection is read-only</p>;
+  if (readOnly) return <p className="text-sm text-ink-muted">{t.detail.readOnly}</p>;
 
   return (
     <>
@@ -603,23 +597,23 @@ const BinderActions = ({ item, onClose }: { item: BinderItem; onClose: () => voi
             <span className={cn("relative w-10 h-6 rounded-full transition-colors", owned ? "bg-gain" : "bg-line")}>
               <span className={cn("absolute top-[3px] w-[18px] h-[18px] rounded-full bg-paper shadow-sm transition-[left]", owned ? "left-[19px]" : "left-[3px]")} />
             </span>
-            Owned
+            {t.common.owned}
           </button>
           <span className="flex items-center gap-2.5 lg:ml-2">
-            <span className={cn("text-sm lg:text-[13px] text-ink-muted", !owned && "opacity-40")}>Quantity</span>
+            <span className={cn("text-sm lg:text-[13px] text-ink-muted", !owned && "opacity-40")}>{t.common.quantity}</span>
             <Stepper value={quantity} onChange={setQuantity} disabled={!owned} />
           </span>
         </div>
         <div className="grid grid-cols-[auto_1fr_2fr] gap-2 lg:flex lg:ml-auto">
           <button type="button" className={buttonClass("remove", "lg")} onClick={() => setRemoving(true)}>
-            Remove
+            {t.common.remove}
           </button>
           {destinations.length > 0 && (
             <label className={cn(buttonClass("secondary", "lg"), "relative flex items-center justify-center")}>
-              Move to…
-              <select aria-label="Move to binder" value="" disabled={moving} onChange={(e) => move(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer">
+              {t.detail.moveTo}
+              <select aria-label={t.detail.moveToBinder} value="" disabled={moving} onChange={(e) => move(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer">
                 <option value="" disabled>
-                  Move to…
+                  {t.detail.moveTo}
                 </option>
                 {destinations.map((b) => (
                   <option key={b._id} value={b._id}>
@@ -630,11 +624,11 @@ const BinderActions = ({ item, onClose }: { item: BinderItem; onClose: () => voi
             </label>
           )}
           <button type="button" className={cn(buttonClass("primary", "lg"), destinations.length === 0 && "col-span-2")} disabled={!changed || moving} onClick={save}>
-            Save
+            {t.common.save}
           </button>
         </div>
       </div>
-      {(moving || error) && <p className={cn("mt-2.5 text-[13px]", error ? "text-loss" : "text-ink-muted")}>{error ?? "Moving…"}</p>}
+      {(moving || error) && <p className={cn("mt-2.5 text-[13px]", error ? "text-loss" : "text-ink-muted")}>{error ?? t.common.moving}</p>}
       <ConfirmModal
         open={removing}
         onClose={() => setRemoving(false)}
@@ -643,9 +637,9 @@ const BinderActions = ({ item, onClose }: { item: BinderItem; onClose: () => voi
           dispatch(deleteBinderItem(user, item.binder, item._id));
           onClose();
         }}
-        title="Remove item"
-        description={`Remove ${item.item?.name ?? "this item"} from ${binder?.name ?? "this binder"}?`}
-        confirmLabel="Remove"
+        title={t.detail.removeItem}
+        description={t.detail.removeDescription(item.item?.name, binder?.name)}
+        confirmLabel={t.common.remove}
       />
       {setUnlink.modal}
     </>
@@ -659,10 +653,11 @@ const WishlistActions = ({ item, price, onClose }: { item: WishlistItem; price: 
   const user = useSelector((state) => state.user.user) ?? "";
   const dispatch = useDispatch();
   const { choices, selected, linked, setBinderId, acquire, moving, error, modal } = useAcquire(item);
+  const t = useT();
 
   const target = parseTarget(value);
   const changed = target !== null && target !== item.target;
-  const gap = target != null && price > 0 ? (price <= target ? `${eur(target - price)} below target` : `${eur(price - target)} above target`) : undefined;
+  const gap = target != null && price > 0 ? (price <= target ? t.wishlists.belowTarget(eur(target - price)) : t.wishlists.aboveTarget(eur(price - target))) : undefined;
   // A linked wishlist's items go to its binder without asking, unless it is a set binder that can't take them
   const binder = linked ?? selected;
 
@@ -678,7 +673,7 @@ const WishlistActions = ({ item, price, onClose }: { item: WishlistItem; price: 
     onClose();
   };
 
-  if (readOnly) return <p className="text-sm text-ink-muted">Offline mode · Collection is read-only</p>;
+  if (readOnly) return <p className="text-sm text-ink-muted">{t.detail.readOnly}</p>;
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -686,32 +681,32 @@ const WishlistActions = ({ item, price, onClose }: { item: WishlistItem; price: 
       <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:gap-3.5">
         <div className="flex items-center gap-3">
           <label className={cn(fieldClass, "flex-1 lg:flex-none")}>
-            <span className="text-ink-muted whitespace-nowrap">Target (€)</span>
+            <span className="text-ink-muted whitespace-nowrap">{t.common.targetEur}</span>
             <input
               inputMode="decimal"
               value={value}
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && save()}
-              placeholder="None"
+              placeholder={t.detail.none}
               className="w-20 min-w-0 font-medium bg-transparent outline-none font-geist-mono text-ink placeholder:text-ink-muted"
             />
           </label>
           {gap && <span className="font-geist-mono font-medium text-xs lg:text-[13px] text-ink-muted whitespace-nowrap">{gap}</span>}
           {changed && (
             <button type="button" className={buttonClass("secondary", "lg")} onClick={save}>
-              Save
+              {t.common.save}
             </button>
           )}
         </div>
         <div className="flex gap-2 lg:ml-auto">
           <button type="button" className={buttonClass("remove", "lg")} onClick={remove}>
-            Remove
+            {t.common.remove}
           </button>
           {binder ? (
             <>
               {!linked && choices.length > 1 && (
                 <Select
-                  aria-label="Binder"
+                  aria-label={t.common.kind.binder}
                   value={binder._id}
                   onChange={setBinderId}
                   options={choices.map((b) => ({ value: b._id, label: b.name }))}
@@ -724,12 +719,12 @@ const WishlistActions = ({ item, price, onClose }: { item: WishlistItem; price: 
                 disabled={moving}
                 onClick={() => acquire(binder, onClose)}
               >
-                {moving ? "Moving…" : "Got it"}
+                {moving ? t.common.moving : t.common.gotIt}
               </button>
             </>
           ) : (
             <Link href="/binders" className={cn(buttonClass("primary", "lg"), "flex-1 lg:flex-none inline-flex items-center justify-center")}>
-              Create a binder
+              {t.detail.createBinder}
             </Link>
           )}
         </div>
@@ -752,26 +747,27 @@ interface DatabaseActionsProps {
 
 // Pick a version, then continue in the add dialog (binder or wishlist, quantity, target)
 const DatabaseActions = ({ variants, label, prices, keyOf, index, onIndex, onAdd }: DatabaseActionsProps) => {
+  const t = useT();
   const priced = !!variants[index] && prices.has(keyOf(variants[index]));
   return (
     <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:gap-3.5">
       <Select
-        label="Version"
+        label={t.common.version}
         value={String(index)}
         onChange={(v) => onIndex(Number(v))}
         options={variants.map((v, i) => {
           const hp = prices.get(keyOf(v));
-          return { value: String(i), label: label(v), hint: hp ? eur(getPrice(hp)) : "no price" };
+          return { value: String(i), label: label(v), hint: hp ? eur(getPrice(hp)) : t.detail.noPrice };
         })}
         className="lg:w-[360px]"
       />
-      {!priced && <span className="text-xs text-loss">No price data yet for this version</span>}
+      {!priced && <span className="text-xs text-loss">{t.detail.noPriceVersion}</span>}
       <div className="grid grid-cols-[1fr_2fr] gap-2 lg:flex lg:ml-auto">
         <EditButton type="button" className={buttonClass("secondary", "lg")} disabled={!priced} onClick={() => onAdd("wishlist")}>
-          + Wishlist
+          {t.database.plusWishlist}
         </EditButton>
         <EditButton type="button" className={buttonClass("primary", "lg")} disabled={!priced} onClick={() => onAdd("binder")}>
-          + Add to binder
+          {t.detail.addToBinder}
         </EditButton>
       </div>
     </div>

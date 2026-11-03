@@ -12,6 +12,7 @@ import { WishlistWithItems } from "@/types/mongodb";
 import { summarizeWishlist } from "@/lib/items";
 import { eur } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 
 const dotColor = (summary: ReturnType<typeof summarizeWishlist>) => (summary.sealed > summary.cards ? "bg-iris" : "bg-gold");
 
@@ -20,6 +21,7 @@ const WishlistRail = () => {
   const [creating, setCreating] = useState(false);
   const { wishlist, wishlists } = useSelector((state) => state.wishlists);
   const dispatch = useDispatch();
+  const t = useT();
 
   const rows = wishlists.map((w) => ({ wishlist: w, summary: summarizeWishlist(w) }));
   const select = (w: WishlistWithItems) => dispatch(setWishlist(w));
@@ -28,9 +30,9 @@ const WishlistRail = () => {
     <>
       <aside className="hidden px-4 border-r lg:block border-line py-7 lg:overflow-y-auto">
         <div className="flex items-center justify-between px-2 pb-3">
-          <span className="font-geist-mono font-medium text-xs tracking-[.08em] uppercase text-ink-muted">Wishlists</span>
+          <span className="font-geist-mono font-medium text-xs tracking-[.08em] uppercase text-ink-muted">{t.nav.wishlists}</span>
           <EditButton type="button" onClick={() => setCreating(true)} className="h-[30px] px-2.5 border border-line rounded-[7px] bg-paper text-[13px] font-medium cursor-pointer hover:bg-chip">
-            + New
+            {t.wishlists.new}
           </EditButton>
         </div>
         {rows.map(({ wishlist: w, summary }) => (
@@ -74,7 +76,7 @@ const WishlistRail = () => {
           );
         })}
         <EditButton type="button" onClick={() => setCreating(true)} className="flex-none h-10 px-3.5 border border-dashed rounded-full border-line text-[13px] font-medium text-ink-muted cursor-pointer">
-          + New
+          {t.wishlists.new}
         </EditButton>
       </div>
 

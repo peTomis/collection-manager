@@ -6,11 +6,13 @@ import { DEMO_USER } from "@/types/constants";
 import { getOfflineMeta, setOfflineMeta, useOffline } from "@/lib/offline";
 import { offlineStore } from "@/lib/offline-store";
 import type { OfflineIndex } from "@/lib/offline-data";
+import { useT } from "@/lib/i18n";
 
 // Restore the saved account before any page starts loading. An expired online session doesn't erase an offline trip.
 export default function OfflineGate({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession();
   const dispatch = useDispatch();
+  const t = useT();
   const offline = useOffline();
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
@@ -50,7 +52,7 @@ export default function OfflineGate({ children }: { children: ReactNode }) {
   if (error)
     return (
       <main className="p-6 text-ink bg-paper">
-        <p role="alert">{error}</p>
+        <p role="alert">{t.error(error)}</p>
         <button
           className="mt-4 underline"
           onClick={async () => {
@@ -59,7 +61,7 @@ export default function OfflineGate({ children }: { children: ReactNode }) {
             window.location.reload();
           }}
         >
-          Return to online mode
+          {t.offline.returnOnline}
         </button>
       </main>
     );

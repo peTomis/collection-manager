@@ -1,9 +1,8 @@
 import Head from "next/head";
+import { useT } from "@/lib/i18n";
 
 export const SITE_NAME = "Binderly";
 export const SITE_URL = "https://binderly.petomis.com";
-const DEFAULT_DESCRIPTION =
-  "Track the value of your Pokémon TCG collection. Organise cards and sealed products into binders, keep wishlists with target prices, and follow daily Cardmarket prices.";
 
 interface MetadataProps {
   // Page name, shown before the site name ("Binders · Binderly"). The home page has none.
@@ -15,9 +14,12 @@ interface MetadataProps {
   noindex?: boolean;
 }
 
-// Title, description and social previews of a page. Icons, manifest and theme colour are shared, in pages/_document.tsx.
-const Metadata = ({ title, description = DEFAULT_DESCRIPTION, path = "/", noindex }: MetadataProps) => {
-  const fullTitle = title ? `${title} · ${SITE_NAME}` : `${SITE_NAME} · TCG collection tracker`;
+// Title, description and social previews of a page, in the current language (crawlers get the English of the server render).
+// Icons, manifest and theme colour are shared, in pages/_document.tsx.
+const Metadata = ({ title, description, path = "/", noindex }: MetadataProps) => {
+  const t = useT();
+  description ??= t.metadata.description;
+  const fullTitle = title ? `${title} · ${SITE_NAME}` : `${SITE_NAME} · ${t.metadata.tagline}`;
   const url = SITE_URL + path;
   const image = `${SITE_URL}/og.png`;
 
@@ -36,8 +38,8 @@ const Metadata = ({ title, description = DEFAULT_DESCRIPTION, path = "/", noinde
       <meta property="og:image" content={image} />
       <meta property="og:image:width" content="1200" />
       <meta property="og:image:height" content="630" />
-      <meta property="og:image:alt" content="Binderly: know what your Pokémon cards are worth" />
-      <meta property="og:locale" content="en_US" />
+      <meta property="og:image:alt" content={t.metadata.imageAlt} />
+      <meta property="og:locale" content={t.metadata.ogLocale} />
 
       {/* X / Twitter */}
       <meta name="twitter:card" content="summary_large_image" />

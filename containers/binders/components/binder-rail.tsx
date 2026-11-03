@@ -12,6 +12,7 @@ import { BinderWithItems } from "@/types/mongodb";
 import { summarizeBinder } from "@/lib/items";
 import { eur } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 
 const dotColor = (summary: ReturnType<typeof summarizeBinder>) => (summary.sealed > summary.cards ? "bg-iris" : "bg-gold");
 
@@ -20,6 +21,7 @@ const BinderRail = () => {
   const [creating, setCreating] = useState(false);
   const { binder, binders } = useSelector((state) => state.binders);
   const dispatch = useDispatch();
+  const t = useT();
 
   const rows = binders.map((b) => ({ binder: b, summary: summarizeBinder(b) }));
   const select = (b: BinderWithItems) => dispatch(setBinder(b));
@@ -28,9 +30,9 @@ const BinderRail = () => {
     <>
       <aside className="hidden px-4 border-r lg:block border-line py-7 lg:overflow-y-auto">
         <div className="flex items-center justify-between px-2 pb-3">
-          <span className="font-geist-mono font-medium text-xs tracking-[.08em] uppercase text-ink-muted">Your binders</span>
+          <span className="font-geist-mono font-medium text-xs tracking-[.08em] uppercase text-ink-muted">{t.binders.yourBinders}</span>
           <EditButton type="button" onClick={() => setCreating(true)} className="h-[30px] px-2.5 border border-line rounded-[7px] bg-paper text-[13px] font-medium cursor-pointer hover:bg-chip">
-            + New
+            {t.binders.new}
           </EditButton>
         </div>
         {rows.map(({ binder: b, summary }) => (
@@ -75,7 +77,7 @@ const BinderRail = () => {
           );
         })}
         <EditButton type="button" onClick={() => setCreating(true)} className="flex-none h-10 px-3.5 border border-dashed rounded-full border-line text-[13px] font-medium text-ink-muted cursor-pointer">
-          + New
+          {t.binders.new}
         </EditButton>
       </div>
 

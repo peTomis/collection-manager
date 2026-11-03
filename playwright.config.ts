@@ -8,7 +8,8 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
-  use: { baseURL: BASE_URL, trace: "retain-on-failure" },
+  // English whatever the machine's language: the journeys find controls by their English names (the app follows the browser's language)
+  use: { baseURL: BASE_URL, trace: "retain-on-failure", locale: "en-US" },
   // Desktop and phone layouts differ (the rail, the detail panel): run both
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } },

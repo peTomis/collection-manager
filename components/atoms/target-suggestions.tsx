@@ -3,6 +3,7 @@ import { HistoricPrice } from "@/types/mongodb";
 import { getPrice } from "@/lib/prices";
 import { eur } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { messages } from "@/lib/i18n/core";
 
 const round = (value: number) => Math.round(value * 100) / 100;
 const lowest = (prices: number[] | undefined) => Math.min(...(prices ?? []).filter((p) => p > 0));
@@ -11,14 +12,15 @@ const lowest = (prices: number[] | undefined) => Math.min(...(prices ?? []).filt
 export const targetSuggestions = (historicPrice: HistoricPrice | undefined) => {
   if (!historicPrice) return [];
   const price = getPrice(historicPrice);
+  const t = messages().wishlists.suggestions;
   const candidates = [
-    { label: "Current", value: price },
+    { label: t.current, value: price },
     { label: "−10%", value: price * 0.9 },
     { label: "−20%", value: price * 0.8 },
-    { label: "30d average", value: historicPrice.average1m },
-    { label: "30d low", value: lowest(historicPrice.prices1m) },
+    { label: t.average, value: historicPrice.average1m },
+    { label: t.low, value: lowest(historicPrice.prices1m) },
     // The history goes back a year, so this is the lowest price on record
-    { label: "Lowest", value: lowest([...(historicPrice.prices1y ?? []), ...(historicPrice.prices1m ?? []), ...(historicPrice.prices1w ?? [])]) },
+    { label: t.lowest, value: lowest([...(historicPrice.prices1y ?? []), ...(historicPrice.prices1m ?? []), ...(historicPrice.prices1w ?? [])]) },
   ];
   const seen = new globalThis.Set<number>();
   return candidates.map((c) => ({ ...c, value: round(c.value) })).filter((c) => Number.isFinite(c.value) && c.value > 0 && !seen.has(c.value) && seen.add(c.value));
